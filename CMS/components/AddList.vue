@@ -32,10 +32,10 @@ const people = ref([]);
 
 // Initialize values for people list
 const allPeople = ref([
-  { name: 'John Doe', section: 'A', age: 30, sex: 'male' },
-  { name: 'Jane Smith', section: 'B', age: 25, sex: 'female' },
-  { name: 'Alice Johnson', section: 'C', age: 28, sex: 'female' },
-  { name: 'Bob Brown', section: 'D', age: 32, sex: 'male' },
+  { name: 'John Doe', section: '11 A', age: 30, sex: 'male' },
+  { name: 'Jane Smith', section: '12 B', age: 25, sex: 'female' },
+  { name: 'Alice Johnson', section: '11 C', age: 28, sex: 'female' },
+  { name: 'Bob Brown', section: '12 C', age: 32, sex: 'male' },
 ]);
 
 // Initialize values for meds list
@@ -45,7 +45,7 @@ const allMedicines = ref([
   { name: 'Aspirin', dosages: [75, 150, 300] },
   { name: 'Amoxicillin', dosages: [250, 500, 1000] },
 ]);
-
+//create composable for search
 // Search person
 const filteredPeople = computed(() => {
   if (!searchQuery.value) {
@@ -201,30 +201,30 @@ watch(
 </script>
 
 <template>
-  <div class="w-2/6 ml-9">
-    <div class="p-4 border rounded-lg">
-      <h2 class="mb-4 text-2xl font-bold">{{selectedDate}}</h2>
-      <p class="text-2xl">CONFINEMENTS:</p>
+  <div class="w-4/6 ml-9">
+    <div class="p-5 border rounded-3xl">
+      <h2 class="mb-4 text-2xl font-bold text-[#2f4a71]">{{selectedDate}}</h2>
+      <p class="text-2xl text-[#d3cae7]">CONFINEMENTS:</p>
       <ul class="mt-4 overflow-y-auto max-h-60">
-        <li v-for="(person, index) in people" :key="index" class="flex items-center justify-between mb-2 text-lg confinement-item">
+        <li v-for="(person, index) in people" :key="index" class="flex items-center justify-between mb-2 text-lg confinement-item text-[#2f4a71]">
           <span @click="openEditModal(person)" class="cursor-pointer confinement-details">{{ person.name }} - {{ person.section }} - {{ formatAMPM(person.addedAt) }}</span>
-          <button @click="deletePerson(index)" class="p-2 text-white bg-red-500 rounded">-</button>
+          <button @click="deletePerson(index)" class="p-2 text-white bg-red-500 rounded"><Icon icon="fluent:delete-28-regular" /></button>
         </li>
       </ul>
-      <button @click="showAddModal = true" class="p-2 mt-4 text-white bg-blue-500 rounded">+</button>
+      <button @click="showAddModal = true" class="block p-2 mt-4 ml-auto text-white bg-blue-500 rounded "><Icon icon="subway:add-1"/></button>
     </div>
 
     <!-- Add Modal -->
     <div v-if="showAddModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
-      <div class="w-1/3 p-4 bg-white rounded-lg">
-        <h2 class="mb-2 text-xl">Add Person</h2>
-        <input v-model="searchQuery" placeholder="Search" class="w-full p-2 mb-2 border rounded">
-        <ul class="mt-4 overflow-y-auto max-h-60">
+      <div class="w-1/3 p-4 bg-white rounded-2xl">
+        <h2 class="mb-2 text-3xl font-bold text-[#2f4a71]">ADD</h2>
+        <input v-model="searchQuery" placeholder="Search" class="w-full p-2 mb-2 border border-[#2f4a71] rounded-full">
+        <ul class="mt-4 overflow-y-auto max-h-60 text-[#2f4a71]">
           <li v-for="person in filteredPeople" :key="person.name" class="flex items-center justify-between mb-2 text-lg">
             <span>{{ person.name }} - {{ person.section }}</span>
-            <button @click="addPerson(person)" class="p-2 text-white bg-green-500 rounded">+</button>
+            <button @click="addPerson(person)" class="p-2 text-white bg-[#2f4a71] rounded"><Icon icon="subway:add-1"/></button>
           </li>
-        </ul>
+        </ul> 
         <div class="flex justify-end mt-4">
           <button @click="showAddModal = false" class="p-2 ml-2 text-white bg-gray-500 rounded">Cancel</button>
         </div>
@@ -233,7 +233,7 @@ watch(
 
     <!-- Edit Modal -->
     <div v-if="showEditModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
-      <div class="w-1/3 p-4 bg-white rounded-lg">
+      <div class="w-1/3 p-4 bg-white rounded-2xl">
         <h2 class="mb-2 text-xl">Edit Person</h2>
         <div class="mb-4">
           <p>Name: {{ selectedPerson.name }}</p>
@@ -271,7 +271,7 @@ watch(
 
     <!-- Medicine Modal -->
     <div v-if="showMedicineModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
-      <div class="w-1/3 p-4 bg-white rounded-lg">
+      <div class="w-1/3 p-4 bg-white rounded-2xl">
         <h2 class="mb-2 text-xl">Add Medicine</h2>
         <input v-model="medicineSearchQuery" placeholder="Search Medicine" class="w-full p-2 mb-2 border rounded">
         <ul class="mt-4 overflow-y-auto max-h-60">
@@ -288,7 +288,7 @@ watch(
 
     <!-- Medicine Detail Modal -->
     <div v-if="showMedicineDetailModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
-      <div class="w-1/3 p-4 bg-white rounded-lg">
+      <div class="w-1/3 p-4 bg-white rounded-2xl">
         <h2 class="mb-2 text-xl">Medicine Details</h2>
         <p><strong>Medicine:</strong> {{ selectedMedicine.name }}</p>
         <div class="mb-2">

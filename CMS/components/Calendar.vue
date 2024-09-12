@@ -1,11 +1,9 @@
 <script setup>
-// import { ref, onMounted, computed } from 'vue';
 import moment from 'moment-timezone';
-
 const selectedYear = ref(moment().tz("Asia/Manila").year());
 const selectedMonth = ref(moment().tz("Asia/Manila").month());
 const selectedDate = ref(null); // New reactive property for selected date
-const years = Array.from({ length: 50 }, (_, i) => moment().tz("Asia/Manila").year() - 25 + i);
+const years = Array.from({ length: 7 }, (_, i) => moment().tz("Asia/Manila").year() -6 + i);
 const months = [
   "January", "February", "March", "April", "May", "June", 
   "July", "August", "September", "October", "November", "December"
@@ -82,8 +80,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="w-4/6 max-w-4xl p-8 border rounded-lg">
-    <div class="flex items-center justify-center gap-16 mb-8">
+  <div class="w-full p-8 border rounded-3xl ">
+    <div class="flex items-center gap-16 mb-8 justify-left">
       <div class="flex">
         <label for="month" class="p-2 mr-4 text-lg">Month:</label>
         <select id="month" v-model="selectedMonth" @change="updateCalendar" class="p-2 text-lg border rounded">

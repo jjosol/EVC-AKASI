@@ -1,6 +1,4 @@
-<script setup>
-import { ref } from 'vue';
-
+<script setup>;
 const isOpen = ref(false);
 const newItem = ref({
   name: '',
@@ -45,8 +43,4 @@ const addItem = () => {
       </div>
     </div>
   </template>
-  
-  <style scoped>
-  /* Add any additional styling here if necessary */
-  </style>
   

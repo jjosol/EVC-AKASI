@@ -1,3 +1,39 @@
+<script setup>
+const items = ref([
+  { id: 1, name: 'Lorem ipsum', expirationDate: 'April 18, 2024', count: 100 },
+  { id: 2, name: 'Lorem ipsum', expirationDate: 'April 18, 2024', count: 100 },
+  { id: 3, name: 'Lorem ipsum', expirationDate: 'April 18, 2024', count: 100 },
+  { id: 4, name: 'Lorem ipsum', expirationDate: 'May 23, 2024', count: 100 },
+  { id: 5, name: 'Lorem ipsum', expirationDate: 'May 23, 2024', count: 100 },
+  { id: 6, name: 'Lorem ipsum', expirationDate: 'May 23, 2024', count: 100 },
+  { id: 7, name: 'Lorem ipsum', expirationDate: 'September 2, 2024', count: 100 },
+  { id: 8, name: 'Lorem ipsum', expirationDate: 'September 2, 2024', count: 100 },
+  { id: 9, name: 'Lorem ipsum', expirationDate: 'September 2, 2024', count: 100 },
+]);
+
+const searchQuery = ref('');
+const isModalOpen = ref(false);
+
+const filteredItems = computed(() => {
+  if (!searchQuery.value) return items.value;
+  return items.value.filter(item =>
+    item.name.toLowerCase().includes(searchQuery.value.toLowerCase())
+  );
+});
+
+const openModal = () => {
+  isModalOpen.value = true;
+};
+
+const handleAddItem = (newItem) => {
+  items.value.push({
+    id: items.value.length + 1,
+    ...newItem
+  });
+  isModalOpen.value = false;
+};
+</script>
+
 <template>
     <div class="p-6 bg-white rounded-lg shadow">
       <div class="flex items-center justify-between mb-4">
@@ -52,47 +88,3 @@
       <AddNewItemModal :isOpen="isModalOpen" @addItem="handleAddItem" />
     </div>
   </template>
-    
-  <script setup>
-    import { ref, computed } from 'vue';
-    // import AddNewItemModal from '../components/addInv.vue';
-    
-    const items = ref([
-      { id: 1, name: 'Lorem ipsum', expirationDate: 'April 18, 2024', count: 100 },
-      { id: 2, name: 'Lorem ipsum', expirationDate: 'April 18, 2024', count: 100 },
-      { id: 3, name: 'Lorem ipsum', expirationDate: 'April 18, 2024', count: 100 },
-      { id: 4, name: 'Lorem ipsum', expirationDate: 'May 23, 2024', count: 100 },
-      { id: 5, name: 'Lorem ipsum', expirationDate: 'May 23, 2024', count: 100 },
-      { id: 6, name: 'Lorem ipsum', expirationDate: 'May 23, 2024', count: 100 },
-      { id: 7, name: 'Lorem ipsum', expirationDate: 'September 2, 2024', count: 100 },
-      { id: 8, name: 'Lorem ipsum', expirationDate: 'September 2, 2024', count: 100 },
-      { id: 9, name: 'Lorem ipsum', expirationDate: 'September 2, 2024', count: 100 },
-    ]);
-    
-    const searchQuery = ref('');
-    const isModalOpen = ref(false);
-    
-    const filteredItems = computed(() => {
-      if (!searchQuery.value) return items.value;
-      return items.value.filter(item =>
-        item.name.toLowerCase().includes(searchQuery.value.toLowerCase())
-      );
-    });
-    
-    const openModal = () => {
-      isModalOpen.value = true;
-    };
-    
-    const handleAddItem = (newItem) => {
-      items.value.push({
-        id: items.value.length + 1,
-        ...newItem
-      });
-      isModalOpen.value = false;
-    };
-  </script>
-    
-  <style scoped>
-    /* Add any additional styling here if necessary */
-  </style>
-    

@@ -1,6 +1,4 @@
 <script setup>
-// import pisayLogo from '../components/icons/IconSupport.vue';
-//prop to be used in Bulletin.vue
 const props = defineProps({
   post: {
     type: Object,
@@ -23,7 +21,7 @@ function editPost() {
 <template>
   <div>
     <div class="flex items-center mb-3">
-      <IconSupport alt="Avatar" class="w-20 h-20 rounded-full" />
+      <PisayLogo alt="Avatar" class="w-20 h-20 rounded-full" />
       <div>
         <div class="font-bold">Health Services Unit</div>
         <div class="text-sm text-gray-600">{{ post.date }} at {{ post.time }}</div>

@@ -1,8 +1,5 @@
-
 <script setup>
-  import { ref, computed } from 'vue';
   import moment from 'moment-timezone';
-  
   // Initialize the timezone
   const timezone = "Asia/Manila";
   
@@ -113,7 +110,3 @@
       </div>
     </div>
   </template>
-  <style scoped>
-  /* Add custom styles if needed */
-  </style>
-  

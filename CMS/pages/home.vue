@@ -15,12 +15,12 @@ const updateConfinedCount = (value) => {
 
 <template>
     <NuxtLayout>
-        <div class="flex flex-col min-h-screen">
-            <div class="flex items-center justify-center flex-grow">
-            <div class="flex w-full max-w-6xl space-x-4">
-                <Calendar @day-selected="handleDaySelected" :updateConfined="confinedCount" />
-                <AddList :current-day="currentDay" @update-confined="updateConfinedCount" />
-            </div>
+        <div class="flex flex-col">
+            <div class="flex items-center justify-center flex-grow mt-32">
+              <div class="flex w-full max-w-7xl space-x-28">
+                  <Calendar @day-selected="handleDaySelected" :updateConfined="confinedCount" />
+                  <AddList :current-day="currentDay" @update-confined="updateConfinedCount" />
+              </div>
             </div>
         </div>
     </NuxtLayout>

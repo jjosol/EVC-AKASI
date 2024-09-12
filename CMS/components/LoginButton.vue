@@ -1,5 +1,5 @@
 <template>
-    <div class="flex flex-col items-center justify-center">
+<div class="flex flex-col items-center justify-center">
     <button class="py-1 text-7xl px-10 rounded-3xl bg-[#D3CAE7]">
     <h1 class="text-white">Login</h1>
     </button>
@@ -8,5 +8,5 @@
     <h1 class="text-white">Sign Up</h1>
 
     </button> -->
-    </div>
+</div>
 </template> 

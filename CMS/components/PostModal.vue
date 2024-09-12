@@ -1,6 +1,4 @@
 <script setup>
-// import { ref, watch } from 'vue';
-//props to be used in Bulletin.vue
 const props = defineProps({
   post: {
     type: Object,

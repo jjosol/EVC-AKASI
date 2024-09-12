@@ -1,7 +1,4 @@
 <script setup>
-// import { computed} from 'vue';
-// import { useRoute } from 'vue-router';
-// import pisayLogo from '../components/icons/IconSupport.vue';
 const route = useRoute();
 const links = [
   { path: '/home', label: 'Home' },
@@ -27,7 +24,7 @@ const isActive = (path) => computed(() => {
   <nav class="bg-[#F6F6F6]">
     <div class="flex flex-wrap items-center justify-between max-w-screen-xl p-3 mx-auto">
       <ul class="flex rounded-lg text-1xl md:p-0 md:space-x-8 md:flex-row md:mt-0 md:border-0">
-        <IconSupport width="100" height="100" />
+        <PisayLogo width="100" height="100" />
         <li v-for="link in links" :key="link.path">
           <router-link
             :to="link.path"
@@ -45,7 +42,7 @@ const isActive = (path) => computed(() => {
         class="border border-[#2F4A71] rounded-full px-4 py-2 text-black focus:outline-none"
       />
       <button class="ml-5 text-[#2F4A71] focus:outline-none">
-        <i class="text-2xl fa-solid fa-magnifying-glass" ></i>
+        <Icon icon="ion:search-sharp" class="text-[#2f4a71] text-4xl"/>
       </button>
     </div>
     </div>
