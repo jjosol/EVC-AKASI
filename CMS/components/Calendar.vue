@@ -2,7 +2,7 @@
 import moment from 'moment-timezone';
 const selectedYear = ref(moment().tz("Asia/Manila").year());
 const selectedMonth = ref(moment().tz("Asia/Manila").month());
-const selectedDate = ref(null); // New reactive property for selected date
+const selectedDate = ref(moment().tz("Asia/Manila").toDate()) // New reactive property for selected date
 const years = Array.from({ length: 7 }, (_, i) => moment().tz("Asia/Manila").year() -6 + i);
 const months = [
   "January", "February", "March", "April", "May", "June", 

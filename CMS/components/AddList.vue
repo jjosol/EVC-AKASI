@@ -1,5 +1,5 @@
 <script setup>
-
+import { formatAMPM } from '~/composables/useTimeFormatter';
 // Props to receive the current day from the parent component
 const props = defineProps({
   currentDay: {
@@ -21,7 +21,8 @@ const selectedDate = computed(() => {
   const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
   return new Intl.DateTimeFormat('en-US', options).format(props.currentDay.date);
 });
-const selectedTime = ref('');
+const selectedTime = ref(formatAMPM(new Date()));
+// console.log(selectedTime.value)
 
 // Search queries
 const searchQuery = ref('');
@@ -93,16 +94,16 @@ const deletePerson = (index) => {
 };
 
 // Time when added (am/pm)
-const formatAMPM = (date) => {
-  let hours = date.getHours();
-  let minutes = date.getMinutes();
-  let ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12;
-  hours = hours ? hours : 12;
-  minutes = minutes < 10 ? '0' + minutes : minutes;
-  let strTime = hours + ':' + minutes + ' ' + ampm;
-  return strTime;
-};
+// const formatAMPM = (date) => {
+//   let hours = date.getHours();
+//   let minutes = date.getMinutes();
+//   let ampm = hours >= 12 ? 'PM' : 'AM';
+//   hours = hours % 12;
+//   hours = hours ? hours : 12;
+//   minutes = minutes < 10 ? '0' + minutes : minutes;
+//   let strTime = hours + ':' + minutes + ' ' + ampm;
+//   return strTime;
+// };
 
 // Save person
 const savePerson = () => {
