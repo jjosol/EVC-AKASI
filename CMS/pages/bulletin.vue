@@ -1,8 +1,4 @@
 <script setup>
-// import { ref } from 'vue';
-// import NavBar from '../components/NavBar.vue';
-// import PostModal from '../components/PostModal.vue';
-// import Post from '../components/Post.vue';
 //post as a whole
 const posts = ref([]);
 //for the postmodal
@@ -12,12 +8,15 @@ const currentPost = ref(null);
 
 //to replace the old post with the new when editing
 function addPost(newPost) {
+  //if updating
   if (currentPost.value) {
     const index = posts.value.findIndex(post => post.id === newPost.id);
     if (index !== -1) {
       posts.value[index] = newPost;
     }
-  } else {
+  } 
+  //if new post
+  else {
     posts.value.push({ ...newPost, id: Date.now() });
   }
   closeModal();
@@ -49,7 +48,9 @@ function closeModal() {
   <div>
     <NavBar/>
     <div class="container mx-auto mt-5">
-      <button @click="openCreateModal" class="p-3 text-white bg-blue-500 rounded">Create Post</button>
+      <div class="flex justify-end">
+        <button @click="openCreateModal" class="p-3 text-white bg-[#2f4a71] rounded-full">New Post</button>
+      </div>
       <PostModal v-if="isModalVisible" :post="currentPost" @add-post="addPost" @close="closeModal" /> <!--prop:post; emit: addPost, closeModal -->
       <div v-for="post in posts" :key="post.id" class="p-5 mt-5 bg-white rounded shadow">
         <Post :post="post" @delete-post="deletePost" @edit-post="openEditModal" /> <!--prop:post; emit: deletePost, openEditModal-->

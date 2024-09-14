@@ -85,10 +85,16 @@ function resetPost() {
 <template>
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-gray-800 bg-opacity-75">
     <div class="w-full max-w-2xl p-5 mb-5 bg-white rounded shadow">
-      <button @click="resetPost" class="absolute top-0 right-0 p-5 m-5 text-white bg-gray-500 rounded">X</button>
+      <!-- <button @click="resetPost" class="absolute top-0 right-0 p-5 m-5 text-white bg-gray-500 rounded">X</button> -->
       <textarea v-model="localText" placeholder="Write something..." class="w-full p-2 mb-2 border rounded"></textarea>
-      <input type="file" @change="handleFileSelection" multiple class="mb-2" />
-      <div class="grid grid-cols-1 gap-2 mt-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 max-h-60">
+      <div class="relative mt-5">
+        <label for="file-upload" class="p-3 text-white bg-blue-500 rounded cursor-pointer">
+          Choose File
+        </label>
+        <input id="file-upload" type="file" @change="handleFileSelection" multiple class="absolute left-0 w-full opacity-0" />
+      </div>
+
+      <div class="grid grid-cols-1 gap-2 mt-5 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 max-h-60">
         <div v-for="(file, index) in localMediaFiles" :key="file.name" class="relative">
           <img v-if="file.type === 'image'" :src="file.preview" alt="Image" class="object-cover w-full h-full rounded">
           <video v-if="file.type === 'video'" controls :src="file.preview" class="object-cover w-full h-full rounded"></video>
@@ -96,7 +102,7 @@ function resetPost() {
           <button @click="removeFile(index)" class="absolute p-1 text-white bg-red-500 rounded top-1 right-1">X</button>
         </div>
       </div>
-      <button @click="addNewPost" class="p-3 text-white bg-blue-500 rounded">Post</button>
+      <button @click="addNewPost" class="p-3 mt-5 text-white bg-blue-500 rounded">Post</button>
       <button @click="resetPost" class="p-3 ml-2 text-white bg-gray-500 rounded">Cancel</button>
     </div>
   </div>

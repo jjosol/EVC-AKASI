@@ -81,11 +81,11 @@ onMounted(() => {
 
 <template>
   <div class="w-full p-8 border rounded-3xl ">
-    <div class="flex items-center gap-16 mb-8 justify-left">
+    <div class="flex items-center gap-16 mb-8 justify-left text-[#73c7e3] font-bold">
       <div class="flex">
         <label for="month" class="p-2 mr-4 text-lg">Month:</label>
         <select id="month" v-model="selectedMonth" @change="updateCalendar" class="p-2 text-lg border rounded">
-          <option v-for="(month, index) in months" :key="index" :value="index">{{ month }}</option>
+          <option v-for="(month, index) in months" :key="index" :value="index" >{{ month }}</option>
         </select>
       </div>
       <div class="flex ml-8">
@@ -95,7 +95,7 @@ onMounted(() => {
         </select>
       </div>
     </div>
-    <table class="w-full text-lg text-center border border-collapse border-gray-300">
+    <table class="w-full text-lg text-[#24b0ba] font-bold text-center border border-collapse border-gray-300">
       <thead>
         <tr>
           <th class="p-4 border border-gray-300">Sun</th>
@@ -124,7 +124,7 @@ onMounted(() => {
         </tr>
       </tbody>
     </table>
-    <div><h1 class="font-bold">Total Confined in {{months[selectedMonth] }} {{ selectedYear }}: </h1></div>
+    <div class="text-[#73c7e3] text-xl"><h1 class="font-bold">Total Confined in {{months[selectedMonth] }} {{ selectedYear }}: </h1></div>
   </div>
 </template>
 <style scoped>

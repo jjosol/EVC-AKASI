@@ -26,24 +26,24 @@
   };
 </script>
 <template>
-    <div class="max-w-md p-6 mx-auto my-10 bg-white rounded-lg shadow-lg">
-        <h2 class="mb-4 text-xl font-bold text-center">Report Generator</h2>
+    <div class="max-w-lg p-6 mx-auto my-10 bg-white rounded-3xl shadow-2xl text-[#2f4a71]">
+        <h2 class="mb-4 text-3xl font-bold text-center">Report Generator</h2>
         <!-- Date Selection -->
         <div class="grid grid-cols-3 gap-4 mb-6">
-            <select v-model="selectedPeriod" class="p-2 border rounded">
+            <select v-model="selectedPeriod" class="p-2 border rounded bg-[#f6f6f6]">
                 <option value="monthly">Monthly</option>
                 <option value="yearly">Yearly</option>
             </select>
-            <select v-model="selectedMonth" class="p-2 border rounded">
+            <select v-model="selectedMonth" class="p-2 border rounded bg-[#f6f6f6]">
                 <option v-for="(month, index) in months" :key="index" :value="index">{{ month }}</option>
             </select>
-            <select v-model="selectedYear" class="p-2 border rounded">
+            <select v-model="selectedYear" class="p-2 border rounded bg-[#f6f6f6]">
                 <option v-for="year in years" :key="year" :value="year">{{ year }}</option>
             </select>
         </div>
-      <div class="grid grid-cols-2 gap-10 mb-6"><!-- Category -->
-        <div class="mb-6">
-          <h3 class="mb-2 font-semibold">Category</h3>
+      <div class="grid grid-cols-2 gap-10 mb-6 "><!-- Category -->
+        <div class="mb-6 bg-[#f6f6f6] p-2 rounded-2xl">
+          <h3 class="mb-2 text-2xl font-semibold">Category</h3>
           <div class="flex flex-col space-y-2">
             <label class="inline-flex items-center">
               <input type="checkbox" class="form-checkbox" />
@@ -61,8 +61,8 @@
         </div>
     
         <!-- Disease Type -->
-        <div class="mb-6">
-          <h3 class="mb-2 font-semibold">Disease Type</h3>
+        <div class="mb-6 bg-[#f6f6f6] p-2 rounded-2xl">
+          <h3 class="mb-2 text-2xl font-semibold">Disease Type</h3>
           <div class="flex flex-col space-y-2">
             <label class="inline-flex items-center">
               <input type="checkbox" class="form-checkbox" />
@@ -78,8 +78,8 @@
   
       <!-- Sex -->
       <div class="grid grid-cols-2 gap-10 mb-6">
-        <div class="mb-6">
-          <h3 class="mb-2 font-semibold">Sex</h3>
+        <div class="mb-6 bg-[#f6f6f6] p-2 rounded-2xl">
+          <h3 class="mb-2 text-2xl font-font-semibold">Sex</h3>
           <div class="flex flex-col space-y-2">
             <label class="inline-flex items-center">
               <input type="checkbox" class="form-checkbox" />
@@ -93,8 +93,8 @@
         </div>
     
         <!-- Fatality Count -->
-        <div class="mb-6">
-          <h3 class="mb-2 font-semibold">Fatality Rate</h3>
+        <div class="mb-6 bg-[#f6f6f6] p-2 rounded-2xl">
+          <h3 class="mb-2 text-2xl font-semibold">Fatality Rate</h3>
           <label class="inline-flex items-center">
             <input type="checkbox" class="form-checkbox" />
             <span class="ml-2">Include fatality count</span>
@@ -103,8 +103,8 @@
       </div>
   
       <!-- Generate Button -->
-      <div class="text-center">
-        <button @click="generateReport" class="px-4 py-2 text-white bg-blue-600 rounded-lg">
+      <div class="text-end">
+        <button @click="generateReport" class="px-4 py-2 text-white bg-blue-600 rounded-3xl">
           GENERATE
         </button>
       </div>

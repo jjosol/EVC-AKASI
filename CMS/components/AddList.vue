@@ -13,6 +13,7 @@ const showAddModal = ref(false);
 const showEditModal = ref(false);
 const showMedicineModal = ref(false);
 const showMedicineDetailModal = ref(false);
+const medicinesVisible = ref(true);
 
 // Selected person and date/time
 const selectedPerson = ref(null);
@@ -155,7 +156,7 @@ const saveMedicineDetails = () => {
     selectedPerson.value.medicines.push({ ...selectedMedicine.value });
   }
   showMedicineDetailModal.value = false;
-  showMedicineModal.value = true;
+  showMedicineModal.value = false;
 };
 
 // Remove medicine
@@ -171,7 +172,7 @@ const cancelMedicine = () => {
 // Cancel medicine details
 const cancelMedicineDetails = () => {
   showMedicineDetailModal.value = false;
-  showMedicineModal.value = true;
+  showMedicineModal.value = false;
 };
 
 // Selected medicine for detail modal
@@ -190,11 +191,13 @@ const confinedPeople = () => {
 };
 
 // To make sure that if meds is false all meds in list would be removed
+
 watch(
   () => selectedPerson.value?.medicationAdministration,
   (newValue) => {
-    if (selectedPerson.value && !newValue) {
-      selectedPerson.value.medicines = [];
+    if (selectedPerson.value) {
+      // Hide the medicines instead of deleting them
+      medicinesVisible.value = !!newValue;
     }
   }
 );
@@ -212,7 +215,7 @@ watch(
           <button @click="deletePerson(index)" class="p-2 text-white bg-red-500 rounded"><Icon icon="fluent:delete-28-regular" /></button>
         </li>
       </ul>
-      <button @click="showAddModal = true" class="block p-2 mt-4 ml-auto text-white bg-blue-500 rounded "><Icon icon="subway:add-1"/></button>
+      <button @click="showAddModal = true" class="block p-2 mt-4 ml-auto text-3xl text-[#2f4a71] hover:text-white bg-transparent hover:bg-[#2f4a71] rounded "><Icon icon="subway:add-1"/></button>
     </div>
 
     <!-- Add Modal -->
@@ -223,7 +226,7 @@ watch(
         <ul class="mt-4 overflow-y-auto max-h-60 text-[#2f4a71]">
           <li v-for="person in filteredPeople" :key="person.name" class="flex items-center justify-between mb-2 text-lg">
             <span>{{ person.name }} - {{ person.section }}</span>
-            <button @click="addPerson(person)" class="p-2 text-white bg-[#2f4a71] rounded"><Icon icon="subway:add-1"/></button>
+            <button @click="addPerson(person)" class="p-2 text-[#2f4a71] hover:text-white bg-transparent hover:bg-[#2f4a71] rounded"><Icon icon="subway:add-1"/></button>
           </li>
         </ul> 
         <div class="flex justify-end mt-4">
@@ -235,12 +238,12 @@ watch(
     <!-- Edit Modal -->
     <div v-if="showEditModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
       <div class="w-1/3 p-4 bg-white rounded-2xl">
-        <h2 class="mb-2 text-xl">Edit Person</h2>
+        <h2 class="mb-2 text-2xl text-[#2f4a71] font-bold">{{selectedPerson.name }}</h2>
         <div class="mb-4">
-          <p>Name: {{ selectedPerson.name }}</p>
-          <p>Section: {{ selectedPerson.section }}</p>
-          <p>Age: {{ selectedPerson.age }}</p>
-          <p>Sex: {{ selectedPerson.sex }}</p>
+          <p><strong>Name: </strong>{{ selectedPerson.name }}</p>
+          <p><strong>Section:</strong> {{ selectedPerson.section }}</p>
+          <p><strong>Age:</strong> {{ selectedPerson.age }}</p>
+          <p><strong>Sex: </strong>{{ selectedPerson.sex }}</p>
           <p><strong>Date:</strong> {{ selectedDate }}</p>
           <p><strong>Time:</strong> {{ selectedTime }}</p>
         </div>
@@ -256,9 +259,9 @@ watch(
             <label for="option1" class="ml-2">Medication Administration</label>
           </div>
           <ul class="mt-4">
-            <li v-for="(medicine, index) in selectedPerson.medicines" :key="index" class="flex items-center justify-between mb-2">
+            <li v-for="(medicine, index) in selectedPerson.medicines" :key="index" class="flex items-center justify-between mb-2" v-if="medicinesVisible">
               <span @click="editMedicine(medicine, index)" class="cursor-pointer">{{ medicine.name }} - {{ medicine.dosage }} mg - {{ medicine.quantity }} pcs - {{ medicine.schedule }}</span>
-              <button @click="removeMedicine(index)" class="p-2 text-white bg-red-500 rounded">-</button>
+              <button @click="removeMedicine(index)" class="p-2 text-white bg-red-500 rounded"><Icon icon="fluent:delete-28-regular" /></button>
             </li>
           </ul>
           <button v-if="selectedPerson.medicationAdministration" @click="openMedicineModal" class="p-2 mt-4 text-white bg-blue-500 rounded">Add Medicine</button>
@@ -278,7 +281,7 @@ watch(
         <ul class="mt-4 overflow-y-auto max-h-60">
           <li v-for="medicine in filteredMedicines" :key="medicine.name" class="flex items-center justify-between mb-2 text-lg">
             <span>{{ medicine.name }}</span>
-            <button @click="addMedicine(medicine)" class="p-2 text-white bg-green-500 rounded">+</button>
+            <button @click="addMedicine(medicine)" class="p-2 text-[#2f4a71] hover:text-white bg-transparent hover:bg-[#2f4a71] rounded"><Icon icon="subway:add-1"/></button>
           </li>
         </ul>
         <div class="flex justify-end mt-4">
