@@ -14,7 +14,7 @@ export default defineNuxtConfig({
   },
   app:{
     head:{
-      title:'CMS',
+      title:'Akasi',
       link:[
         {
           rel: 'icon',
@@ -23,5 +23,12 @@ export default defineNuxtConfig({
         }
       ]
     }
+  },
+  modules: ['@nuxtjs/google-fonts'],
+  googleFonts: {
+    families: {
+      Inter: true // Add any other font weights you need
+    },
+    display: 'swap' // Improves loading performance
   }
 })

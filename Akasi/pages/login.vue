@@ -1,10 +1,15 @@
 <script setup>
-</script>
 
+
+</script>
 <template>
-  <main class="font-['DM_Serif_Display']">
+ 
+  <main class="font-inter">
     <Header/>
     <MiddleTitle/>
+    <LoginForm/>
     <NuxtLink to="/home"><LoginButton/></NuxtLink>
   </main>
+ 
+
 </template>
