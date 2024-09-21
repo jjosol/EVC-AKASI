@@ -1,5 +1,5 @@
 <template>
     <NavBar/>
-    <HorBar/>
+    <SideBar/>
     <slot/>
 </template>

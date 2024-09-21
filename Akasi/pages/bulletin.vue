@@ -45,18 +45,27 @@ function closeModal() {
 </script>
 
 <template>
-  <div>
-    <NavBar/>
+  <NuxtLayout>
     <div class="container mx-auto mt-5">
-      <div class="flex justify-end">
-        <button @click="openCreateModal" class="p-3 text-white bg-[#2f4a71] rounded-full">New Post</button>
+      <div class="flex items-center justify-center space-x-4 border-[#2f4a71] border-b-2"> 
+        <!-- Align items in the center but don't force the button to match the logo height -->
+        <PisayLogo alt="Avatar" class="rounded-full w-25 h-25" />
+        <button 
+          @click="openCreateModal" 
+          class="text-[#2f4a71] text-start bg-transparent border-2 rounded-full px-4 py-2 w-2/3">
+          Write a New Post...
+        </button>
       </div>
-      <PostModal v-if="isModalVisible" :post="currentPost" @add-post="addPost" @close="closeModal" /> <!--prop:post; emit: addPost, closeModal -->
-      <div v-for="post in posts" :key="post.id" class="p-5 mt-5 bg-white rounded shadow">
-        <Post :post="post" @delete-post="deletePost" @edit-post="openEditModal" /> <!--prop:post; emit: deletePost, openEditModal-->
+      <br>
+      <br>
+      <div>
+        <PostModal v-if="isModalVisible" :post="currentPost" @add-post="addPost" @close="closeModal" /> <!--prop:post; emit: addPost, closeModal -->
+        <div v-for="post in posts" :key="post.id" class="p-5 mt-5 bg-white rounded shadow">
+          <Post :post="post" @delete-post="deletePost" @edit-post="openEditModal" /> <!--prop:post; emit: deletePost, openEditModal-->
+        </div>
       </div>
     </div>
-  </div>
+  </NuxtLayout>
 </template>
 
 <style scoped>

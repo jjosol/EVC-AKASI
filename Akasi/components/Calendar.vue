@@ -80,22 +80,24 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="w-full p-8 border rounded-3xl ">
-    <div class="flex items-center gap-16 mb-8 justify-left text-[#73c7e3] font-bold">
+  <div class="w-7/12 p-8 ml-72 rounded-3xl">
+    <h1 class="text-5xl text-[#2f4a71] border-[#2f4a71] border-b-2">Confinement Calendar</h1>
+    <br>
+    <div class="flex items-center gap-16 mb-8 justify-left text-[#2f4a71] font-bold">
       <div class="flex">
-        <label for="month" class="p-2 mr-4 text-lg">Month:</label>
-        <select id="month" v-model="selectedMonth" @change="updateCalendar" class="p-2 text-lg border rounded">
-          <option v-for="(month, index) in months" :key="index" :value="index" >{{ month }}</option>
+        <!-- <label for="month" class="p-2 mr-4 text-lg">Month:</label> -->
+        <select id="month" v-model="selectedMonth" @change="updateCalendar" class="p-2 text-3xl rounded">
+          <option v-for="(month, index) in months" :key="index" :value="index" class="text-xl" >{{ month }}</option>
         </select>
       </div>
       <div class="flex ml-8">
-        <label for="year" class="p-2 mr-4 text-lg">Year:</label>
-        <select id="year" v-model="selectedYear" @change="updateCalendar" class="p-2 text-lg border rounded">
-          <option v-for="year in years" :key="year" :value="year">{{ year }}</option>
+        <!-- <label for="year" class="p-2 mr-4 text-lg">Year:</label> -->
+        <select id="year" v-model="selectedYear" @change="updateCalendar" class="p-2 text-3xl rounded">
+          <option v-for="year in years" :key="year" :value="year" class="text-xl">{{ year }}</option>
         </select>
       </div>
     </div>
-    <table class="w-full text-lg text-[#24b0ba] font-bold text-center border border-collapse border-gray-300">
+    <table class="w-full text-lg text-[#2f4a71] font-bold text-center border border-collapse border-gray-300">
       <thead>
         <tr>
           <th class="p-4 border border-gray-300">Sun</th>
@@ -111,11 +113,11 @@ onMounted(() => {
         <tr v-for="week in calendar" :key="week[0].date">
           <td v-for="day in week" :key="day.date" :class="{
             'bg-green-200': isSelected(day.date),
-            'relative p-4 border border-gray-300 calendar-cell': true
+            'relative  border border-gray-300 calendar-cell': true
           }">
-            <div @click="openAddingList(day)" class="flex items-center justify-center w-full h-full cursor-pointer">
+            <div @click="openAddingList(day)" class="flex items-center justify-center w-full cursor-pointer">
               <span :class="{
-                'bg-green-600 rounded-full text-white p-2 flex items-center justify-center w-10 h-10': isToday(day.date)
+                'border-b-4 border-[#2f4a71] ': isToday(day.date)
               }">
                 {{ day.date ? day.date.getDate() : '' }}
               </span>
@@ -124,7 +126,7 @@ onMounted(() => {
         </tr>
       </tbody>
     </table>
-    <div class="text-[#73c7e3] text-xl"><h1 class="font-bold">Total Confined in {{months[selectedMonth] }} {{ selectedYear }}: </h1></div>
+    <div class="text-[#2f4a71] text-xl"><h1 class="font-bold">Total Confined in {{months[selectedMonth] }} {{ selectedYear }}: </h1></div>
   </div>
 </template>
 <style scoped>
@@ -136,7 +138,7 @@ textarea {
   overflow: hidden;
   text-overflow: ellipsis;
   display: block;
-  height: 1.5em; /* Set a fixed height */
+  height: 300rem; 
 }
 .marquee:hover {
   animation: scroll-left 10s linear infinite;
@@ -149,11 +151,9 @@ textarea {
     transform: translateX(-100%);
   }
 }
-.bg-green-200 {
-  background-color: #c6f6d5; /* Light green background */
-}
+
 .calendar-cell {
-  width: 75px; /* Fixed width for calendar cells */
-  height: 75px; /* Fixed height for calendar cells */
+  width: 90px; /* Fixed width for calendar cells */
+  height: 90px; /* Fixed height for calendar cells */
 }
 </style>

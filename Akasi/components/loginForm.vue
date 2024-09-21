@@ -1,11 +1,11 @@
 <template>
-  <div class="flex flex-col items-center justify-center mb-28">
-    <div class="text-red-900">
+  <div class="p-6  text-[#2f4a71] rounded-full text-center flex flex-col items-center">
+    <div class="text-red-900 ">
       <input 
       
         type="text"
         placeholder="Username"
-        class="p-3 rounded-full input-field placeholder:text-[#2f4a71] outline outline-1 outline-gray-400 "
+        class="w-full py-3 px-2  rounded-full input-field placeholder:text-[#2f4a71] outline outline-1 outline-gray-500 "
       />
     </div>
     <br>
@@ -13,7 +13,7 @@
       <input
         type="password"
         placeholder="Password"
-        class="p-3 rounded-full input-field placeholder:text-[#2f4a71] outline outline-1 outline-gray-400 "
+        class="w-full py-3 px-2 rounded-full input-field placeholder:text-[#2f4a71] outline outline-1  outline-gray-500 "
       />
     </div>
   </div>

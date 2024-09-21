@@ -1,6 +1,8 @@
 <script setup>
 </script>
 <template>
-    <NavBar/>
-    <Generator/>
+    <NuxtLayout>
+        <Generator/>
+    </NuxtLayout>
+    
 </template>

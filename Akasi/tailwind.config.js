@@ -11,7 +11,9 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        inter: ['Inter']
+        sans: ['Inter'],
+        inter: ['Inter'],
+        nimbus: ['nimbus']
       }
     },
   },

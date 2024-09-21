@@ -1,35 +1,27 @@
 <script setup>
 const route = useRoute();
-const links = [
-  { path: '/home', label: 'Home' },
-  { path: '/bulletin', label: 'Bulletin' },
-  { path: '/files/student', label: 'Files' },
-  { path: '/reports', label: 'Reports' },
-  { path: '/inventory', label: 'Inventory' },
-];
-const isActive = (path) => computed(() => {
-  if (route.path === path)  {
-    return true;
-  }
-  else if(path === '/files/student' && route.path === '/files/student' ||path === '/files/student' && route.path === '/files/faculty'||path === '/files/student' && route.path ==='/files/non-teaching-staff'){
-    return true;
-  }
-   else {
-    return false;
-  }
-});
+  
+  const links = [
+    { path: '/files/student', label: 'STUDENT' },
+    { path: '/files/faculty', label: 'FACULTY' },
+    { path: '/files/non-teaching-staff', label: 'NON-TEACHING STAFF' }
+  ];
+  const isActive = (path) => computed(() => route.path === path);
+  console.log(isActive.value)
 </script>
 
 <template>
-  <nav class="bg-[#F6F6F6]">
+  <nav class="bg-[#F6F6F6] font-inter">
     <div class="flex flex-wrap items-center justify-between max-w-screen-xl p-3 mx-auto">
-      <ul class="flex rounded-lg text-1xl md:p-0 md:space-x-8 md:flex-row md:mt-0 md:border-0">
+      <ul class="flex text-xl rounded-lg md:p-0 md:space-x-8 md:flex-row md:mt-0 md:border-0">
         <PisayLogo width="100" height="100" />
         <li v-for="link in links" :key="link.path">
           <router-link
             :to="link.path"
-            class="inline-block p-2 px-6 my-2 rounded-full"
-            :class="isActive(link.path).value ? 'bg-blue-900 text-white' : 'text-[#2F4A71]'"
+            class="inline-block p-2 px-6 my-2 "
+              :class="isActive(link.path).value 
+                ? 'text-[#2F4A71] font-bold border-b-2 border-[#2F4A71]' 
+                : 'text-[#2F4A71] hover:border-b-2 hover:border-[#2F4A71]'"
           >
             {{ link.label }}
           </router-link>
