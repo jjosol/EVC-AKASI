@@ -19,7 +19,7 @@ function editPost() {
 </script>
 
 <template>
-  <div class="p-4 bg-white rounded-lg shadow-md">
+  <div class="p-4 bg-white rounded-lg">
     <!-- Profile section -->
     <div class="flex items-center mb-4">
       <PisayLogo alt="Avatar" class="w-20 h-20 rounded-full" />

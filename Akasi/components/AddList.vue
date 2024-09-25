@@ -221,7 +221,7 @@ console.log(selectedDate.value)
       <h2 class="text-2xl text-[#2f4a71]">{{ selectedDate.day }}</h2>
       <h2 class="mb-4 text-3xl font-bold text-[#2f4a71] border-b-2 border-[#2f4a71]">{{ selectedDate.monthYear }}</h2>
       <!-- <p class="text-2xl text-[#d3cae7]">CONFINEMENTS:</p> -->
-      <button @click="showAddModal = true" class="block p-2 mt-4 ml-auto text-3xl text-[#2f4a71] hover:text-white bg-[#e6e6e6] rounded-full hover:bg-[#745dab] "><Icon icon="subway:add-1" /></button>
+      <button @click="showAddModal = true" class="block p-2 mt-4 ml-auto text-3xl active:bg-blue-700 text-white rounded-full  bg-[#745dab] "><Icon icon="subway:add-1" /></button>
       <div v-if="showAddModal">
         <div class="flex items-center mb-4">
           <div class="relative w-full">
@@ -342,7 +342,7 @@ console.log(selectedDate.value)
         </div>
 
         <!-- Medicines Table -->
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto" v-if="selectedPerson.medicationAdministration">
           <table class="w-full text-left border-t">
             <thead class="text-sm font-semibold text-gray-600">
               <tr>
@@ -376,54 +376,112 @@ console.log(selectedDate.value)
 
     <!-- Medicine Modal -->
     <div v-if="showMedicineModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
-      <div class="w-1/3 p-4 bg-white rounded-2xl">
-        <h2 class="mb-2 text-xl">Add Medicine</h2>
-        <input v-model="medicineSearchQuery" placeholder="Search Medicine" class="w-full p-2 mb-2 border rounded">
-        <ul class="mt-4 overflow-y-auto max-h-60">
-          <li v-for="medicine in filteredMedicines" :key="medicine.name" class="flex items-center justify-between mb-2 text-lg">
-            <span>{{ medicine.name }}</span>
-            <button @click="addMedicine(medicine)" class="p-2 text-[#2f4a71] hover:text-white bg-transparent hover:bg-[#2f4a71] rounded"><Icon icon="subway:add-1"/></button>
-          </li>
-        </ul>
-        <div class="flex justify-end mt-4">
-          <button @click="cancelMedicine" class="p-2 ml-2 text-white bg-gray-500 rounded">Cancel</button>
+  <div class="w-2/3 p-6 bg-white rounded-2xl">
+    <h2 class="mb-4 text-2xl font-semibold">Add Product</h2>
+    <div class="flex items-center mb-4">
+      <input
+        v-model="medicineSearchQuery"
+        placeholder="Search Product"
+        class="w-full p-2 border border-gray-300 rounded-l-md"
+      />
+      <button class="p-2 bg-gray-100 border-t border-b border-r rounded-r-md">
+        <Icon icon="mdi:magnify" />
+      </button>
+      <button class="p-2 ml-2 bg-gray-100 border rounded-md">
+        <Icon icon="mdi:filter-variant" />
+      </button>
+      <button class="p-2 ml-2 bg-gray-100 border rounded-md">
+        <Icon icon="mdi:sort-ascending" />
+      </button>
+    </div>
+    <table class="w-full table-auto">
+      <thead class="border-b-2 border-gray-300">
+        <tr class="text-left text-gray-600">
+          <th class="pb-2">Name</th>
+          <th class="pb-2">Expiration</th>
+          <th class="pb-2">Count</th>
+        </tr>
+      </thead>
+      <tbody class="text-gray-700">
+        <tr
+          v-for="medicine in filteredMedicines"
+          :key="medicine.id"
+          class="border-b border-gray-200 hover:bg-gray-100"
+        >
+          <td class="py-2">{{ medicine.name }}</td>
+          <td class="py-2">{{medicine.expirationDate }}</td>
+          <td class="flex items-center justify-between py-2">
+            <span>{{ medicine.count }}</span>
+            <button @click="addMedicine(medicine)" class="text-[#2f4a71] hover:text-white hover:bg-[#2f4a71] rounded-md p-2">
+              <Icon icon="subway:add-1" />
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="flex justify-end mt-6">
+      <button @click="cancelMedicine" class="p-2 ml-2 text-white bg-gray-500 rounded-md">Cancel</button>
+    </div>
+  </div>
+</div>
+
+    <!-- Medicine Detail Modal -->
+    <div v-if="showMedicineDetailModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
+  <div class="w-1/3 p-6 bg-white rounded-2xl">
+    <h2 class="mb-4 text-2xl font-semibold">Add Product</h2>
+
+    <!-- Product, Expiration Date, Quantity -->
+    <div class="grid grid-cols-3 gap-4 mb-4">
+      <div>
+        <label class="block mb-1 text-gray-600">Product</label>
+        <input type="text" v-model="selectedMedicine.name" class="w-full p-2 bg-gray-100 border rounded-md" disabled>
+      </div>
+      <div>
+        <label class="block mb-1 text-gray-600">Expiration Date</label>
+        <input type="text" v-model="formattedExpirationDate" class="w-full p-2 bg-gray-100 border rounded-md" disabled>
+      </div>
+      <div>
+        <label class="block mb-1 text-gray-600">Quantity</label>
+        <input type="number" v-model="selectedMedicine.quantity" class="w-full p-2 text-center border rounded-md">
+      </div>
+    </div>
+
+    <!-- Schedule -->
+    <div class="mb-4">
+      <label class="block mb-1 text-gray-600">Schedule</label>
+      <input type="text" v-model="selectedMedicine.schedule" placeholder="e.g., Every 4 hours, 3 times a day" class="w-full p-2 border rounded-md">
+    </div>
+
+    <!-- Start Date and End Date -->
+    <div class="grid grid-cols-2 gap-4 mb-6">
+      <div>
+        <label class="block mb-1 text-gray-600">Start Date</label>
+        <div class="relative">
+          <input type="date" v-model="selectedMedicine.startDate" class="w-full p-2 border rounded-md">
+          <span class="absolute inset-y-0 flex items-center right-2">
+            <Icon icon="mdi:calendar" />
+          </span>
+        </div>
+      </div>
+      <div>
+        <label class="block mb-1 text-gray-600">End Date</label>
+        <div class="relative">
+          <input type="date" v-model="selectedMedicine.endDate" class="w-full p-2 border rounded-md">
+          <span class="absolute inset-y-0 flex items-center right-2">
+            <Icon icon="mdi:calendar" />
+          </span>
         </div>
       </div>
     </div>
 
-    <!-- Medicine Detail Modal -->
-    <div v-if="showMedicineDetailModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
-      <div class="w-1/3 p-4 bg-white rounded-2xl">
-        <h2 class="mb-2 text-xl">Medicine Details</h2>
-        <p><strong>Medicine:</strong> {{ selectedMedicine.name }}</p>
-        <div class="mb-2">
-          <label for="dosage" class="block mb-1">Dosage (mg):</label>
-          <select id="dosage" v-model="selectedMedicine.dosage" class="w-full p-2 mb-2 border rounded">
-            <option v-for="dosage in selectedMedicine.dosages" :key="dosage" :value="dosage">{{ dosage }}</option>
-          </select>
-        </div>
-        <div class="mb-2">
-          <label for="quantity" class="block mb-1">Quantity:</label>
-          <input type="number" id="quantity" v-model="selectedMedicine.quantity" min="1" class="w-16 p-2 mx-2 text-center border rounded">
-        </div>
-        <div class="mb-2">
-          <label for="schedule" class="block mb-1">Schedule:</label>
-          <textarea id="schedule" v-model="selectedMedicine.schedule" placeholder="e.g., Every 4 hours, 3 times a day" class="w-full p-2 mb-2 border rounded"></textarea>
-        </div>
-        <div class="mb-2">
-          <label for="startDate" class="block mb-1">Start Date:</label>
-          <input type="date" id="startDate" v-model="selectedMedicine.startDate" class="w-full p-2 mb-2 border rounded">
-        </div>
-        <div class="mb-2">
-          <label for="endDate" class="block mb-1">End Date:</label>
-          <input type="date" id="endDate" v-model="selectedMedicine.endDate" class="w-full p-2 mb-2 border rounded">
-        </div>
-        <div class="flex justify-end mt-4">
-          <button @click="saveMedicineDetails" class="p-2 text-white bg-green-500 rounded">Save</button>
-          <button @click="cancelMedicineDetails" class="p-2 ml-2 text-white bg-gray-500 rounded">Cancel</button>
-        </div>
-      </div>
+    <!-- Action Buttons -->
+    <div class="flex justify-end mt-4">
+      <button @click="cancelMedicineDetails" class="mr-auto text-gray-600 underline">Cancel</button>
+      <button @click="saveMedicineDetails" class="p-2 text-white bg-[#2f4a71] rounded-md">Add</button>
     </div>
+  </div>
+</div>
+
   </div>
 </template>
 

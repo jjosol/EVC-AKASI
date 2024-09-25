@@ -83,7 +83,7 @@ function resetPost() {
 </script>
 
 <template>
- <div class="max-w-2xl p-5 mx-auto mt-10 mb-5 bg-white rounded shadow-lg">
+ <div class="max-w-2xl p-5 mx-auto mt-10 mb-5 bg-transparent rounded">
   <!-- User Info and Action buttons -->
   <div class="flex items-center justify-between">
     <div class="flex items-center">
