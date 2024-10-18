@@ -11,17 +11,28 @@
   },
   "dependencies": {
     "@nuxtjs/google-fonts": "^3.2.0",
-    "@prisma/client": "^5.20.0",
+    "@prisma/client": "^5.21.1",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.7",
+    "bcrypt": "^5.1.1",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "jwt-decode": "^4.0.0",
     "moment-timezone": "^0.5.45",
-    "nuxt": "^3.13.0",
-    "prisma": "^5.20.0",
+    "nuxt": "^3.13.2",
     "vue": "latest",
     "vue-router": "latest"
   },
   "devDependencies": {
     "@iconify/vue": "^4.1.2",
+    "@types/bcrypt": "^5.0.2",
+    "@types/jwt-decode": "^3.1.0",
+    "@types/node": "^22.7.6",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.45",
-    "tailwindcss": "^3.4.10"
+    "prisma": "^5.21.0",
+    "tailwindcss": "^3.4.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
   }
 }

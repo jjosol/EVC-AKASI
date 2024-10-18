@@ -211,6 +211,7 @@ watch(
     }
   }
 );
+
 console.log(selectedDate.value)
 </script>
 
@@ -291,7 +292,7 @@ console.log(selectedDate.value)
               <!-- Date -->
               <div class="mb-4">
                 <label for="date" class="block text-sm font-semibold text-gray-600">Date</label>
-                <input type="text" value="xxx - xxx - xxxx" id="date" disabled
+                <input type="text" :value="selectedDate.monthYear" id="date" disabled
                   class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
               </div>
 

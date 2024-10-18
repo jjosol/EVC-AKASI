@@ -42,6 +42,9 @@ function closeModal() {
   currentPost.value = null;
   isModalVisible.value = false;
 }
+definePageMeta({
+  middleware: 'auth', // Reference your middleware here
+});
 </script>
 
 <template>

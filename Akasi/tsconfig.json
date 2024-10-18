@@ -1,4 +1,15 @@
 {
   // https://nuxt.com/docs/guide/concepts/typescript
-  "extends": "./.nuxt/tsconfig.json"
+  "extends": "./.nuxt/tsconfig.json",
+  "compilerOptions": {
+      "typeRoots": ["./node_modules/@types", "./src/types"],
+      "module": "ESNext", // or "CommonJS" based on your needs
+      "target": "ES2020", // Set your target ECMAScript version
+      "strict": true, // Enable all strict type-checking options
+      "esModuleInterop": true, // Allows default imports from modules with no default export
+      "skipLibCheck": true, // Skip type checking of declaration files
+      "forceConsistentCasingInFileNames": true // Ensure consistent file naming
+  },
+  "include": ["utils/**/*"], // Adjust based on where your TypeScript files are
+  "exclude": ["node_modules", "**/*.spec.ts"] // Exclude tests and dependencies
 }

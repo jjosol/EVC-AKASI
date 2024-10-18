@@ -11,6 +11,9 @@ const handleDaySelected = (day) => {
 const updateConfinedCount = (value) => {
   confinedCount.value = value;
 };
+definePageMeta({
+  middleware: 'auth', // Reference your middleware here
+});
 </script>
 
 <template>

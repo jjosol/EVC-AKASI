@@ -1,7 +1,8 @@
 <script setup>
 // import { ref, computed } from 'vue';
 definePageMeta({
-  layout: 'custom'
+  layout: 'custom',
+  middleware: 'auth', // Reference your middleware here
 })
 
 // Reactive state using ref
