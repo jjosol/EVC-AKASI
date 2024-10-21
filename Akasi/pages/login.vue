@@ -36,7 +36,7 @@ const handleLogin = async () => {
       console.log(data.token);
     } else {
       // Use window.alert instead of alert
-      window.alert("Invalid Credentials");
+      alert("Invalid Credentials");
     }
   } catch (error: unknown) { // Explicitly set error type to unknown
     console.error('Error during login:', error);

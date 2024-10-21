@@ -40,12 +40,35 @@ const medicineSearchQuery = ref('');
 const people = ref([]);
 
 // Initialize values for people list
-const allPeople = ref([
-  { name: 'John Doe', section: '11 A', age: 30, sex: 'male' },
-  { name: 'Jane Smith', section: '12 B', age: 25, sex: 'female' },
-  { name: 'Alice Johnson', section: '11 C', age: 28, sex: 'female' },
-  { name: 'Bob Brown', section: '12 C', age: 32, sex: 'male' },
-]);
+// Reactive state for people, initialized as an empty array
+const allPeople = ref([]);
+
+// Fetch people from API
+const fetchPeople = async () => {
+  try {
+    const response = await fetch('/api/getClients'); // Adjust the endpoint based on your API path
+    if (!response.ok) {
+      throw new Error('Failed to fetch people');
+    }
+    const data = await response.json();
+
+    // Assuming API response format matches the structure needed for allPeople
+    allPeople.value = data.map((client) => ({
+      name: client.name,
+      section: client.section || 'N/A', // Fallback if section isn't available
+      age: client.age || 0, // Fallback if age isn't available
+      sex: client.sex || 'N/A', // Fallback if sex isn't available
+    }));
+  } catch (error) {
+    console.error('Error fetching people:', error);
+  }
+};
+
+// Fetch data when the component is mounted
+onMounted(() => {
+  fetchPeople();
+});
+console.log(allPeople.value)
 
 // Initialize values for meds list
 const allMedicines = ref([

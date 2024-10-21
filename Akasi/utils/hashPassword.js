@@ -10,6 +10,13 @@ async function hashPasswords(tableName, idField) {
 
         // Loop through each user and hash their password
         for (const user of users) {
+            // Check if the password is already hashed
+            if (user.password && user.password.length === 60) { // bcrypt hash length is typically 60 characters
+                console.log(`Password for ${tableName} user with ID: ${user[idField]} is already hashed. Skipping...`);
+                continue; // Skip to the next user if the password is already hashed
+            }
+
+            // Hash the password
             const hashedPassword = await bcrypt.hash(user.password, 10);
             await prisma[tableName].update({
                 where: { [idField]: user[idField] }, // Use the correct ID field (e.g., client_id or admin_id)
