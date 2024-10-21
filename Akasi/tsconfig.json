@@ -8,7 +8,8 @@
       "strict": true, // Enable all strict type-checking options
       "esModuleInterop": true, // Allows default imports from modules with no default export
       "skipLibCheck": true, // Skip type checking of declaration files
-      "forceConsistentCasingInFileNames": true // Ensure consistent file naming
+      "forceConsistentCasingInFileNames": true, // Ensure consistent file naming
+      "moduleResolution": "node",
   },
   "include": ["utils/**/*"], // Adjust based on where your TypeScript files are
   "exclude": ["node_modules", "**/*.spec.ts"] // Exclude tests and dependencies
