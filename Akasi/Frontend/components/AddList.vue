@@ -1,14 +1,14 @@
 <script setup>
 import { formatAMPM } from '~/composables/useTimeFormatter';
-// Props to receive the current day from the parent component
+
 const props = defineProps({
   currentDay: {
     type: Object,
-    default: () => ({ date: new Date() }) // Default to today's date
+    default: () => ({ date: new Date() })
   }
 });
 
-// Modal show or not
+// Modal states
 const showAddModal = ref(false);
 const showEditModal = ref(false);
 const showMedicineModal = ref(false);
@@ -17,11 +17,10 @@ const medicinesVisible = ref(true);
 
 // Selected person and date/time
 const selectedPerson = ref(null);
-//sets the date to be full and not abbreviation
 const selectedDate = computed(() => {
   const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-  const dayOptions = { weekday: 'long' }; // For day of the week (e.g., Monday)
-  const dateOptions = { year: 'numeric', month: 'long', day: 'numeric' }; // For date (e.g., September 20, 2024)
+  const dayOptions = { weekday: 'long' };
+  const dateOptions = { year: 'numeric', month: 'long', day: 'numeric' };
   const date = new Intl.DateTimeFormat('en-US', options).format(props.currentDay.date);
   const day = new Intl.DateTimeFormat('en-US', dayOptions).format(props.currentDay.date);
   const monthYear = new Intl.DateTimeFormat('en-US', dateOptions).format(props.currentDay.date);
@@ -30,7 +29,6 @@ const selectedDate = computed(() => {
 });
 
 const selectedTime = ref(formatAMPM(new Date()));
-// console.log(selectedTime.value)
 
 // Search queries
 const searchQuery = ref('');
@@ -38,38 +36,124 @@ const medicineSearchQuery = ref('');
 
 // To contain all that is part of the list
 const people = ref([]);
-
-// Initialize values for people list
-// Reactive state for people, initialized as an empty array
 const allPeople = ref([]);
+const patients = ref([]);
 
-// Fetch people from API
+// consultation post api
+const createConsultationRecord = async (person) => {
+  try {
+    const response = await fetch('/api/postConsultationRecords', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        client_id: person.clientId, // Assuming this exists in your person object
+        admin_id: 1, // You'll need to get this from your auth system
+        date: props.currentDay.date,
+        patient_name: person.name,
+        patient_occupation: String(person.grade+'-'+person.section),
+        doctor: "John Doe", // This should come from your auth system
+        complaint: person.generalComplaint || '',
+        remarks: person.remarks || '',
+        confined: person.confined || false,
+        medAdministration: person.medicationAdministration || false
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to create consultation record');
+    }
+    alert("da")
+    console.log(person.grade)
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error creating consultation record:', error);
+    throw error;
+  }
+};
+
+// get clients api
 const fetchPeople = async () => {
   try {
-    const response = await fetch('/api/getClients'); // Adjust the endpoint based on your API path
+    const response = await fetch('/api/getClients');
     if (!response.ok) {
       throw new Error('Failed to fetch people');
     }
     const data = await response.json();
-
-    // Assuming API response format matches the structure needed for allPeople
     allPeople.value = data.map((client) => ({
+      clientId: client.client_id, // Make sure to include this for API calls
       name: client.name,
-      section: client.section || 'N/A', // Fallback if section isn't available
-      age: client.age || 0, // Fallback if age isn't available
-      sex: client.sex || 'N/A', // Fallback if sex isn't available
+      section: client.section || 'N/A',
+      grade: client.grade || 'N/A',
+      age: client.age || 0,
+      sex: client.sex || 'N/A',
     }));
   } catch (error) {
     console.error('Error fetching people:', error);
   }
 };
 
-// Fetch data when the component is mounted
+const fetchPatients = async () => {
+  try {
+    const response = await fetch('/api/getPatients');
+    if (!response.ok) {
+      throw new Error('Failed to fetch patients');
+    }
+    const data = await response.json();
+    patients.value = data.map((patient) => ({
+      consultationId: patient.consultation_id,
+      name: patient.patient_name,
+      occupation:patient.patient_occupation,
+      time: new Date(patient.date).toLocaleTimeString('en-US', { 
+          timeZone: 'Asia/Manila',
+          hour12: true,
+          hour: '2-digit',
+          minute: '2-digit'
+      })
+
+    }));
+  } catch (error) {
+    console.error('Error fetching people:', error);
+  }
+}
+
+// Save person
+const savePerson = async () => {
+  try {
+    // Create consultation record --> to consultation api function
+    const consultationData = await createConsultationRecord(selectedPerson.value);
+    
+    // Update timestamp
+    const now = new Date();
+    selectedPerson.value.addedAt = now;
+    
+    // Update or add person to the people array
+    const index = people.value.findIndex(p => p.name === selectedPerson.value.name);
+    if (index !== -1) {
+      people.value[index] = { ...selectedPerson.value };
+    } else {
+      people.value.push({ ...selectedPerson.value });
+    }
+    
+    // Close modals
+    showEditModal.value = false;
+    showAddModal.value = false;
+    
+  
+  } catch (error) {
+    console.error('Error saving data:', error);
+    alert('Failed to save data');
+  }
+};
+
+// fetch data when mounted
 onMounted(() => {
   fetchPeople();
+  fetchPatients();
 });
-console.log(allPeople.value)
-
+console.log(patients)
 // Initialize values for meds list
 const allMedicines = ref([
   { name: 'Paracetamol', dosages: [250, 500] },
@@ -77,39 +161,35 @@ const allMedicines = ref([
   { name: 'Aspirin', dosages: [75, 150, 300] },
   { name: 'Amoxicillin', dosages: [250, 500, 1000] },
 ]);
-//create composable for search
-// Search person
+
+// Search functionality
 const filteredPeople = computed(() => {
   if (!searchQuery.value) {
     return allPeople.value;
   }
-  return allPeople.value.filter(person => person.name.toLowerCase().includes(searchQuery.value.toLowerCase()));
+  return allPeople.value.filter(person => 
+    person.name.toLowerCase().includes(searchQuery.value.toLowerCase())
+  );
 });
 
-// Search meds
 const filteredMedicines = computed(() => {
   if (!medicineSearchQuery.value) {
     return allMedicines.value;
   }
-  return allMedicines.value.filter(medicine => medicine.name.toLowerCase().includes(medicineSearchQuery.value.toLowerCase()));
+  return allMedicines.value.filter(medicine => 
+    medicine.name.toLowerCase().includes(medicineSearchQuery.value.toLowerCase())
+  );
 });
 
-// To reset but if theres a db it should be changed
-watch(() => props.currentDay, (newVal) => {
-  if (newVal && newVal.date) {
-    people.value = []; 
-    //function to change people based on which day if we have db
-  }
-});
 
-// About people modal
+
+// Rest of your existing methods...
 const openEditModal = (person) => {
   selectedPerson.value = { ...person };
   selectedTime.value = formatAMPM(new Date(person.addedAt));
   showEditModal.value = true;
 };
 
-// Add person
 const addPerson = (person) => {
   const now = new Date();
   if (person.name && person.section) {
@@ -119,11 +199,9 @@ const addPerson = (person) => {
   }
 };
 
-// Delete person
 const deletePerson = (index) => {
   people.value.splice(index, 1);
 };
-
 // Time when added (am/pm)
 // const formatAMPM = (date) => {
 //   let hours = date.getHours();
@@ -137,18 +215,18 @@ const deletePerson = (index) => {
 // };
 
 // Save person
-const savePerson = () => {
-  const now = new Date();
-  selectedPerson.value.addedAt = now; // Update addedAt to the current time
-  const index = people.value.findIndex(p => p.name === selectedPerson.value.name);
-  if (index !== -1) {
-    people.value[index] = { ...selectedPerson.value };
-  } else {
-    people.value.push({ ...selectedPerson.value });
-  }
-  showEditModal.value = false;
-  showAddModal.value = false;
-};
+// const savePerson = () => {
+//   const now = new Date();
+//   selectedPerson.value.addedAt = now; // Update addedAt to the current time
+//   const index = people.value.findIndex(p => p.name === selectedPerson.value.name);
+//   if (index !== -1) {
+//     people.value[index] = { ...selectedPerson.value };
+//   } else {
+//     people.value.push({ ...selectedPerson.value });
+//   }
+//   showEditModal.value = false;
+//   showAddModal.value = false;
+// };
 
 
 // Cancel edit
@@ -236,6 +314,7 @@ watch(
 );
 
 console.log(selectedDate.value)
+console.log(patients.value)
 </script>
 
 <template>
@@ -245,9 +324,10 @@ console.log(selectedDate.value)
       <h2 class="text-2xl text-[#2f4a71]">{{ selectedDate.day }}</h2>
       <h2 class="mb-4 text-3xl font-bold text-[#2f4a71] border-b-2 border-[#2f4a71]">{{ selectedDate.monthYear }}</h2>
       <!-- <p class="text-2xl text-[#d3cae7]">CONFINEMENTS:</p> -->
-      <button @click="showAddModal = true" class="block p-2 mt-4 ml-auto text-3xl active:bg-blue-700 text-white rounded-full  bg-[#745dab] "><Icon icon="subway:add-1" /></button>
+      <button @click="showAddModal = true" v-if="!showAddModal" class="block p-2 mt-4 ml-auto text-3xl active:bg-blue-700 text-white rounded-full  bg-[#745dab] "><Icon icon="subway:add-1" /></button>
+      <button @click="cancelAdd" v-if="showAddModal" class="block p-2  ml-auto text-3xl active:bg-blue-700 text-white rounded-full  bg-[#745dab] "><Icon icon="maki:cross" /></button>
       <div v-if="showAddModal">
-        <div class="flex items-center mb-4">
+        <div class="flex items-center mt-1 mb-4">
           <div class="relative w-full">
             <input
               v-model="searchQuery"
@@ -256,7 +336,7 @@ console.log(selectedDate.value)
             />
             <Icon icon="fluent:search-12-regular" class="absolute top-2 left-3 text-[#2f4a71]" />
           </div>
-          <button @click="cancelAdd" class="ml-4 text-[#2f4a71] hover:underline">Cancel</button>
+          <!-- <button @click="cancelAdd" class="ml-4 text-[#2f4a71] hover:underline">Cancel</button> -->
         </div>
         <!-- People List -->
         <ul class="overflow-y-auto max-h-60 text-[#2f4a71]">
@@ -275,9 +355,13 @@ console.log(selectedDate.value)
   
 
       <ul class="mt-4 overflow-y-auto max-h-60">
-        <li v-for="(person, index) in people" :key="index" class="flex items-center justify-between mb-2 text-lg confinement-item text-[#2f4a71]">
-          <span @click="openEditModal(person)" class="cursor-pointer confinement-details">{{ person.name }} - {{ person.section }}</span>
-          <button @click="deletePerson(index)" class="p-2 text-white bg-red-500 rounded"><Icon icon="fluent:delete-28-regular" /></button>
+        <li v-for="(patient, index) in patients" :key="patient.consultationId" class="flex items-center justify-between mb-2 text-lg confinement-item text-[#2f4a71]">
+          <span @click="openEditModal(patient)" class="cursor-pointer confinement-details">
+            {{ patient.name }} - {{ patient.occupation }} - {{ patient.time }}
+          </span>
+          <button @click="deletePerson(index)" class="p-2 text-white bg-red-500 rounded">
+            <Icon icon="fluent:delete-28-regular" />
+          </button>
         </li>
       </ul>
     </div>
@@ -307,7 +391,6 @@ console.log(selectedDate.value)
                   class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
               </div>
 
-             
             </div>
             
             <!-- Right Column -->

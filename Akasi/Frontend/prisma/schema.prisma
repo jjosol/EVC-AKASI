@@ -62,7 +62,8 @@ model client {
   age                  Int
   gender               String                 @db.VarChar(225)
   category             String                 @db.VarChar(225)
-  grade                Int?
+  grade                Int?         
+  section              String                 @db.VarChar(225)
   appointmant          appointmant[]
   consultation_records consultation_records[]
   dental_certificates  dental_certificates[]
@@ -79,7 +80,8 @@ model consultation_records {
   admin_id          Int
   consultation_id   Int      @id @unique(map: "consultation_id") @default(autoincrement())
   date              DateTime @db.DateTime(0)
-  patient           String   @db.VarChar(225)
+  patient_name      String   @db.VarChar(225)
+  patient_occupation String  @db.VarChar(225)
   doctor            String   @db.VarChar(225)
   complaint         String   @db.VarChar(225)
   remarks           String   @db.VarChar(500)
