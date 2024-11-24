@@ -1,53 +1,44 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router';
-import { ref } from 'vue';
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-const router = useRouter(); // Initialize the router
-const username = ref<string>(''); // Reactive variable for username
-const password = ref<string>(''); // Reactive variable for password
-const loginStatus = ref<string | undefined>(); // Reactive variable for login status message
+const router = useRouter()
+const username = ref<string>('')
+const password = ref<string>('')
+const loginError = ref<string>()
 
 const handleLogin = async () => {
   try {
-    const response = await fetch('/api/login', {
+    const response = await fetch('http://localhost:3001/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ username: username.value, password: password.value }),
-    });
+      body: JSON.stringify({ 
+        username: username.value, 
+        password: password.value 
+      }),
+    })
 
     if (!response.ok) {
-      // Handle server response errors
-      throw new Error('Network response was not ok');
+      const errorData = await response.json()
+      throw new Error(errorData.message || 'Login failed')
     }
 
-    const data = await response.json(); // Parse the JSON response
+    const { isAuthenticated, token, role } = await response.json()
 
-    // Set login status based on authentication result
-    loginStatus.value = data.isAuthenticated ? 'Logged in' : 'Invalid Credentials';
+    if (isAuthenticated) {
+      localStorage.setItem('token', token)
+      localStorage.setItem('userRole', role)
 
-    if (data.isAuthenticated) {
-      // Store the JWT token in localStorage
-      localStorage.setItem('token', data.token);
-      
-      // Redirect to home if authenticated
-      router.push('/home');
-      console.log(data.token);
-    } else {
-      // Use window.alert instead of alert
-      alert("Invalid Credentials");
+      loginError.value = undefined
+      router.push('/home')
     }
-  } catch (error: unknown) { // Explicitly set error type to unknown
-    console.error('Error during login:', error);
-    // Provide a more specific error handling based on error type
-    if (error instanceof Error) {
-      loginStatus.value = 'An error occurred: ' + error.message; // Provide error message to user
-    } else {
-      loginStatus.value = 'An unknown error occurred';
-    }
+  } catch (error) {
+    loginError.value = error instanceof Error ? error.message : 'An unexpected error occurred'
+    password.value = ''
   }
-};
+}
 </script>
 
 <template>

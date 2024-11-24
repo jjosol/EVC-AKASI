@@ -1,4 +1,4 @@
-import { defineNuxtPlugin } from '#app';
+import { defineNuxtPlugin } from 'nuxt/app';
 import { Icon } from '@iconify/vue';
 
 export default defineNuxtPlugin(nuxtApp => {
