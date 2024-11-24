@@ -1,39 +1,28 @@
 <template>
-  <NuxtPage />
+  <NuxtPage/>
 </template>
 
-<script setup lang="ts">
-import { jwtDecode } from 'jwt-decode'; // Correct import
-import { useRouter } from 'vue-router';
-import { onMounted } from 'vue'; // Import onMounted lifecycle hook
+<script setup>
+// Create a reactive variable to store the list of admins
+const admins = ref([])
 
-const router = useRouter();
-
-// Function to check if the token is expired
-function checkTokenExpiration() {
-  const token = localStorage.getItem('token');
-  if (!token) {
-    router.push('/login'); // Redirect if no token
-    return;
-  }
-
+// Fetch the admins from the backend API
+const fetchAdmins = async () => {
   try {
-    const decoded = jwtDecode<any>(token); // Decode token
-    const currentTime = Date.now() / 1000;
-
-    if (decoded.exp && decoded.exp < currentTime) {
-      localStorage.removeItem('token');
-      router.push('/login'); // Redirect if token expired
+    const response = await fetch('http://localhost:3001/admins')  // Make sure the URL matches your NestJS API
+    if (response.ok) {
+      admins.value = await response.json()
+      console.log(admins.value)
+    } else {
+      console.error('Failed to fetch admins:', response.statusText)
     }
   } catch (error) {
-    console.error('Error decoding token:', error);
-    router.push('/login');
+    console.error('Error fetching admins:', error)
   }
 }
 
-// Ensure this is run only on the client side
+// Fetch the data when the component is mounted
 onMounted(() => {
-  checkTokenExpiration(); // Initial check
-  setInterval(checkTokenExpiration, 30000); // Check every 30 seconds
-});
+  fetchAdmins()
+})
 </script>

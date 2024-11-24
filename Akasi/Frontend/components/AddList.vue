@@ -15,8 +15,21 @@ const showMedicineModal = ref(false);
 const showMedicineDetailModal = ref(false);
 const medicinesVisible = ref(true);
 
-// Selected person and date/time
+// Selected person and record
 const selectedPerson = ref(null);
+const selectedConsultationRecord = ref(null); // Add this line to fix the error
+
+const currentDateTime = computed(() => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+});
+// Selected date/time
 const selectedDate = computed(() => {
   const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
   const dayOptions = { weekday: 'long' };
@@ -39,33 +52,65 @@ const people = ref([]);
 const allPeople = ref([]);
 const patients = ref([]);
 
+const updateConsultationRecord = async (consultation_id, person) => {
+  try {
+    const response = await fetch(`http://localhost:3001/consultation-records/${consultation_id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        client_id: person.clientId,
+        admin_id: 1, // Replace with actual admin_id
+        date: currentDateTime.value,
+        patient_name: person.name,
+        patient_occupation: person.occupation || `${person.grade}-${person.section}`, // Use existing occupation or construct from grade-section
+        doctor: 'John Doe',
+        complaint: person.generalComplaint || '',
+        remarks: person.remarks || '',
+        confined: person.confined || false,
+        medAdministration: person.medicationAdministration || false,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update consultation record');
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error updating consultation record:', error);
+    throw error;
+  }
+};
+
 // consultation post api
 const createConsultationRecord = async (person) => {
   try {
-    const response = await fetch('/api/postConsultationRecords', {
+    const response = await fetch('http://localhost:3001/consultation-records', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        client_id: person.clientId, // Assuming this exists in your person object
-        admin_id: 1, // You'll need to get this from your auth system
-        date: props.currentDay.date,
+        client_id: person.clientId,
+        admin_id: 1, // Replace with actual admin_id
+        date: currentDateTime.value, // Now using the computed value
         patient_name: person.name,
-        patient_occupation: String(person.grade+'-'+person.section),
-        doctor: "John Doe", // This should come from your auth system
+        patient_occupation: `${person.grade}-${person.section}`,
+        doctor: 'John Doe',
         complaint: person.generalComplaint || '',
         remarks: person.remarks || '',
         confined: person.confined || false,
-        medAdministration: person.medicationAdministration || false
-      })
+        medAdministration: person.medicationAdministration || false,
+      }),
     });
 
     if (!response.ok) {
       throw new Error('Failed to create consultation record');
     }
-    alert("da")
-    console.log(person.grade)
+
     const data = await response.json();
     return data;
   } catch (error) {
@@ -73,17 +118,16 @@ const createConsultationRecord = async (person) => {
     throw error;
   }
 };
-
 // get clients api
 const fetchPeople = async () => {
   try {
-    const response = await fetch('/api/getClients');
+    const response = await fetch('http://localhost:3001/clients');
     if (!response.ok) {
-      throw new Error('Failed to fetch people');
+      throw new Error(`Error: ${response.status} - ${response.statusText}`);
     }
     const data = await response.json();
     allPeople.value = data.map((client) => ({
-      clientId: client.client_id, // Make sure to include this for API calls
+      clientId: client.client_id,
       name: client.name,
       section: client.section || 'N/A',
       grade: client.grade || 'N/A',
@@ -91,62 +135,70 @@ const fetchPeople = async () => {
       sex: client.sex || 'N/A',
     }));
   } catch (error) {
-    console.error('Error fetching people:', error);
+    console.error('Error fetching people:', error.message);
   }
 };
 
 const fetchPatients = async () => {
   try {
-    const response = await fetch('/api/getPatients');
+    const response = await fetch('http://localhost:3001/consultation-records');
     if (!response.ok) {
-      throw new Error('Failed to fetch patients');
+      throw new Error('Failed to fetch consultation records');
     }
     const data = await response.json();
-    patients.value = data.map((patient) => ({
-      consultationId: patient.consultation_id,
-      name: patient.patient_name,
-      occupation:patient.patient_occupation,
-      time: new Date(patient.date).toLocaleTimeString('en-US', { 
-          timeZone: 'Asia/Manila',
-          hour12: true,
-          hour: '2-digit',
-          minute: '2-digit'
-      })
 
+    patients.value = data.map((record) => ({
+      id: record.client_id,
+      consultation_id: record.consultation_id,
+      name: record.patient_name,
+      occupation: record.patient_occupation || 'N/A',
+      time: new Date(record.date).toLocaleTimeString('en-US', {
+        timeZone: 'Asia/Manila',
+        hour12: true,
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      complaint: record.complaint,
+      remarks: record.remarks,
+      confined: record.confined,
+      medAdministration: record.medAdministration,
     }));
   } catch (error) {
-    console.error('Error fetching people:', error);
+    console.error('Error fetching patients:', error.message);
   }
-}
+};
 
 // Save person
 const savePerson = async () => {
   try {
-    // Create consultation record --> to consultation api function
-    const consultationData = await createConsultationRecord(selectedPerson.value);
-    
-    // Update timestamp
-    const now = new Date();
-    selectedPerson.value.addedAt = now;
-    
-    // Update or add person to the people array
-    const index = people.value.findIndex(p => p.name === selectedPerson.value.name);
-    if (index !== -1) {
-      people.value[index] = { ...selectedPerson.value };
+    if (selectedConsultationRecord.value) {
+      // Update existing consultation record
+      await updateConsultationRecord(
+        selectedConsultationRecord.value.consultation_id,
+        selectedPerson.value
+      );
     } else {
-      people.value.push({ ...selectedPerson.value });
+      // Create new consultation record
+      await createConsultationRecord(selectedPerson.value);
     }
+    
+    // Refresh the lists
+    await fetchPatients();
+    await fetchPeople();
     
     // Close modals
     showEditModal.value = false;
     showAddModal.value = false;
     
-  
+    // Reset selected records
+    selectedPerson.value = null;
+    selectedConsultationRecord.value = null;
   } catch (error) {
     console.error('Error saving data:', error);
     alert('Failed to save data');
   }
 };
+
 
 // fetch data when mounted
 onMounted(() => {
@@ -181,14 +233,53 @@ const filteredMedicines = computed(() => {
   );
 });
 
-
+const fetchConsultationRecord = async (consultation_id) => {
+  try {
+    const response = await fetch(`http://localhost:3001/consultation-records/${consultation_id}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch consultation record`);
+    }
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching consultation record:', error);
+    throw error;
+  }
+};
 
 // Rest of your existing methods...
-const openEditModal = (person) => {
-  selectedPerson.value = { ...person };
-  selectedTime.value = formatAMPM(new Date(person.addedAt));
-  showEditModal.value = true;
+const openEditModal = async (patient) => {
+  try {
+    const consultationRecord = await fetchConsultationRecord(patient.consultation_id);
+    selectedConsultationRecord.value = consultationRecord;
+    
+    // Parse the occupation into grade and section
+    const [grade, section] = patient.occupation.split('-');
+    
+    selectedPerson.value = {
+      ...patient,
+      clientId: consultationRecord.client_id,
+      generalComplaint: consultationRecord.complaint,
+      remarks: consultationRecord.remarks,
+      confined: consultationRecord.confined,
+      medicationAdministration: consultationRecord.medAdministration,
+      grade: grade || 'N/A',
+      section: section || 'N/A',
+      occupation: patient.occupation // Keep the original occupation
+    };
+    
+    selectedTime.value = new Date(consultationRecord.date).toLocaleTimeString('en-US', {
+      hour12: true,
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    showEditModal.value = true;
+  } catch (error) {
+    console.error('Error opening edit modal:', error);
+    alert('Failed to load consultation record');
+  }
 };
+
 
 const addPerson = (person) => {
   const now = new Date();
@@ -313,8 +404,7 @@ watch(
   }
 );
 
-console.log(selectedDate.value)
-console.log(patients.value)
+
 </script>
 
 <template>
@@ -357,9 +447,9 @@ console.log(patients.value)
       <ul class="mt-4 overflow-y-auto max-h-60">
         <li v-for="(patient, index) in patients" :key="patient.consultationId" class="flex items-center justify-between mb-2 text-lg confinement-item text-[#2f4a71]">
           <span @click="openEditModal(patient)" class="cursor-pointer confinement-details">
-            {{ patient.name }} - {{ patient.occupation }} - {{ patient.time }}
+            {{ patient.name }} - {{ patient.occupation }} - {{ patient.time }} 
           </span>
-          <button @click="deletePerson(index)" class="p-2 text-white bg-red-500 rounded">
+          <button @click="deletePerson(index)" class="p-1 text-white bg-red-500 rounded ">
             <Icon icon="fluent:delete-28-regular" />
           </button>
         </li>
@@ -398,7 +488,7 @@ console.log(patients.value)
               <!-- Date -->
               <div class="mb-4">
                 <label for="date" class="block text-sm font-semibold text-gray-600">Date</label>
-                <input type="text" :value="selectedDate.monthYear" id="date" disabled
+                <input type="text" :value="selectedDate.monthyear" id="date" disabled
                   class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
               </div>
 
