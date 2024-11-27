@@ -1,5 +1,5 @@
 // consultation-records.controller.ts
-import { Body, Controller, Post, Get, Put, Param, ParseIntPipe, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Post, Get, Put, Delete, Param, ParseIntPipe, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ConsultationRecordsService } from './consultation-records.service';
 
 @Controller('consultation-records')
@@ -82,6 +82,11 @@ export class ConsultationRecordsController {
       throw new BadRequestException(error.message);
     }
   }
+  
+  @Get('count')
+  async getConsultationRecordsCount() {
+    return this.service.countConsultationRecords();
+  }
 
   // GET request to retrieve a single consultation record
   @Get(':id')
@@ -93,6 +98,26 @@ export class ConsultationRecordsController {
       }
       return record;
     } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(error.message);
+    }
+  }
+  @Delete(':id/delete')
+  async deleteConsultationRecord(@Param('id', ParseIntPipe) consultation_id: number) {
+    try {
+      console.log(`Received DELETE request for ID: ${consultation_id}`); // Debug log
+
+      const existingRecord = await this.service.getConsultationRecord(consultation_id);
+      if (!existingRecord) {
+        throw new NotFoundException(`Consultation record with ID ${consultation_id} not found`);
+      }
+
+      await this.service.deleteConsultationRecord(consultation_id);
+      return { message: `Consultation record with ID ${consultation_id} has been deleted` };
+    } catch (error) {
+      console.error('Delete consultation error:', error);
       if (error instanceof NotFoundException) {
         throw error;
       }

@@ -40,7 +40,7 @@ const selectedDate = computed(() => {
 
   return { day, monthYear, date };
 });
-
+const confinedCount = ref(0);
 const selectedTime = ref(formatAMPM(new Date()));
 
 // Search queries
@@ -54,6 +54,9 @@ const patients = ref([]);
 
 const updateConsultationRecord = async (consultation_id, person) => {
   try {
+    // First, fetch the existing record to get the original date
+    const existingRecord = await fetchConsultationRecord(consultation_id);
+
     const response = await fetch(`http://localhost:3001/consultation-records/${consultation_id}`, {
       method: 'PUT',
       headers: {
@@ -62,9 +65,9 @@ const updateConsultationRecord = async (consultation_id, person) => {
       body: JSON.stringify({
         client_id: person.clientId,
         admin_id: 1, // Replace with actual admin_id
-        date: currentDateTime.value,
+        date: existingRecord.date, // Use the original date and time
         patient_name: person.name,
-        patient_occupation: person.occupation || `${person.grade}-${person.section}`, // Use existing occupation or construct from grade-section
+        patient_occupation: person.occupation || `${person.grade}-${person.section}`,
         doctor: 'John Doe',
         complaint: person.generalComplaint || '',
         remarks: person.remarks || '',
@@ -88,6 +91,13 @@ const updateConsultationRecord = async (consultation_id, person) => {
 // consultation post api
 const createConsultationRecord = async (person) => {
   try {
+    // Create a datetime string using the selected date and current time
+    const selectedDateTime = new Date(props.currentDay.date);
+    const now = new Date();
+    selectedDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+    
+    const formattedDateTime = `${selectedDateTime.getFullYear()}-${String(selectedDateTime.getMonth() + 1).padStart(2, '0')}-${String(selectedDateTime.getDate()).padStart(2, '0')} ${String(selectedDateTime.getHours()).padStart(2, '0')}:${String(selectedDateTime.getMinutes()).padStart(2, '0')}:${String(selectedDateTime.getSeconds()).padStart(2, '0')}`;
+
     const response = await fetch('http://localhost:3001/consultation-records', {
       method: 'POST',
       headers: {
@@ -96,7 +106,7 @@ const createConsultationRecord = async (person) => {
       body: JSON.stringify({
         client_id: person.clientId,
         admin_id: 1, // Replace with actual admin_id
-        date: currentDateTime.value, // Now using the computed value
+        date: formattedDateTime, // Now using the selected date with current time
         patient_name: person.name,
         patient_occupation: `${person.grade}-${person.section}`,
         doctor: 'John Doe',
@@ -147,27 +157,55 @@ const fetchPatients = async () => {
     }
     const data = await response.json();
 
-    patients.value = data.map((record) => ({
-      id: record.client_id,
-      consultation_id: record.consultation_id,
-      name: record.patient_name,
-      occupation: record.patient_occupation || 'N/A',
-      time: new Date(record.date).toLocaleTimeString('en-US', {
-        timeZone: 'Asia/Manila',
-        hour12: true,
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      complaint: record.complaint,
-      remarks: record.remarks,
-      confined: record.confined,
-      medAdministration: record.medAdministration,
-    }));
+    // Filter patients based on the selected date
+    patients.value = data
+      .filter(record => {
+        const recordDate = new Date(record.date);
+        const selectedDateObj = new Date(props.currentDay.date);
+        
+        return recordDate.getFullYear() === selectedDateObj.getFullYear() &&
+               recordDate.getMonth() === selectedDateObj.getMonth() &&
+               recordDate.getDate() === selectedDateObj.getDate();
+      })
+      .map((record) => ({
+        id: record.client_id,
+        consultation_id: record.consultation_id,
+        name: record.patient_name,
+        occupation: record.patient_occupation || 'N/A',
+        time: new Date(record.date).toLocaleTimeString('en-US', {
+          timeZone: 'Asia/Manila',
+          hour12: true,
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        complaint: record.complaint,
+        remarks: record.remarks,
+        confined: record.confined,
+        medAdministration: record.medAdministration,
+      }));
   } catch (error) {
     console.error('Error fetching patients:', error.message);
   }
 };
 
+const fetchRecordCount = async () => {
+  try {
+    const response = await fetch('http://localhost:3001/consultation-records/count');
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status} - ${response.statusText}`);
+    }
+    const count = await response.json();
+    confinedCount.value = count;
+    emit('update-confined', confinedCount.value);
+    console.log(confinedCount.value); // Update the confined count
+  } catch (error) {
+    console.error('Failed to fetch confined count:', error);
+  }
+};
+// Watch for changes in the currentDay prop
+watch(() => props.currentDay, () => {
+  fetchPatients();
+}, { immediate: true });
 // Save person
 const savePerson = async () => {
   try {
@@ -185,6 +223,7 @@ const savePerson = async () => {
     // Refresh the lists
     await fetchPatients();
     await fetchPeople();
+    await fetchRecordCount()
     
     // Close modals
     showEditModal.value = false;
@@ -204,6 +243,7 @@ const savePerson = async () => {
 onMounted(() => {
   fetchPeople();
   fetchPatients();
+  fetchRecordCount()
 });
 console.log(patients)
 // Initialize values for meds list
@@ -277,6 +317,20 @@ const openEditModal = async (patient) => {
   } catch (error) {
     console.error('Error opening edit modal:', error);
     alert('Failed to load consultation record');
+  }
+};
+const deleteConsultationRecord = async (consultation_id) => {
+  try {
+    const response = await fetch(`http://localhost:3001/consultation-records/${consultation_id}/delete`, {
+      method: 'DELETE',
+    });
+    if(!response.ok){
+      throw new Error('Failed to delete consultation record ${consultation_id}');
+    }
+    await fetchPatients();
+  } catch (error) {
+    console.error('Error deleting consultation record:', error);
+    alert('Failed to delete consultation record');
   }
 };
 
@@ -386,11 +440,8 @@ const selectedMedicine = ref({
   startDate: '',
   endDate: ''
 });
-const emit = defineEmits(['confined']);
+const emit = defineEmits(['confined', 'update-confined']);
 
-const confinedPeople = () => {
-  emit('confined', people.value.length);
-};
 
 // To make sure that if meds is false all meds in list would be removed
 
@@ -449,7 +500,7 @@ watch(
           <span @click="openEditModal(patient)" class="cursor-pointer confinement-details">
             {{ patient.name }} - {{ patient.occupation }} - {{ patient.time }} 
           </span>
-          <button @click="deletePerson(index)" class="p-1 text-white bg-red-500 rounded ">
+          <button @click="deleteConsultationRecord(patient.consultation_id)" class="p-1 .text-white bg-red-500 rounded ">
             <Icon icon="fluent:delete-28-regular" />
           </button>
         </li>

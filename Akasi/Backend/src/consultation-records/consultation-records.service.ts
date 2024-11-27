@@ -80,4 +80,22 @@ export class ConsultationRecordsService {
       throw new Error(`Error fetching consultation record: ${error.message}`);
     }
   }
+  async countConsultationRecords() {
+    try {
+      const count = await this.prisma.consultation_records.count();
+      return count;
+
+    } catch (error) {
+      throw new Error(`Error counting consultation records: ${error.message}`);
+    }
+  }
+  async deleteConsultationRecord(consultation_id: number) {
+    try {
+      await this.prisma.consultation_records.delete({
+        where: { consultation_id },
+      });
+    } catch (error) {
+      throw new Error(`Error deleting consultation record: ${error.message}`);
+    }
+  }
 }
