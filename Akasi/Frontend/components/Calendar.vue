@@ -9,7 +9,7 @@ const months = [
   "July", "August", "September", "October", "November", "December"
 ];
 const calendar = ref([]);
-
+const confinedCount = ref(0); // Reactive property for confined count*/
 // Creates calendar
 const updateCalendar = () => {
   const firstDayOfMonth = moment.tz({ year: selectedYear.value, month: selectedMonth.value, day: 1 }, "Asia/Manila");
@@ -39,6 +39,12 @@ const updateCalendar = () => {
 
 // For connecting the list and calendar
 const emit = defineEmits(['day-selected']);
+defineProps({
+  updateConfined: {
+    type: Number,
+    default: 0
+  }
+})
 const openAddingList = (day) => {
   if (day.date) {
     selectedDate.value = day.date; // Update the selected date
@@ -65,17 +71,12 @@ const isSelected = (date) => {
     dayDate.date() === selected.date() && dayDate.month() === selected.month() && dayDate.year() === selected.year()
   );
 };
-const props = defineProps({
-  updateConfined: {
-    type: Number,
-    default: 0
-  }
-});
-const confinedCount = computed(() => props.updateConfined);
+
 
 // To make sure that everything is rendered first before creating the calendar
 onMounted(() => {
   updateCalendar();
+
 });
 </script>
 
@@ -126,7 +127,7 @@ onMounted(() => {
         </tr>
       </tbody>
     </table>
-    <div class="text-[#2f4a71] text-xl"><h1 class="font-bold">Total Confined in {{months[selectedMonth] }} {{ selectedYear }}: </h1></div>
+    <div class="text-[#2f4a71] text-xl"><h1 class="font-bold">Total Confined in {{months[selectedMonth] }} {{ selectedYear }}: {{ updateConfined }} </h1></div>
   </div>
 </template>
 <style scoped>
