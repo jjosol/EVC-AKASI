@@ -190,7 +190,9 @@ const fetchPatients = async () => {
 
 const fetchRecordCount = async () => {
   try {
-    const response = await fetch('http://localhost:3001/consultation-records/count');
+    const year = props.currentDay.date.getFullYear();
+    const month = props.currentDay.date.getMonth();
+    const response = await fetch(`http://localhost:3001/consultation-records/count?year=${year}&month=${month}`);
     if (!response.ok) {
       throw new Error(`Error: ${response.status} - ${response.statusText}`);
     }
@@ -206,6 +208,18 @@ const fetchRecordCount = async () => {
 watch(() => props.currentDay, () => {
   fetchPatients();
 }, { immediate: true });
+
+watch(
+  () => [
+    props.currentDay.date?.getFullYear(),
+    props.currentDay.date?.getMonth()
+  ],
+  () => {
+    fetchRecordCount();
+  },
+  { immediate: true }
+);
+
 // Save person
 const savePerson = async () => {
   try {

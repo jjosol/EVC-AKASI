@@ -23,7 +23,7 @@ model HSU_bulletin {
   admin_id Int
   username String @db.VarChar(225)
   caption  String @db.VarChar(500)
-  file     Bytes? @db.Blob
+  file     String? @db.Text
   post_id  Int    @id @unique(map: "post_id") @default(autoincrement())
   admin    admin  @relation(fields: [admin_id, username], references: [admin_id, username], onDelete: NoAction, onUpdate: NoAction, map: "FK_admin_TO_HSU_bulletin")
 

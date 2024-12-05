@@ -1,28 +1,44 @@
 <script setup>
-const items = ref([
-  { id: 1, name: 'Lorem ipsum', expirationDate: 'April 18, 2024', count: 100 },
-  { id: 2, name: 'Lorem ipsum', expirationDate: 'April 18, 2024', count: 100 },
-  { id: 3, name: 'Lorem ipsum', expirationDate: 'April 18, 2024', count: 100 },
-  { id: 4, name: 'Lorem ipsum', expirationDate: 'May 23, 2024', count: 100 },
-  { id: 5, name: 'Lorem ipsum', expirationDate: 'May 23, 2024', count: 100 },
-  { id: 6, name: 'Lorem ipsum', expirationDate: 'May 23, 2024', count: 100 },
-  { id: 7, name: 'Lorem ipsum', expirationDate: 'September 2, 2024', count: 100 },
-  { id: 8, name: 'Lorem ipsum', expirationDate: 'September 2, 2024', count: 100 },
-  { id: 9, name: 'Lorem ipsum', expirationDate: 'September 2, 2024', count: 100 },
-]);
-
+const items = ref([]);
+const expandedItems = ref(new Set());
 const searchQuery = ref('');
 const isModalOpen = ref(false);
 
-const filteredItems = computed(() => {
-  if (!searchQuery.value) return items.value;
-  return items.value.filter(item =>
-    item.name.toLowerCase().includes(searchQuery.value.toLowerCase())
-  );
+// Group items by medicine name
+const groupedItems = computed(() => {
+  const groups = {};
+  items.value.forEach(item => {
+    if (!groups[item.name]) {
+      groups[item.name] = [];
+    }
+    groups[item.name].push(item);
+  });
+  return groups;
 });
 
+const filteredItems = computed(() => {
+  if (!searchQuery.value) return groupedItems.value;
+  const filtered = {};
+  Object.entries(groupedItems.value).forEach(([name, items]) => {
+    if (name.toLowerCase().includes(searchQuery.value.toLowerCase())) {
+      filtered[name] = items;
+    }
+  });
+  return filtered;
+});
+
+const emit = defineEmits(['openModal', 'editModal'])
+
 const openModal = () => {
-  isModalOpen.value = true;
+  emit('openModal')
+}
+
+const toggleExpand = (name) => {
+  if (expandedItems.value.has(name)) {
+    expandedItems.value.delete(name);
+  } else {
+    expandedItems.value.add(name);
+  }
 };
 
 const handleAddItem = (newItem) => {
@@ -32,6 +48,57 @@ const handleAddItem = (newItem) => {
   });
   isModalOpen.value = false;
 };
+
+// Format the date to YYYY-MM-DD
+const formatDate = (dateString) => {
+  return new Date(dateString).toISOString().split('T')[0];
+};
+
+// Update the fetch function
+const fetchInventory = async () => {
+  const response = await fetch('http://localhost:3001/inventory');
+  if (response.ok) {
+    const data = await response.json();
+    items.value = data.map(item => ({
+      med_id: item.med_id,
+      name: item.medName,
+      expirationDate: formatDate(item.expiration),
+      count: item.count
+    }));
+  }
+};
+
+const refreshInventory = async () => {
+  await fetchInventory();
+};
+
+const deleteItem = async (item) => {
+  if (confirm('Are you sure you want to delete this item?')) {
+    try {
+      const response = await fetch(
+        `http://localhost:3001/inventory/${item.med_id}/${item.name}`, 
+        {
+          method: 'DELETE'
+        }
+      );
+      
+      if (response.ok) {
+        await refreshInventory();
+      } else {
+        throw new Error('Failed to delete item');
+      }
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      alert('Failed to delete item');
+    }
+  }
+};
+
+defineExpose({ refreshInventory });
+
+onMounted(() => {
+  fetchInventory();
+});
 </script>
 
 <template>
@@ -61,22 +128,64 @@ const handleAddItem = (newItem) => {
       <table class="min-w-full table-auto">
         <thead class="bg-gray-50">
           <tr>
-            <th class="px-6 py-2 text-sm font-medium text-left text-gray-700">Name</th>
-            <th class="px-6 py-2 text-sm font-medium text-left text-gray-700">Expiration Date</th>
-            <th class="px-6 py-2 text-sm font-medium text-left text-gray-700">Count</th>
+            <th class="px-6 py-2 text-sm font-medium text-left text-gray-700">Medicine Name</th>
+            <th class="px-6 py-2 text-sm font-medium text-left text-gray-700">Total Count</th>
+            <th class="px-6 py-2 text-sm font-medium text-left text-gray-700">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-200">
-          <tr v-for="item in filteredItems" :key="item.id">
-            <td class="px-6 py-4 text-sm text-gray-900">{{ item.name }}</td>
-            <td class="px-6 py-4 text-sm text-gray-900">{{ item.expirationDate }}</td>
-            <td class="px-6 py-4 text-sm text-gray-900">{{ item.count }}</td>
-          </tr>
+          <template v-for="(medicines, name) in filteredItems" :key="name">
+            <!-- Main row -->
+            <tr class="bg-white">
+              <td class="px-6 py-4 text-sm text-gray-900">
+                <button @click="toggleExpand(name)" class="flex items-center">
+                  <Icon 
+                    :icon="expandedItems.has(name) ? 'mdi:chevron-down' : 'mdi:chevron-right'" 
+                    class="mr-2"
+                  />
+                  {{ name }}
+                </button>
+              </td>
+              <td class="px-6 py-4 text-sm text-gray-900">
+                {{ medicines.reduce((sum, med) => sum + med.count, 0) }}
+              </td>
+              <td class="px-6 py-4 text-sm text-gray-900">
+                <button 
+                  @click="openModal"
+                  class="px-3 py-1 text-white bg-blue-500 rounded hover:bg-blue-600"
+                >
+                  Add New Batch
+                </button>
+              </td>
+            </tr>
+            <!-- Expanded details -->
+            <tr v-if="expandedItems.has(name)" v-for="item in medicines" :key="item.med_id">
+              <td colspan="3" class="px-6 py-2 bg-gray-50">
+                <div class="flex items-center justify-between pl-6">
+                  <div>
+                    <span class="mr-4">Exp: {{ item.expirationDate }}</span>
+                    <span>Count: {{ item.count }}</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <button 
+                      @click="$emit('editModal', item)"
+                      class="px-2 py-1 text-white bg-blue-500 rounded hover:bg-blue-600"
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      @click="deleteItem(item)"
+                      class="px-2 py-1 text-white bg-red-500 rounded hover:bg-red-600"
+                    >
+                      <Icon icon="fluent:delete-28-regular" />
+                    </button>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </template>
         </tbody>
       </table>
     </div>
-
-    <!-- Add New Item Modal Component -->
-    <AddNewItemModal :isOpen="isModalOpen" @addItem="handleAddItem" @closeModal="closeModal" />
   </div>
 </template>

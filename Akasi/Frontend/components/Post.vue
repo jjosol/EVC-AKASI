@@ -1,26 +1,34 @@
 <script setup>
+// Define props with default values
 const props = defineProps({
   post: {
     type: Object,
-    required: true
+    default: () => ({
+      text: '',
+      mediaFiles: []
+    })
   }
-});
-//events to be used in Bulletin.vue
+})
+
+// Or if using data directly
+const post = ref({
+  text: '',
+  mediaFiles: []
+})
+
 const emit = defineEmits(['delete-post', 'edit-post']);
 
-//to delete post
 function deletePost() {
-  emit('delete-post', props.post.id);
+  emit('delete-post', props.post.post_id);
 }
-//to edit post
+
 function editPost() {
   emit('edit-post', props.post);
 }
 </script>
 
 <template>
-  <div class="p-4 bg-white rounded-lg">
-    <!-- Profile section -->
+  <div class="p-4 bg-white rounded-lg shadow">
     <div class="flex items-center mb-4">
       <PisayLogo alt="Avatar" class="w-20 h-20 rounded-full" />
       <div>
@@ -36,19 +44,32 @@ function editPost() {
       </button>
     </div>
 
-    <!-- Post content -->
-    <p class="mb-4 text-gray-700">{{ post.text }}</p>
+    <p class="mb-4 text-gray-700">{{ post?.text }}</p>
 
-    <!-- Media section -->
-    <div v-if="post.mediaFiles.length" class="mb-4 overflow-hidden rounded-lg">
-      <img v-if="post.mediaFiles[0].type === 'image'" :src="post.mediaFiles[0].src || post.mediaFiles[0].preview" alt="Post image" class="w-full rounded-lg" />
-      <video v-if="post.mediaFiles[0].type === 'video'" controls :src="post.mediaFiles[0].src || post.mediaFiles[0].preview" class="w-full rounded-lg"></video>
-      <a v-if="post.mediaFiles[0].type === 'file'" :href="post.mediaFiles[0].src || post.mediaFiles[0].preview" target="_blank" class="text-blue-500 underline">{{ post.mediaFiles[0].name }}</a>
+    <div v-if="post?.mediaFiles?.length > 0" class="mb-4">
+      <img 
+        v-if="post.mediaFiles[0]?.type === 'image'" 
+        :src="post.mediaFiles[0]?.src || post.mediaFiles[0]?.preview" 
+        alt="Post image" 
+        class="w-full rounded-lg" 
+      />
+      <video 
+        v-if="post.mediaFiles[0]?.type === 'video'" 
+        controls 
+        :src="post.mediaFiles[0]?.src || post.mediaFiles[0]?.preview" 
+        class="w-full rounded-lg"
+      ></video>
+      <a 
+        v-if="post.mediaFiles[0]?.type === 'file'" 
+        :href="post.mediaFiles[0]?.src || post.mediaFiles[0]?.preview" 
+        target="_blank" 
+        class="text-blue-500 underline"
+      >
+        {{ post.mediaFiles[0]?.name }}
+      </a>
     </div>
 
-    <!-- Buttons for editing and deleting -->
     <div class="flex justify-end space-x-2">
-      <!-- <button @click="editPost" class="px-4 py-2 text-white bg-yellow-500 rounded-lg">Edit</button> -->
       <button @click="deletePost" class="px-4 py-2 text-white bg-red-500 rounded-lg">Delete</button>
     </div>
   </div>

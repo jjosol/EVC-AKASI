@@ -1,49 +1,51 @@
 <script setup>
-//post as a whole
+import { ref, onMounted } from 'vue';
+
 const posts = ref([]);
-//for the postmodal
 const isModalVisible = ref(false);
-//for the post modal
 const currentPost = ref(null);
 
-//to replace the old post with the new when editing
+onMounted(async () => {
+  const response = await fetch('http://localhost:3001/posts');
+  posts.value = await response.json();
+});
+
 function addPost(newPost) {
-  //if updating
   if (currentPost.value) {
-    const index = posts.value.findIndex(post => post.id === newPost.id);
+    const index = posts.value.findIndex(post => post.post_id === newPost.post_id);
     if (index !== -1) {
       posts.value[index] = newPost;
     }
-  } 
-  //if new post
-  else {
-    posts.value.push({ ...newPost, id: Date.now() });
+  } else {
+    posts.value.push(newPost);
   }
   closeModal();
 }
 
-//remove post
-function deletePost(id) {
-  posts.value = posts.value.filter(post => post.id !== id);
+async function deletePost(id) {
+  await fetch(`http://localhost:3001/posts/${id}`, {
+    method: 'DELETE'
+  });
+  posts.value = posts.value.filter(post => post.post_id !== id);
 }
 
-//to open the edit modal
 function openEditModal(post) {
   currentPost.value = { ...post };
   isModalVisible.value = true;
 }
-// to open the new post modal
+
 function openCreateModal() {
   currentPost.value = null;
   isModalVisible.value = true;
 }
-//close modal (edit and post)
+
 function closeModal() {
   currentPost.value = null;
   isModalVisible.value = false;
 }
+
 definePageMeta({
-  middleware: 'auth', // Reference your middleware here
+  middleware: 'auth',
 });
 </script>
 
@@ -62,9 +64,9 @@ definePageMeta({
       <br>
       <br>
       <div>
-        <PostModal v-if="isModalVisible" :post="currentPost" @add-post="addPost" @close="closeModal" /> <!--prop:post; emit: addPost, closeModal -->
-        <div v-for="post in posts" :key="post.id" class="p-5 mt-5 bg-white rounded shadow">
-          <Post :post="post" @delete-post="deletePost" @edit-post="openEditModal" /> <!--prop:post; emit: deletePost, openEditModal-->
+        <PostModal v-if="isModalVisible" :post="currentPost" @add-post="addPost" @close="closeModal" />
+        <div v-for="post in posts" :key="post.post_id" class="p-5 mt-5 bg-white rounded shadow">
+          <Post :post="post" @delete-post="deletePost" @edit-post="openEditModal" />
         </div>
       </div>
     </div>

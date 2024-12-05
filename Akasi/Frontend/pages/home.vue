@@ -11,16 +11,20 @@ const handleDaySelected = (day) => {
 const updateConfinedCount = (value) => {
   confinedCount.value = value;
 };
-console.log("HEY")
-console.log(confinedCount.value)
+
+const handleUpdateDate = ({ year, month }) => {
+  currentDay.value.date = new Date(year, month, 1);
+  console.log(currentDay.value);
+};
+
 definePageMeta({
   middleware: 'auth', // Reference your middleware here
 });
 </script>
 
 <template>
-    <NuxtLayout>      
-      <Calendar @day-selected="handleDaySelected" :updateConfined="confinedCount" />
-      <AddList :current-day="currentDay" @update-confined="updateConfinedCount" />
-    </NuxtLayout>
+  <NuxtLayout>
+    <Calendar @day-selected="handleDaySelected" @update-date="handleUpdateDate" :updateConfined="confinedCount" />
+    <AddList :current-day="currentDay" @update-confined="updateConfinedCount" />
+  </NuxtLayout>
 </template>
