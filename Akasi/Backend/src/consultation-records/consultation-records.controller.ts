@@ -1,5 +1,5 @@
 // consultation-records.controller.ts
-import { Body, Controller, Post, Get, Put, Delete, Param, ParseIntPipe, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Post, Get, Put, Delete, Param, ParseIntPipe, NotFoundException, BadRequestException, Query } from '@nestjs/common';
 import { ConsultationRecordsService } from './consultation-records.service';
 
 @Controller('consultation-records')
@@ -84,8 +84,8 @@ export class ConsultationRecordsController {
   }
   
   @Get('count')
-  async getConsultationRecordsCount() {
-    return this.service.countConsultationRecords();
+  async getConsultationRecordsCount(@Query('year', ParseIntPipe) year: number, @Query('month', ParseIntPipe) month: number) {
+    return this.service.countConsultationRecordsByMonth(year, month);
   }
 
   // GET request to retrieve a single consultation record

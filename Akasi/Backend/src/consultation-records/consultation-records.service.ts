@@ -80,11 +80,17 @@ export class ConsultationRecordsService {
       throw new Error(`Error fetching consultation record: ${error.message}`);
     }
   }
-  async countConsultationRecords() {
+  async countConsultationRecordsByMonth(year: number, month: number) {
     try {
-      const count = await this.prisma.consultation_records.count();
+      const count = await this.prisma.consultation_records.count({
+        where: {
+          date: {
+            gte: new Date(year, month, 1),
+            lt: new Date(year, month + 1, 1),
+          },
+        },
+      });
       return count;
-
     } catch (error) {
       throw new Error(`Error counting consultation records: ${error.message}`);
     }

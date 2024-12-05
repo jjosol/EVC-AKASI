@@ -1,11 +1,19 @@
 //app.module.ts
 import { Module } from '@nestjs/common';
 import {AdminsModule} from './admin/admins.module'
+import { PrismaModule } from './prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { ClientsModule } from './clients/clients.module';
 import { ConsultationRecordsModule } from './consultation-records/consultation-records.module';
-import { TestModule } from './test/test.module';
+// import { TestModule } from './test/test.module';
+import { PostsService } from './posts/posts.service';
+import { PostsController } from './posts/posts.controller';
+import { PostsModule } from './posts/posts.module';
+import { InventoryModule } from './inventory/inventory.module';
+
 @Module({
-  imports: [AdminsModule, AuthModule, ClientsModule, ConsultationRecordsModule, TestModule],
+  imports: [PrismaModule, AdminsModule, AuthModule, ClientsModule, ConsultationRecordsModule, PostsModule, InventoryModule],
+  providers: [PostsService],
+  controllers: [PostsController],
 })
 export class AppModule {}

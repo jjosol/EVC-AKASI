@@ -6,14 +6,10 @@ const props = defineProps({
   }
 });
 
-//text content of the post
 const localText = ref('');
-//file content of the post
 const localMediaFiles = ref([]);
-//events to be used in Bulletin.vue
 const emit = defineEmits(['add-post', 'close']);
 
-//for editing so that it shows whihc files is being edited
 watch(props.post, (newPost) => {
   if (newPost) {
     localText.value = newPost.text || '';
@@ -29,7 +25,6 @@ watch(props.post, (newPost) => {
   }
 }, { immediate: true });
 
-//handle the files upload
 function handleFileSelection(event) {
   const files = Array.from(event.target.files);
   files.forEach(file => {
@@ -45,36 +40,46 @@ function handleFileSelection(event) {
     reader.readAsDataURL(file);
   });
 }
-//remove the file
+
 function removeFile(index) {
   localMediaFiles.value.splice(index, 1);
 }
-
-//creating a new post 
-function addNewPost() {
+async function addNewPost() {
   if (localText.value || localMediaFiles.value.length) {
-    const now = new Date();
-    const date = now.toLocaleDateString();
-    const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const post = {
-      text: localText.value,
-      mediaFiles: localMediaFiles.value.map(file => ({
-        type: file.type,
-        name: file.name,
-        preview: file.preview,
-        file: file.file
-      })),
-      date,
-      time
+      admin_id: 1, // Replace with actual admin ID from auth
+      username: "admin", // Replace with actual username from auth
+      caption: localText.value,
+      file: localMediaFiles.value.length ? 
+        localMediaFiles.value.map(file => file.preview).join(',') : 
+        null
     };
-    if (props.post) {
-      Object.assign(post, { id: props.post.id });
+
+    try {
+      const url = 'http://localhost:3001/posts';
+      console.log('Sending post:', post);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(post)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.message}`);
+      }
+
+      const data = await response.json();
+      emit('add-post', data);
+      resetPost();
+    } catch (error) {
+      console.error('Error details:', error);
     }
-    emit('add-post', post);
   }
 }
-
-//reset when click close
 function resetPost() {
   localText.value = '';
   localMediaFiles.value = [];
