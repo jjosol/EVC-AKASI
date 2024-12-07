@@ -25,8 +25,12 @@ const isModalOpen = ref(false)
 const currentItem = ref(null)
 const displayInvRef = ref(null)
 
-const openModal = () => {
-  currentItem.value = null
+const openModal = (data = {}) => {
+  if (data.isNewBatch) {
+    currentItem.value = { name: data.medicineName, isNewBatch: true }
+  } else {
+    currentItem.value = null
+  }
   isModalOpen.value = true
 }
 

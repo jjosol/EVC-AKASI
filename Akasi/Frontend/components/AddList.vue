@@ -1,4 +1,5 @@
 <script setup>
+import { ref, computed, onMounted } from 'vue'
 import { formatAMPM } from '~/composables/useTimeFormatter';
 
 const props = defineProps({
@@ -7,6 +8,13 @@ const props = defineProps({
     default: () => ({ date: new Date() })
   }
 });
+
+
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  return date.toLocaleDateString();
+};
 
 // Modal states
 const showAddModal = ref(false);
@@ -251,22 +259,72 @@ const savePerson = async () => {
     alert('Failed to save data');
   }
 };
+const fetchInventory = async () => {
+  try {
+    const response = await fetch('http://localhost:3001/inventory');
+    if (!response.ok) {
+      throw new Error('Failed to fetch inventory');
+    }
+    const data = await response.json();
+    allMedicines.value = data.map(item => ({
+      med_id: item.med_id,
+      name: item.medName,
+      expirationDate: formatDate(item.expiration),
+      count: parseInt(item.count),
+      requestedQuantity: 1
+    }));
+  } catch (error) {
+    console.error('Error fetching inventory:', error);
+  }
+};
 
 
 // fetch data when mounted
 onMounted(() => {
   fetchPeople();
   fetchPatients();
-  fetchRecordCount()
+  fetchRecordCount();
+  fetchInventory(); // This should be called
 });
 console.log(patients)
 // Initialize values for meds list
-const allMedicines = ref([
-  { name: 'Paracetamol', dosages: [250, 500] },
-  { name: 'Ibuprofen', dosages: [200, 400, 600] },
-  { name: 'Aspirin', dosages: [75, 150, 300] },
-  { name: 'Amoxicillin', dosages: [250, 500, 1000] },
-]);
+const allMedicines = ref([]);
+
+// Add these with your other refs
+const expandedMedicines = ref(new Set());
+
+// Add these computed properties
+const groupedMedicines = computed(() => {
+  const groups = {};
+  allMedicines.value.forEach(item => {
+    if (!medicineSearchQuery.value || 
+        item.name.toLowerCase().includes(medicineSearchQuery.value.toLowerCase())) {
+      if (!groups[item.name]) {
+        groups[item.name] = [];
+      }
+      groups[item.name].push(item);
+    }
+  });
+
+  // Sort each group by expiration date
+  Object.keys(groups).forEach(name => {
+    groups[name].sort((a, b) => 
+      new Date(a.expirationDate) - new Date(b.expirationDate)
+    );
+  });
+
+  return groups;
+});
+
+// Add this method
+const toggleMedicineExpand = (name) => {
+  if (expandedMedicines.value.has(name)) {
+    expandedMedicines.value.delete(name);
+  } else {
+    expandedMedicines.value.add(name);
+  }
+};
+
 
 // Search functionality
 const filteredPeople = computed(() => {
@@ -279,6 +337,7 @@ const filteredPeople = computed(() => {
 });
 
 const filteredMedicines = computed(() => {
+  console.log('Current medicines:', allMedicines.value); // Add this for debugging
   if (!medicineSearchQuery.value) {
     return allMedicines.value;
   }
@@ -367,11 +426,12 @@ const deletePerson = (index) => {
 //   let minutes = date.getMinutes();
 //   let ampm = hours >= 12 ? 'PM' : 'AM';
 //   hours = hours % 12;
-//   hours = hours ? hours : 12;
+//   hours = hours ? 12 : 12;
 //   minutes = minutes < 10 ? '0' + minutes : minutes;
 //   let strTime = hours + ':' + minutes + ' ' + ampm;
 //   return strTime;
 // };
+
 
 // Save person
 // const savePerson = () => {
@@ -402,11 +462,78 @@ const openMedicineModal = () => {
 };
 
 // Add medicine
-const addMedicine = (medicine) => {
-  selectedMedicine.value = { ...medicine, dosage: null, quantity: 1, schedule: '', startDate: '', endDate: '' };
-  showMedicineDetailModal.value = true;
-  showMedicineModal.value = false;
+
+const quantity = ref(1); // Add a ref for quantity
+
+// In AddList.vue
+
+// In AddList.vue
+const addMedicine = async (medicine) => {
+  try {
+    if (!medicine?.med_id || !medicine?.requestedQuantity) {
+      throw new Error('Invalid medicine data');
+    }
+
+    const med_id = Number(medicine.med_id);
+    const requestedQty = Number(medicine.requestedQuantity);
+
+    if (requestedQty > medicine.count) {
+      throw new Error(`Only ${medicine.count} items available`);
+    }
+
+    console.log('Sending request to reduce inventory:', {
+      med_id,
+      quantity: requestedQty
+    });
+
+    const response = await fetch(`http://localhost:3001/inventory/reduce/${med_id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        quantity: requestedQty
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Failed to update inventory item:', errorText);
+      throw new Error('Failed to update inventory item');
+    }
+
+    const data = await response.json();
+    console.log('Inventory updated successfully:', data);
+    // Handle the response data
+  } catch (error) {
+    console.error('AddMedicine error:', error);
+    alert(error.message);
+  }
 };
+
+// Add validation helper
+const validateQuantity = (medicine) => {
+  const qty = Number(medicine.requestedQuantity);
+  return !isNaN(qty) && qty > 0 && qty <= medicine.count;
+};
+
+// Helper function to validate medicine data
+const validateMedicineData = (medicine) => {
+  if (!medicine?.med_id) return false;
+  if (!medicine?.requestedQuantity || medicine.requestedQuantity <= 0) return false;
+  if (medicine.requestedQuantity > medicine.count) return false;
+  return true;
+};
+
+// Computed property for medicine addition validation
+const canAddMedicine = (medicine) => {
+  if (!medicine || !medicine.med_id) return false;
+  const requestedQty = Number(medicine.requestedQuantity);
+  return !isNaN(requestedQty) && requestedQty > 0 && requestedQty <= medicine.count;
+};
+
+
+
 
 // Edit medicine
 const editMedicine = (medicine, index) => {
@@ -659,26 +786,59 @@ watch(
     <table class="w-full table-auto">
       <thead class="border-b-2 border-gray-300">
         <tr class="text-left text-gray-600">
-          <th class="pb-2">Name</th>
-          <th class="pb-2">Expiration</th>
-          <th class="pb-2">Count</th>
+          <th class="pb-2">Medicine Name</th>
+          <th class="pb-2">Total Count</th>
+          <th class="pb-2">Actions</th>
         </tr>
       </thead>
       <tbody class="text-gray-700">
-        <tr
-          v-for="medicine in filteredMedicines"
-          :key="medicine.id"
-          class="border-b border-gray-200 hover:bg-gray-100"
-        >
-          <td class="py-2">{{ medicine.name }}</td>
-          <td class="py-2">{{medicine.expirationDate }}</td>
-          <td class="flex items-center justify-between py-2">
-            <span>{{ medicine.count }}</span>
-            <button @click="addMedicine(medicine)" class="text-[#2f4a71] hover:text-white hover:bg-[#2f4a71] rounded-md p-2">
-              <Icon icon="subway:add-1" />
-            </button>
-          </td>
-        </tr>
+        <template v-for="(medicines, name) in groupedMedicines" :key="name">
+          <tr class="border-b border-gray-200">
+            <td class="py-2">
+              <div class="flex items-center">
+                <button @click="toggleMedicineExpand(name)" class="flex items-center">
+                  <Icon 
+                    :icon="expandedMedicines.has(name) ? 'mdi:chevron-down' : 'mdi:chevron-right'" 
+                    class="mr-2"
+                  />
+                  {{ name }}
+                </button>
+              </div>
+            </td>
+            <td class="py-2">
+              {{ medicines.reduce((sum, med) => sum + med.count, 0) }}
+            </td>
+            <td></td>
+          </tr>
+          <tr v-if="expandedMedicines.has(name)" v-for="medicine in medicines" :key="medicine.med_id">
+            <td colspan="3" class="py-2 pl-6 bg-gray-50">
+              <div class="flex items-center justify-between">
+                <div>
+                  <span class="mr-4">Exp: {{ medicine.expirationDate || 'None' }}</span>
+                  <span>Count: {{ medicine.count }}</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <input 
+                    type="number"
+                    v-model.number="medicine.requestedQuantity"
+                    class="w-20 p-1 text-center border rounded"
+                    min="1"
+                    :max="medicine.count"
+                    placeholder="Qty"
+                  >
+                  <button 
+                    @click="addMedicine(medicine)"
+                    class="text-[#2f4a71] hover:text-white hover:bg-[#2f4a71] rounded-md p-2"
+                    :disabled="!canAddMedicine(medicine)"
+                    :class="{ 'opacity-50 cursor-not-allowed': !canAddMedicine(medicine) }"
+                  >
+                    <Icon icon="subway:add-1" />
+                  </button>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </template>
       </tbody>
     </table>
     <div class="flex justify-end mt-6">
@@ -746,6 +906,7 @@ watch(
 
   </div>
 </template>
+
 
 <style scoped>
 textarea {

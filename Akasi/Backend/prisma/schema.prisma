@@ -163,3 +163,11 @@ model physical_exam {
 
   @@index([client_id], map: "FK_client_TO_physical_exam")
 }
+
+model equipment {
+  equip_id    Int      @id @default(autoincrement())
+  equipName   String   @unique @db.VarChar(225)
+  count       Int
+
+  @@map("equipment")
+}
