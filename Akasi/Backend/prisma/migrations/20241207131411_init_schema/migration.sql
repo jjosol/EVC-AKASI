@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE `EditsInverntory` (
+CREATE TABLE `EditsInventory` (
     `med_id` INTEGER NOT NULL,
     `medName` VARCHAR(225) NOT NULL,
     `date` DATETIME(0) NOT NULL,
@@ -36,7 +36,7 @@ CREATE TABLE `admin` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `appointmant` (
+CREATE TABLE `appointment` (
     `appointment_id` INTEGER NOT NULL,
     `client_id` INTEGER NOT NULL,
     `date` DATE NOT NULL,
@@ -112,9 +112,10 @@ CREATE TABLE `medAdministration` (
     `admin_id` INTEGER NOT NULL,
     `med_id` INTEGER NOT NULL,
     `consultation_id` INTEGER NOT NULL AUTO_INCREMENT,
-    `date` DATETIME(0) NOT NULL,
+    `start_date` DATETIME(0) NOT NULL,
+    `end_date` DATETIME(0) NOT NULL,
     `patient` VARCHAR(225) NOT NULL,
-    `compalint` VARCHAR(500) NOT NULL,
+    `schedule` VARCHAR(500) NOT NULL,
     `medName` VARCHAR(225) NOT NULL,
     `count` INTEGER NOT NULL,
 
@@ -157,24 +158,14 @@ CREATE TABLE `physical_exam` (
     PRIMARY KEY (`physical_id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- CreateTable
-CREATE TABLE `equipment` (
-    `equip_id` INTEGER NOT NULL AUTO_INCREMENT,
-    `equipName` VARCHAR(225) NOT NULL,
-    `count` INTEGER NOT NULL,
-
-    UNIQUE INDEX `equipment_equipName_key`(`equipName`),
-    PRIMARY KEY (`equip_id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
 -- AddForeignKey
-ALTER TABLE `EditsInverntory` ADD CONSTRAINT `FK_inventory_TO_EditsInverntory` FOREIGN KEY (`med_id`, `medName`) REFERENCES `inventory`(`med_id`, `medName`) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE `EditsInventory` ADD CONSTRAINT `FK_inventory_TO_EditsInverntory` FOREIGN KEY (`med_id`, `medName`) REFERENCES `inventory`(`med_id`, `medName`) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
 ALTER TABLE `HSU_bulletin` ADD CONSTRAINT `FK_admin_TO_HSU_bulletin` FOREIGN KEY (`admin_id`, `username`) REFERENCES `admin`(`admin_id`, `username`) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE `appointmant` ADD CONSTRAINT `FK_client_TO_appointmant` FOREIGN KEY (`client_id`) REFERENCES `client`(`client_id`) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE `appointment` ADD CONSTRAINT `FK_client_TO_appointmant` FOREIGN KEY (`client_id`) REFERENCES `client`(`client_id`) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
 ALTER TABLE `consultation_records` ADD CONSTRAINT `FK_admin_TO_consultation_records` FOREIGN KEY (`admin_id`) REFERENCES `admin`(`admin_id`) ON DELETE NO ACTION ON UPDATE NO ACTION;

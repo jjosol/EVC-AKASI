@@ -1,31 +1,36 @@
 // consultation-records.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { InventoryService } from '../inventory/inventory.service';  // Add this import
 
 @Injectable()
 export class ConsultationRecordsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private inventoryService: InventoryService
+  ) {}
 
   // Method to create a consultation record
-  async createConsultationRecord(data: {
-    client_id: number;
-    admin_id: number;
-    date: Date;
-    patient_name: string;
-    patient_occupation: string;
-    doctor: string;
-    complaint: string;
-    remarks: string;
-    confined: boolean;
-    medAdministration: boolean;
-  }) {
+  async createConsultationRecord(data: any) {
     try {
-      const consultationRecord = await this.prisma.consultation_records.create({
-        data,
+      const consultation = await this.prisma.consultation_records.create({
+        data: {
+          client_id: data.client_id,
+          admin_id: data.admin_id,
+          date: new Date(data.date),
+          patient_name: data.patient_name,
+          patient_occupation: data.patient_occupation,
+          doctor: data.doctor,
+          complaint: data.complaint,
+          remarks: data.remarks,
+          confined: data.confined,
+          medAdministration: data.medAdministration,
+        },
       });
-      return consultationRecord;
+
+      return consultation;
     } catch (error) {
-      throw new Error(`Error creating consultation record: ${error.message}`);
+      throw new BadRequestException('Failed to create consultation record');
     }
   }
 
