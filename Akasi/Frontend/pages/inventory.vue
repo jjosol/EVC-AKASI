@@ -8,6 +8,7 @@
     <AddInv 
       :isOpen="isModalOpen" 
       :editItem="currentItem"
+      :medicinePreset="medicineName"
       @closeModal="closeModal"
       @addItem="handleAddItem"
     />
@@ -23,14 +24,12 @@ definePageMeta({
 
 const isModalOpen = ref(false)
 const currentItem = ref(null)
+const medicineName = ref('')
 const displayInvRef = ref(null)
 
-const openModal = (data = {}) => {
-  if (data.isNewBatch) {
-    currentItem.value = { name: data.medicineName, isNewBatch: true }
-  } else {
-    currentItem.value = null
-  }
+const openModal = (data) => {
+  currentItem.value = null
+  medicineName.value = data?.name || ''
   isModalOpen.value = true
 }
 
@@ -42,6 +41,7 @@ const editModal = (item) => {
 const closeModal = () => {
   isModalOpen.value = false
   currentItem.value = null
+  medicineName.value = ''
 }
 
 const handleAddItem = async (item) => {

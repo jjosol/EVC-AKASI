@@ -7,88 +7,52 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model EditsInverntory {
-  med_id      Int
-  medName     String    @db.VarChar(225)
-  date        DateTime  @db.DateTime(0)
-  cause       String    @db.VarChar(225)
-  addSubCount Int
-  edit_id     Int       @id @default(autoincrement())
-  inventory   inventory @relation(fields: [med_id, medName], references: [med_id, medName], onDelete: NoAction, onUpdate: NoAction, map: "FK_inventory_TO_EditsInverntory")
-
-  @@index([med_id, medName], map: "FK_inventory_TO_EditsInverntory")
-}
-
-model HSU_bulletin {
-  admin_id Int
-  username String @db.VarChar(225)
-  caption  String @db.VarChar(500)
-  file     String? @db.Text
-  post_id  Int    @id @unique(map: "post_id") @default(autoincrement())
-  admin    admin  @relation(fields: [admin_id, username], references: [admin_id, username], onDelete: NoAction, onUpdate: NoAction, map: "FK_admin_TO_HSU_bulletin")
-
-  @@index([admin_id, username], map: "FK_admin_TO_HSU_bulletin")
-}
-
 model admin {
-  admin_id             Int                    @unique(map: "admin_id") @default(autoincrement())
-  username             String                 @db.VarChar(225)
-  password             String                 @db.VarChar(225)
-  gmail                String                 @db.VarChar(225)
-  HSU_bulletin         HSU_bulletin[]
-  consultation_records consultation_records[]
-  medAdministration    medAdministration[]
+  admin_id Int    @unique(map: "admin_id") @default(autoincrement())
+  username String @db.VarChar(225)
+  password String @db.VarChar(225)
+  gmail    String @db.VarChar(225)
 
   @@id([admin_id, username])
 }
 
-model appointmant {
+model appointment {
   appointment_id Int      @id @unique(map: "appointment_id")
   client_id      Int
   date           DateTime @db.Date
   hour           Int
   minute         Int
-  client         client   @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_client_TO_appointmant")
 
   @@index([client_id], map: "FK_client_TO_appointmant")
 }
 
 model client {
-  client_id            Int                    @unique(map: "client_id") @default(autoincrement())
-  username             String                 @db.VarChar(225)
-  password             String                 @db.VarChar(225)
-  name                 String                 @db.VarChar(225)
-  gmail                String                 @db.VarChar(225)
-  age                  Int
-  gender               String                 @db.VarChar(225)
-  category             String                 @db.VarChar(225)
-  grade                Int?         
-  section              String                 @db.VarChar(225)
-  appointmant          appointmant[]
-  consultation_records consultation_records[]
-  dental_certificates  dental_certificates[]
-  medAdministration    medAdministration[]
-  medical_certificates medical_certificates[]
-  opthal_certificates  opthal_certificates[]
-  physical_exam        physical_exam[]
+  client_id Int    @unique(map: "client_id") @default(autoincrement())
+  username  String @db.VarChar(225)
+  password  String @db.VarChar(225)
+  name      String @db.VarChar(225)
+  gmail     String @db.VarChar(225)
+  age       Int
+  gender    String @db.VarChar(225)
+  category  String @db.VarChar(225)
+  grade     Int?
+  section   String @db.VarChar(225)
 
   @@id([client_id, username])
 }
 
 model consultation_records {
-  client_id         Int
-  admin_id          Int
-  consultation_id   Int      @id @unique(map: "consultation_id") @default(autoincrement())
-  date              DateTime @db.DateTime(0)
-  patient_name      String   @db.VarChar(225)
-  patient_occupation String  @db.VarChar(225)
-  doctor            String   @db.VarChar(225)
-  complaint         String   @db.VarChar(225)
-  remarks           String   @db.VarChar(500)
-  confined          Boolean
-  medAdministration Boolean
-  admin             admin    @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_admin_TO_consultation_records")
-  client            client   @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_client_TO_consultation_records")
+  client_id          Int
+  admin_id           Int
+  consultation_id    Int      @id @unique(map: "consultation_id") @default(autoincrement())
+  date               DateTime @db.DateTime(0)
+  patient_name       String   @db.VarChar(225)
+  patient_occupation String   @db.VarChar(225)
+  doctor             String   @db.VarChar(225)
+  complaint          String   @db.VarChar(225)
+  remarks            String   @db.VarChar(500)
+  confined           Boolean
+  medAdministration  Boolean
 
   @@index([admin_id], map: "FK_admin_TO_consultation_records")
   @@index([client_id], map: "FK_client_TO_consultation_records")
@@ -99,39 +63,18 @@ model dental_certificates {
   date      DateTime @db.Date
   dental    Bytes    @db.Blob
   dental_id Int      @id @default(autoincrement())
-  client    client   @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_client_TO_dental_certificates")
 
   @@index([client_id], map: "FK_client_TO_dental_certificates")
 }
 
 model inventory {
-  med_id            Int                 @default(autoincrement())
-  medName           String              @db.VarChar(225)
-  expiration        DateTime            @db.Date
-  count             Int
-  EditsInverntory   EditsInverntory[]
-  medAdministration medAdministration[]
+  med_id              Int      @default(autoincrement())
+  medName             String   @db.VarChar(225)
+  expiration          DateTime @db.Date
+  count               Int
+  med_administrations med_administration[]
 
   @@id([med_id, medName])
-}
-
-model medAdministration {
-  client_id       Int
-  admin_id        Int
-  med_id          Int
-  consultation_id Int       @id @default(autoincrement())
-  date            DateTime  @db.DateTime(0)
-  patient         String    @db.VarChar(225)
-  compalint       String    @db.VarChar(500)
-  medName         String    @db.VarChar(225)
-  count           Int
-  admin           admin     @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_admin_TO_medAdministration")
-  client          client    @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_client_TO_medAdministration")
-  inventory       inventory @relation(fields: [med_id, medName], references: [med_id, medName], onDelete: NoAction, onUpdate: NoAction, map: "FK_inventory_TO_medAdministration")
-
-  @@index([admin_id], map: "FK_admin_TO_medAdministration")
-  @@index([client_id], map: "FK_client_TO_medAdministration")
-  @@index([med_id, medName], map: "FK_inventory_TO_medAdministration")
 }
 
 model medical_certificates {
@@ -139,7 +82,6 @@ model medical_certificates {
   date       DateTime @db.Date
   medical    Bytes    @db.Blob
   medical_id Int      @id @default(autoincrement())
-  client     client   @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_client_TO_medical_certificates")
 
   @@index([client_id], map: "FK_client_TO_medical_certificates")
 }
@@ -149,7 +91,6 @@ model opthal_certificates {
   date      DateTime @db.Date
   opthal    Bytes    @db.Blob
   opthal_id Int      @id @default(autoincrement())
-  client    client   @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_client_TO_opthal_certificates")
 
   @@index([client_id], map: "FK_client_TO_opthal_certificates")
 }
@@ -159,15 +100,45 @@ model physical_exam {
   date        DateTime @db.Date
   physical    Bytes    @db.Blob
   physical_id Int      @id @default(autoincrement())
-  client      client   @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_client_TO_physical_exam")
 
   @@index([client_id], map: "FK_client_TO_physical_exam")
 }
 
-model equipment {
-  equip_id    Int      @id @default(autoincrement())
-  equipName   String   @unique @db.VarChar(225)
-  count       Int
+model editsinventory {
+  med_id      Int
+  medName     String   @db.VarChar(225)
+  date        DateTime @db.DateTime(0)
+  cause       String   @db.VarChar(225)
+  addSubCount Int
+  edit_id     Int      @id @default(autoincrement())
 
-  @@map("equipment")
+  @@index([med_id, medName], map: "FK_inventory_TO_EditsInverntory")
+}
+
+model hsu_bulletin {
+  admin_id Int
+  username String  @db.VarChar(225)
+  caption  String  @db.VarChar(500)
+  file     String? @db.Text
+  post_id  Int     @id @unique(map: "post_id") @default(autoincrement())
+
+  @@index([admin_id, username], map: "FK_admin_TO_HSU_bulletin")
+}
+
+model med_administration {
+  client_id       Int
+  admin_id        Int
+  med_id          Int
+  consultation_id Int      @id @default(autoincrement())
+  start_date      DateTime @db.DateTime(0)
+  end_date        DateTime @db.DateTime(0)
+  patient         String   @db.VarChar(225)
+  schedule        String   @db.VarChar(500)
+  medName         String   @db.VarChar(225)
+  count           Int
+  inventory       inventory @relation(fields: [med_id, medName], references: [med_id, medName])
+  
+  @@index([admin_id], map: "FK_admin_TO_medAdministration")
+  @@index([client_id], map: "FK_client_TO_medAdministration")
+  @@index([med_id, medName], map: "FK_inventory_TO_medAdministration")
 }
