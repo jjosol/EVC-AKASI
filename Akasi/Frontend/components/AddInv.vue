@@ -3,8 +3,7 @@ import { ref, watch } from 'vue'
 
 const props = defineProps({
   isOpen: Boolean,
-  editItem: Object,
-  medicinePreset: String
+  editItem: Object
 })
 
 const emit = defineEmits(['closeModal', 'addItem'])
@@ -16,7 +15,12 @@ const newItem = ref({
   count: 0
 })
 
-// Define resetForm first
+const formErrors = ref({
+  name: '',
+  expirationDate: '', // Add error field for date
+  count: ''
+})
+
 const resetForm = () => {
   newItem.value = {
     med_id: null,
@@ -26,11 +30,40 @@ const resetForm = () => {
   }
 }
 
+const validateForm = () => {
+  let isValid = true
+  formErrors.value = {
+    name: '',
+    expirationDate: '',
+    count: ''
+  }
+
+  if (!newItem.value.name.trim()) {
+    formErrors.value.name = 'Medicine name is required'
+    isValid = false
+  }
+
+  if (!newItem.value.expirationDate) {
+    formErrors.value.expirationDate = 'Expiration date is required'
+    isValid = false
+  }
+
+  if (!newItem.value.count || newItem.value.count <= 0) {
+    formErrors.value.count = 'Count must be greater than 0'
+    isValid = false
+  }
+
+  return isValid
+}
+
 const submitForm = async () => {
+  if (!validateForm()) {
+    return
+  }
+
   const isUpdate = newItem.value.med_id != null
   
   if (!isUpdate) {
-    // Check for existing item with same name and expiration date
     const response = await fetch('http://localhost:3001/inventory');
     const existingItems = await response.json();
     
@@ -41,7 +74,6 @@ const submitForm = async () => {
 
     if (duplicateItem) {
       if (confirm('An item with the same name and expiration date exists. Do you want to combine quantities?')) {
-        // Update existing item with combined quantity
         const url = `http://localhost:3001/inventory/${duplicateItem.med_id}/${duplicateItem.medName}`;
         const response = await fetch(url, {
           method: 'PUT',
@@ -66,9 +98,8 @@ const submitForm = async () => {
     }
   }
   
-  // Continue with normal add/update if no duplicate or user chose not to combine
   const url = isUpdate 
-    ? `http://localhost:3001/inventory/${newItem.value.med_id}/${props.editItem.name}` // Use original name for URL
+    ? `http://localhost:3001/inventory/${newItem.value.med_id}/${props.editItem.name}`
     : 'http://localhost:3001/inventory'
 
   try {
@@ -78,8 +109,8 @@ const submitForm = async () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: newItem.value.name, // Send new name
-        expirationDate: newItem.value.expirationDate,
+        name: newItem.value.name,
+        expirationDate: newItem.value.expirationDate || null,
         count: parseInt(newItem.value.count)
       })
     })
@@ -96,22 +127,21 @@ const submitForm = async () => {
 }
 
 const formatDate = (dateString) => {
-  return new Date(dateString).toISOString().split('T')[0];
+  return dateString ? new Date(dateString).toISOString().split('T')[0] : '';
 }
 
-// Watch after all functions are defined
-watch([() => props.editItem, () => props.medicinePreset], ([newEditItem, newPreset]) => {
-  if (newEditItem) {
+watch(() => props.editItem, (newVal) => {
+  if (newVal) {
     newItem.value = {
-      med_id: newEditItem.med_id,
-      name: newEditItem.name,
-      expirationDate: newEditItem.expirationDate,
-      count: newEditItem.count
+      med_id: newVal.med_id,
+      name: newVal.name,
+      expirationDate: newVal.expirationDate,
+      count: newVal.count
     }
-  } else if (newPreset) {
+  } else if (newVal?.isNewBatch) {
     newItem.value = {
       med_id: null,
-      name: newPreset,
+      name: newVal.name,
       expirationDate: '',
       count: 0
     }
@@ -132,10 +162,11 @@ watch([() => props.editItem, () => props.medicinePreset], ([newEditItem, newPres
           <input 
             type="text" 
             v-model="newItem.name"
+            :disabled="editItem?.isNewBatch"
             class="w-full px-3 py-2 border rounded-lg" 
-            required
-            :disabled="!!props.medicinePreset"
+            required 
           />
+          <span v-if="formErrors.name" class="text-sm text-red-500">{{ formErrors.name }}</span>
         </div>
         <div class="mb-4">
           <label class="block mb-1 text-sm font-medium">Expiration Date</label>
@@ -145,15 +176,18 @@ watch([() => props.editItem, () => props.medicinePreset], ([newEditItem, newPres
             class="w-full px-3 py-2 border rounded-lg"
             required 
           />
+          <span v-if="formErrors.expirationDate" class="text-sm text-red-500">{{ formErrors.expirationDate }}</span>
         </div>
         <div class="mb-4">
           <label class="block mb-1 text-sm font-medium">Count</label>
           <input 
             type="number" 
             v-model="newItem.count"
+            min="1"
             class="w-full px-3 py-2 border rounded-lg"
             required 
           />
+          <span v-if="formErrors.count" class="text-sm text-red-500">{{ formErrors.count }}</span>
         </div>
         <div class="flex justify-end gap-2">
           <button 

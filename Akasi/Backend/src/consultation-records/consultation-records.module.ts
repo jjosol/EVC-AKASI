@@ -1,12 +1,11 @@
 //consultation-records.module.ts
 import { Module } from '@nestjs/common';
+import { PrismaService } from '../prisma.service';
 import { ConsultationRecordsService } from './consultation-records.service';
 import { ConsultationRecordsController } from './consultation-records.controller';
-import { PrismaService } from '../prisma.service';
-import { InventoryService } from '../inventory/inventory.service';
 
 @Module({
   controllers: [ConsultationRecordsController],
-  providers: [ConsultationRecordsService, PrismaService, InventoryService],
+  providers: [ConsultationRecordsService, PrismaService],
 })
 export class ConsultationRecordsModule {}
