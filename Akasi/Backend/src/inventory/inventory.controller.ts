@@ -15,12 +15,18 @@ export class InventoryController {
     return this.inventoryService.addItem(item);
   }
 
-  @Get(':id/:name')
-  async getItem(
-    @Param('id') id: string,
-    @Param('name') name: string
+  @Put('reduce/:med_id')
+  async reduceInventory(
+    @Param('med_id') med_id: string,
+    @Body() data: { quantity: number }
   ) {
-    return this.inventoryService.getItemByIdAndName(Number(id), name);
+    console.log('Received request to reduce inventory:', { med_id, data });
+
+    if (!data.quantity || isNaN(data.quantity) || data.quantity <= 0) {
+      throw new BadRequestException('Invalid quantity');
+    }
+
+    return this.inventoryService.reduceInventory(Number(med_id), data.quantity);
   }
 
   @Put(':id/:name')
@@ -29,10 +35,12 @@ export class InventoryController {
     @Param('name') name: string,
     @Body() data: any
   ) {
-    if (!data.count && data.count !== 0) {
-      throw new BadRequestException('Count is required');
-    }
     return this.inventoryService.updateItem(Number(id), name, data);
+  }
+
+  @Delete('group/:name')
+  async deleteGroupByName(@Param('name') name: string) {
+    return this.inventoryService.deleteGroupByName(name);
   }
 
   @Delete(':id/:name')
