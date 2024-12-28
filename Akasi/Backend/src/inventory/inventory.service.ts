@@ -100,45 +100,53 @@ export class InventoryService {
     }
   }
 
-  async reduceInventory(med_id: number, quantity: number) {
+  async reduceInventory(med_id: number, medName: string, quantity: number) {
     try {
-      console.log('Reducing inventory:', { med_id, quantity });
-
-      const item = await this.prisma.inventory.findFirst({
-        where: { med_id: med_id }
+      // Find the inventory item by med_id and medName
+      const item = await this.prisma.inventory.findUnique({
+        where: { med_id_medName: { med_id, medName } }
       });
 
       if (!item) {
-        console.error(`Medicine with ID ${med_id} not found`);
-        throw new BadRequestException(`Medicine with ID ${med_id} not found`);
+        throw new BadRequestException('Item not found');
       }
 
       if (item.count < quantity) {
-        console.error(`Insufficient quantity. Available: ${item.count}, Requested: ${quantity}`);
-        throw new BadRequestException(
-          `Insufficient quantity. Available: ${item.count}, Requested: ${quantity}`
-        );
+        throw new BadRequestException('Insufficient inventory');
       }
 
-      const result = await this.prisma.inventory.update({
-        where: {
-          med_id_medName: {
-            med_id: med_id,
-            medName: item.medName
-          }
-        },
-        data: {
-          count: {
-            decrement: quantity
-          }
-        }
+      // Update the inventory count
+      const updatedItem = await this.prisma.inventory.update({
+        where: { med_id_medName: { med_id, medName } },
+        data: { count: item.count - quantity }
       });
 
-      console.log('Inventory reduced successfully:', result);
-      return result;
+      return updatedItem;
     } catch (error) {
-      console.error('Reduce inventory error:', error);
-      throw new BadRequestException(error.message || 'Failed to update inventory');
+      throw new BadRequestException(error.message || 'Failed to reduce inventory');
+    }
+  }
+
+  async increaseInventory(med_id: number, medName: string, quantity: number) {
+    try {
+      // Find the inventory item by med_id and medName
+      const item = await this.prisma.inventory.findUnique({
+        where: { med_id_medName: { med_id, medName } }
+      });
+
+      if (!item) {
+        throw new BadRequestException('Item not found');
+      }
+
+      // Update the inventory count
+      const updatedItem = await this.prisma.inventory.update({
+        where: { med_id_medName: { med_id, medName } },
+        data: { count: item.count + quantity }
+      });
+
+      return updatedItem;
+    } catch (error) {
+      throw new BadRequestException(error.message || 'Failed to increase inventory');
     }
   }
 }

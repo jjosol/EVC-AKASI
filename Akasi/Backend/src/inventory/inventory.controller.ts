@@ -15,18 +15,21 @@ export class InventoryController {
     return this.inventoryService.addItem(item);
   }
 
-  @Put('reduce/:med_id')
+  @Put('reduce/:med_id/:medName')
   async reduceInventory(
     @Param('med_id') med_id: string,
+    @Param('medName') medName: string,
     @Body() data: { quantity: number }
   ) {
-    console.log('Received request to reduce inventory:', { med_id, data });
+    return this.inventoryService.reduceInventory(Number(med_id), medName, data.quantity);
+  }
 
-    if (!data.quantity || isNaN(data.quantity) || data.quantity <= 0) {
-      throw new BadRequestException('Invalid quantity');
-    }
-
-    return this.inventoryService.reduceInventory(Number(med_id), data.quantity);
+  @Post('increase/:med_id')
+  async increaseInventory(
+    @Param('med_id') med_id: string,
+    @Body() data: { medName: string, quantity: number }
+  ) {
+    return this.inventoryService.increaseInventory(Number(med_id), data.medName, data.quantity);
   }
 
   @Put(':id/:name')

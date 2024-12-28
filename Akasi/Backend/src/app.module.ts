@@ -10,10 +10,13 @@ import { PostsService } from './posts/posts.service';
 import { PostsController } from './posts/posts.controller';
 import { PostsModule } from './posts/posts.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { MedAdministrationController } from './med-administration/med-administration.controller';
+import { MedAdministrationService } from './med-administration/med-administration.service';
+import { MedAdministrationModule } from './med-administration/med-administration.module';
 
 @Module({
-  imports: [PrismaModule, AdminsModule, AuthModule, ClientsModule, ConsultationRecordsModule, PostsModule, InventoryModule],
-  providers: [PostsService],
-  controllers: [PostsController],
+  imports: [PrismaModule, AdminsModule, AuthModule, ClientsModule, ConsultationRecordsModule, PostsModule, InventoryModule, MedAdministrationModule],
+  providers: [PostsService, MedAdministrationService],
+  controllers: [PostsController, MedAdministrationController],
 })
 export class AppModule {}
