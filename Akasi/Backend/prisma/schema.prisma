@@ -122,16 +122,19 @@ model medAdministration {
   consultation_id Int       @id @default(autoincrement())
   date            DateTime  @db.DateTime(0)
   patient         String    @db.VarChar(225)
-  compalint       String    @db.VarChar(500)
   medName         String    @db.VarChar(225)
   count           Int
-  admin           admin     @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_admin_TO_medAdministration")
-  client          client    @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_client_TO_medAdministration")
-  inventory       inventory @relation(fields: [med_id, medName], references: [med_id, medName], onDelete: NoAction, onUpdate: NoAction, map: "FK_inventory_TO_medAdministration")
+  schedule        String    @db.VarChar(225)  // Add schedule field
+  start_date      DateTime  @db.Date          // Add start date
+  end_date        DateTime  @db.Date          // Add end date
+  remarks         String?   @db.VarChar(500)  // Add remarks field
+  admin           admin     @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction)
+  client          client    @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
+  inventory       inventory @relation(fields: [med_id, medName], references: [med_id, medName], onDelete: NoAction, onUpdate: NoAction)
 
-  @@index([admin_id], map: "FK_admin_TO_medAdministration")
-  @@index([client_id], map: "FK_client_TO_medAdministration")
-  @@index([med_id, medName], map: "FK_inventory_TO_medAdministration")
+  @@index([admin_id])
+  @@index([client_id])
+  @@index([med_id, medName])
 }
 
 model medical_certificates {

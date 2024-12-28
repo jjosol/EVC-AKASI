@@ -32,24 +32,41 @@ export class ConsultationRecordsService {
   // Method to update a consultation record
   async updateConsultationRecord(
     consultation_id: number,
-    data: {
-      client_id: number;
-      admin_id: number;
-      date: Date;
-      patient_name: string;
-      patient_occupation: string;
-      doctor: string;
-      complaint: string;
-      remarks: string;
-      confined: boolean;
-      medAdministration: boolean;
+    person: {
+      clientId: number;
+      name: string;
+      occupation?: string;
+      grade?: string;
+      section?: string;
+      generalComplaint?: string;
+      remarks?: string;
+      confined?: boolean;
+      medicationAdministration?: boolean;
     },
   ) {
     try {
+      // First, fetch the existing record to get the original date
+      const existingRecord = await this.getConsultationRecord(consultation_id);
+
+      // Prepare update data with proper type conversions
+      const updateData = {
+        client_id: person.clientId,
+        admin_id: 1, // Replace with actual admin_id
+        date: new Date(existingRecord.date).toISOString(), // Ensure proper date format
+        patient_name: person.name,
+        patient_occupation: person.occupation || `${person.grade}-${person.section}`,
+        doctor: 'John Doe',
+        complaint: person.generalComplaint || '',
+        remarks: person.remarks || '',
+        confined: Boolean(person.confined),
+        medAdministration: Boolean(person.medicationAdministration)
+      };
+
       const consultationRecord = await this.prisma.consultation_records.update({
         where: { consultation_id },
-        data,
+        data: updateData,
       });
+
       return consultationRecord;
     } catch (error) {
       throw new Error(`Error updating consultation record: ${error.message}`);

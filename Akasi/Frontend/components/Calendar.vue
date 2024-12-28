@@ -1,26 +1,41 @@
 <script setup>
 import moment from 'moment-timezone';
-const selectedYear = ref(moment().tz("Asia/Manila").year());
-const selectedMonth = ref(moment().tz("Asia/Manila").month());
-const selectedDate = ref(moment().tz("Asia/Manila").toDate());
+
+// Initialize with current date in Manila timezone
+const today = moment().tz("Asia/Manila");
+const selectedYear = ref(today.year());
+const selectedMonth = ref(today.month());
+const selectedDate = ref(today.toDate());
+const calendar = ref([]);
+const confinedCount = ref(0);
+
 const years = Array.from({ length: 7 }, (_, i) => moment().tz("Asia/Manila").year() - 6 + i);
 const months = [
   "January", "February", "March", "April", "May", "June", 
   "July", "August", "September", "October", "November", "December"
 ];
-const calendar = ref([]);
-const confinedCount = ref(0);
 
-const emit = defineEmits(['day-selected', 'update-date']);
-defineProps({
+// Props and emits definition
+const props = defineProps({
+  currentDay: {
+    type: Object,
+    default: () => ({ date: moment().tz("Asia/Manila").toDate() })
+  },
   updateConfined: {
     type: Number,
     default: 0
   }
 });
 
+const emit = defineEmits(['day-selected', 'update-date']);
+
+// Define updateCalendar function first
 const updateCalendar = () => {
-  const firstDayOfMonth = moment.tz({ year: selectedYear.value, month: selectedMonth.value, day: 1 }, "Asia/Manila");
+  const firstDayOfMonth = moment.tz({ 
+    year: selectedYear.value, 
+    month: selectedMonth.value, 
+    day: 1 
+  }, "Asia/Manila");
   const lastDayOfMonth = firstDayOfMonth.clone().endOf('month');
   const firstDayOfWeek = firstDayOfMonth.day();
   const daysInMonth = lastDayOfMonth.date();
@@ -30,7 +45,14 @@ const updateCalendar = () => {
     daysArray.push({ date: null });
   }
   for (let i = 1; i <= daysInMonth; i++) {
-    daysArray.push({ date: moment.tz({ year: selectedYear.value, month: selectedMonth.value, day: i }, "Asia/Manila").toDate(), notes: "" });
+    daysArray.push({ 
+      date: moment.tz({ 
+        year: selectedYear.value, 
+        month: selectedMonth.value, 
+        day: i 
+      }, "Asia/Manila").toDate(), 
+      notes: "" 
+    });
   }
   while (daysArray.length % 7 !== 0) {
     daysArray.push({ date: null });
@@ -40,14 +62,24 @@ const updateCalendar = () => {
     calendar.value.push(daysArray.slice(i, i + 7));
   }
 
-  // Emit the selected year and month to update the count
-  emit('update-date', { year: selectedYear.value, month: selectedMonth.value });
+  emit('update-date', { 
+    year: selectedYear.value, 
+    month: selectedMonth.value 
+  });
 };
+
+// Now we can watch for changes
+watch([selectedYear, selectedMonth], () => {
+  updateCalendar();
+}, { immediate: true });
 
 const openAddingList = (day) => {
   if (day.date) {
     selectedDate.value = day.date;
-    emit('day-selected', day);
+    // Emit the full date object
+    emit('day-selected', {
+      date: day.date
+    });
   }
 };
 

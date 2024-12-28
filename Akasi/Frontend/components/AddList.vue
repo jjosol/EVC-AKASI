@@ -1,15 +1,23 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { formatAMPM } from '~/composables/useTimeFormatter';
+import moment from 'moment-timezone';
 
+//prop
 const props = defineProps({
   currentDay: {
     type: Object,
-    default: () => ({ date: new Date() })
+    default: () => ({ 
+      date: moment().tz("Asia/Manila").toDate() 
+    })
   }
 });
 
-
+/**
+ * Formats a date string to localized date format
+ * @param {string} dateString - The date string to format
+ * @returns {string} Formatted date string or 'N/A' if invalid
+ */
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
   const date = new Date(dateString);
@@ -22,31 +30,25 @@ const showEditModal = ref(false);
 const showMedicineModal = ref(false);
 const showMedicineDetailModal = ref(false);
 const medicinesVisible = ref(true);
-
 // Selected person and record
 const selectedPerson = ref(null);
-const selectedConsultationRecord = ref(null); // Add this line to fix the error
-
-const currentDateTime = computed(() => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-});
+const selectedConsultationRecord = ref(null);
 // Selected date/time
 const selectedDate = computed(() => {
+  // Use the currentDay prop or fallback to current Manila time
+  const date = props.currentDay.date instanceof Date 
+    ? props.currentDay.date 
+    : moment().tz("Asia/Manila").toDate();
+
   const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
   const dayOptions = { weekday: 'long' };
   const dateOptions = { year: 'numeric', month: 'long', day: 'numeric' };
-  const date = new Intl.DateTimeFormat('en-US', options).format(props.currentDay.date);
-  const day = new Intl.DateTimeFormat('en-US', dayOptions).format(props.currentDay.date);
-  const monthYear = new Intl.DateTimeFormat('en-US', dateOptions).format(props.currentDay.date);
-
-  return { day, monthYear, date };
+  
+  return {
+    day: new Intl.DateTimeFormat('en-US', dayOptions).format(date),
+    monthYear: new Intl.DateTimeFormat('en-US', dateOptions).format(date),
+    date: new Intl.DateTimeFormat('en-US', options).format(date)
+  };
 });
 const confinedCount = ref(0);
 const selectedTime = ref(formatAMPM(new Date()));
@@ -56,10 +58,16 @@ const searchQuery = ref('');
 const medicineSearchQuery = ref('');
 
 // To contain all that is part of the list
-const people = ref([]);
-const allPeople = ref([]);
-const patients = ref([]);
+const people = ref([]);//search-filtered people
+const allPeople = ref([]);//general masterlist of people/clients
+const patients = ref([]);//records of patients basicaaly
 
+/**
+ * Updates an existing consultation record
+ * @param {number} consultation_id - ID of consultation to update
+ * @param {Object} person - Patient information
+ * @returns {Promise<Object>} Updated consultation record
+ */
 const updateConsultationRecord = async (consultation_id, person) => {
   try {
     // First, fetch the existing record to get the original date
@@ -96,15 +104,49 @@ const updateConsultationRecord = async (consultation_id, person) => {
   }
 };
 
-// consultation post api
+/**
+ * Updates medication administration status of a consultation
+ * @param {number} consultation_id - ID of consultation to update
+ * @returns {Promise<void>}
+ */
+const updateConsultationWithMedication = async (consultation_id) => {
+  try {
+    const response = await fetch(`http://localhost:3001/consultation-records/${consultation_id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        medAdministration: true
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update consultation record medication status');
+    }
+  } catch (error) {
+    console.error('Error updating medication status:', error);
+    throw error;
+  }
+};
+
+/**
+ * Creates a new consultation record
+ * @param {Object} person - Patient information
+ * @returns {Promise<Object>} Newly created consultation record
+ */
 const createConsultationRecord = async (person) => {
   try {
-    // Create a datetime string using the selected date and current time
+    // Validate required fields
+    if (!person.clientId) {
+      throw new Error('Client ID is required');
+    }
+
     const selectedDateTime = new Date(props.currentDay.date);
     const now = new Date();
     selectedDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
     
-    const formattedDateTime = `${selectedDateTime.getFullYear()}-${String(selectedDateTime.getMonth() + 1).padStart(2, '0')}-${String(selectedDateTime.getDate()).padStart(2, '0')} ${String(selectedDateTime.getHours()).padStart(2, '0')}:${String(selectedDateTime.getMinutes()).padStart(2, '0')}:${String(selectedDateTime.getSeconds()).padStart(2, '0')}`;
+    const formattedDateTime = selectedDateTime.toISOString();
 
     const response = await fetch('http://localhost:3001/consultation-records', {
       method: 'POST',
@@ -113,30 +155,34 @@ const createConsultationRecord = async (person) => {
       },
       body: JSON.stringify({
         client_id: person.clientId,
-        admin_id: 1, // Replace with actual admin_id
-        date: formattedDateTime, // Now using the selected date with current time
+        admin_id: 1, // Default admin ID
+        date: formattedDateTime,
         patient_name: person.name,
-        patient_occupation: `${person.grade}-${person.section}`,
-        doctor: 'John Doe',
-        complaint: person.generalComplaint || '',
-        remarks: person.remarks || '',
-        confined: person.confined || false,
-        medAdministration: person.medicationAdministration || false,
-      }),
+        patient_occupation: person.occupation || `${person.grade}-${person.section}`,
+        complaint: selectedConsultationRecord.value?.complaint || '',
+        remarks: selectedConsultationRecord.value?.remarks || '',
+        confined: selectedConsultationRecord.value?.confined || false,
+        medAdministration: true,
+        doctor: 'John Doe'
+      })
     });
 
     if (!response.ok) {
-      throw new Error('Failed to create consultation record');
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to create consultation record');
     }
 
-    const data = await response.json();
-    return data;
+    return await response.json();
   } catch (error) {
     console.error('Error creating consultation record:', error);
     throw error;
   }
 };
-// get clients api
+
+/**
+ * Fetches all clients/people from the API
+ * @returns {Promise<void>}
+ */
 const fetchPeople = async () => {
   try {
     const response = await fetch('http://localhost:3001/clients');
@@ -157,6 +203,10 @@ const fetchPeople = async () => {
   }
 };
 
+/**
+ * Fetches consultation records for current day
+ * @returns {Promise<void>}
+ */
 const fetchPatients = async () => {
   try {
     const response = await fetch('http://localhost:3001/consultation-records');
@@ -165,27 +215,20 @@ const fetchPatients = async () => {
     }
     const data = await response.json();
 
-    // Filter patients based on the selected date
+    // Use moment.js for consistent timezone handling
+    const currentDate = moment(props.currentDay.date).tz("Asia/Manila");
+    
     patients.value = data
       .filter(record => {
-        const recordDate = new Date(record.date);
-        const selectedDateObj = new Date(props.currentDay.date);
-        
-        return recordDate.getFullYear() === selectedDateObj.getFullYear() &&
-               recordDate.getMonth() === selectedDateObj.getMonth() &&
-               recordDate.getDate() === selectedDateObj.getDate();
+        const recordDate = moment(record.date).tz("Asia/Manila");
+        return recordDate.isSame(currentDate, 'day');
       })
       .map((record) => ({
         id: record.client_id,
         consultation_id: record.consultation_id,
         name: record.patient_name,
         occupation: record.patient_occupation || 'N/A',
-        time: new Date(record.date).toLocaleTimeString('en-US', {
-          timeZone: 'Asia/Manila',
-          hour12: true,
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
+        time: moment(record.date).tz("Asia/Manila").format('hh:mm A'),
         complaint: record.complaint,
         remarks: record.remarks,
         confined: record.confined,
@@ -196,6 +239,10 @@ const fetchPatients = async () => {
   }
 };
 
+/**
+ * Fetches count of confined records for current month
+ * @returns {Promise<void>}
+ */
 const fetchRecordCount = async () => {
   try {
     const year = props.currentDay.date.getFullYear();
@@ -228,37 +275,146 @@ watch(
   { immediate: true }
 );
 
-// Save person
+/**
+ * Saves/updates person and consultation record
+ * Handles both new records and updates
+ * @returns {Promise<void>}
+ */
 const savePerson = async () => {
   try {
-    if (selectedConsultationRecord.value) {
-      // Update existing consultation record
-      await updateConsultationRecord(
-        selectedConsultationRecord.value.consultation_id,
-        selectedPerson.value
-      );
-    } else {
-      // Create new consultation record
-      await createConsultationRecord(selectedPerson.value);
+    if (!selectedPerson.value?.clientId) {
+      throw new Error('Client ID is required');
     }
-    
-    // Refresh the lists
-    await fetchPatients();
-    await fetchPeople();
-    await fetchRecordCount()
-    
-    // Close modals
-    showEditModal.value = false;
-    showAddModal.value = false;
-    
-    // Reset selected records
+
+    // Prepare consultation data
+    const selectedDateTime = new Date(props.currentDay.date);
+    const now = new Date();
+    selectedDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+
+    const consultationData = {
+      client_id: selectedPerson.value.clientId,
+      admin_id: 1, // Replace with the actual admin ID
+      date: selectedDateTime.toISOString(),
+      patient_name: selectedPerson.value.name,
+      patient_occupation:
+        selectedPerson.value.occupation ||
+        `${selectedPerson.value.grade}-${selectedPerson.value.section}`,
+      doctor: 'John Doe',
+      complaint: selectedPerson.value.generalComplaint || '',
+      remarks: selectedPerson.value.remarks || '',
+      confined: Boolean(selectedPerson.value.confined),
+      medAdministration: Boolean(selectedPerson.value.medicationAdministration),
+    };
+
+    let consultationId;
+
+    // Check if updating an existing consultation record
+    if (selectedConsultationRecord.value?.consultation_id) {
+      // Update the existing consultation record
+      const response = await fetch(
+        `http://localhost:3001/consultation-records/${selectedConsultationRecord.value.consultation_id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(consultationData),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to update consultation record');
+      }
+
+      consultationId = selectedConsultationRecord.value.consultation_id;
+    } else {
+      // Create a new consultation record
+      const response = await fetch('http://localhost:3001/consultation-records', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(consultationData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create consultation record');
+      }
+
+      const newRecord = await response.json();
+      consultationId = newRecord.consultation_id;
+    }
+
+    // Ensure consultationId is obtained
+    if (!consultationId) {
+      throw new Error('Consultation ID is not available');
+    }
+
+    // Handle medicines if medication administration is enabled
+    if (
+      selectedPerson.value.medicationAdministration &&
+      selectedPerson.value.medicines?.length > 0
+    ) {
+      for (const medicine of selectedPerson.value.medicines) {
+        try {
+          // Validate required fields
+          if (!medicine.startDate || !medicine.endDate) {
+            throw new Error('Start date and end date are required for medicine administration');
+          }
+
+          const medAdminData = {
+            consultation_id: consultationId,
+            client_id: selectedPerson.value.clientId,
+            admin_id: 1, // Replace with the actual admin ID
+            med_id: medicine.med_id,
+            medName: medicine.name,
+            count: Number(medicine.quantity),  // Using the quantity field
+            schedule: medicine.schedule || '',
+            start_date: new Date(medicine.startDate).toISOString(),
+            end_date: new Date(medicine.endDate).toISOString(),
+            remarks: medicine.remarks || '',
+            date: new Date().toISOString(),
+            patient: selectedPerson.value.name,
+          };
+
+          console.log('Sending medicine quantity:', medAdminData.count);
+
+          const response = await fetch('http://localhost:3001/med-administration', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(medAdminData),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `Failed to save medicine ${medicine.name}`);
+          }
+        } catch (error) {
+          console.error('Error saving medicine:', error);
+          throw new Error(`Failed to save medicine ${medicine.name}: ${error.message}`);
+        }
+      }
+    }
+
+    // Reset state and refresh data
     selectedPerson.value = null;
     selectedConsultationRecord.value = null;
+    showEditModal.value = false;
+    showAddModal.value = false;
+
+    await Promise.all([fetchPatients(), fetchPeople(), fetchRecordCount()]);
   } catch (error) {
     console.error('Error saving data:', error);
-    alert('Failed to save data');
+    alert('Failed to save data: ' + error.message);
   }
 };
+
+/**
+ * Fetches medicine inventory from API
+ * @returns {Promise<void>}
+ */
 const fetchInventory = async () => {
   try {
     const response = await fetch('http://localhost:3001/inventory');
@@ -316,7 +472,10 @@ const groupedMedicines = computed(() => {
   return groups;
 });
 
-// Add this method
+/**
+ * Toggles expansion state of medicine group
+ * @param {string} name - Medicine name to toggle
+ */
 const toggleMedicineExpand = (name) => {
   if (expandedMedicines.value.has(name)) {
     expandedMedicines.value.delete(name);
@@ -346,6 +505,11 @@ const filteredMedicines = computed(() => {
   );
 });
 
+/**
+ * Fetches a specific consultation record
+ * @param {number} consultation_id - ID of consultation to fetch
+ * @returns {Promise<Object>} Consultation record data
+ */
 const fetchConsultationRecord = async (consultation_id) => {
   try {
     const response = await fetch(`http://localhost:3001/consultation-records/${consultation_id}`);
@@ -361,37 +525,53 @@ const fetchConsultationRecord = async (consultation_id) => {
 };
 
 // Rest of your existing methods...
+/**
+ * Opens edit modal with consultation record data
+ * @param {Object} patient - Patient to edit
+ * @returns {Promise<void>}
+ */
 const openEditModal = async (patient) => {
   try {
     const consultationRecord = await fetchConsultationRecord(patient.consultation_id);
     selectedConsultationRecord.value = consultationRecord;
     
-    // Parse the occupation into grade and section
-    const [grade, section] = patient.occupation.split('-');
+    // Fetch medication administration records
+    const medAdminResponse = await fetch(`http://localhost:3001/med-administration/consultation/${patient.consultation_id}`);
+    const medAdminRecords = await medAdminResponse.json();
     
+    // Map the med admin records to match the expected format
+    const mappedMedicines = medAdminRecords.map(record => ({
+      med_id: record.med_id,
+      name: record.medName,
+      quantity: record.count,
+      schedule: record.schedule,
+      startDate: new Date(record.start_date).toISOString().split('T')[0],
+      endDate: new Date(record.end_date).toISOString().split('T')[0],
+      remarks: record.remarks
+    }));
+
     selectedPerson.value = {
       ...patient,
-      clientId: consultationRecord.client_id,
+      clientId: patient.id,
       generalComplaint: consultationRecord.complaint,
       remarks: consultationRecord.remarks,
       confined: consultationRecord.confined,
       medicationAdministration: consultationRecord.medAdministration,
-      grade: grade || 'N/A',
-      section: section || 'N/A',
-      occupation: patient.occupation // Keep the original occupation
+      medicines: mappedMedicines // Add the medicines array
     };
-    
-    selectedTime.value = new Date(consultationRecord.date).toLocaleTimeString('en-US', {
-      hour12: true,
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+
     showEditModal.value = true;
   } catch (error) {
     console.error('Error opening edit modal:', error);
     alert('Failed to load consultation record');
   }
 };
+
+/**
+ * Deletes a consultation record
+ * @param {number} consultation_id - ID of consultation to delete
+ * @returns {Promise<void>}
+ */
 const deleteConsultationRecord = async (consultation_id) => {
   try {
     const response = await fetch(`http://localhost:3001/consultation-records/${consultation_id}/delete`, {
@@ -408,6 +588,10 @@ const deleteConsultationRecord = async (consultation_id) => {
 };
 
 
+/**
+ * Adds a new person to selected state
+ * @param {Object} person - Person to add
+ */
 const addPerson = (person) => {
   const now = new Date();
   if (person.name && person.section) {
@@ -417,46 +601,26 @@ const addPerson = (person) => {
   }
 };
 
-const deletePerson = (index) => {
-  people.value.splice(index, 1);
-};
-// Time when added (am/pm)
-// const formatAMPM = (date) => {
-//   let hours = date.getHours();
-//   let minutes = date.getMinutes();
-//   let ampm = hours >= 12 ? 'PM' : 'AM';
-//   hours = hours % 12;
-//   hours = hours ? 12 : 12;
-//   minutes = minutes < 10 ? '0' + minutes : minutes;
-//   let strTime = hours + ':' + minutes + ' ' + ampm;
-//   return strTime;
-// };
-
-
-// Save person
-// const savePerson = () => {
-//   const now = new Date();
-//   selectedPerson.value.addedAt = now; // Update addedAt to the current time
-//   const index = people.value.findIndex(p => p.name === selectedPerson.value.name);
-//   if (index !== -1) {
-//     people.value[index] = { ...selectedPerson.value };
-//   } else {
-//     people.value.push({ ...selectedPerson.value });
-//   }
-//   showEditModal.value = false;
-//   showAddModal.value = false;
-// };
 
 
 // Cancel edit
+/**
+ * Closes edit modal and resets state
+ */
 const cancelEdit = () => {
   showEditModal.value = false;
 };
 
+/**
+ * Closes add modal and resets state
+ */
 const cancelAdd = () =>{
   showAddModal.value = false;
 }
 // Medicine modal
+/**
+ * Opens medicine selection modal
+ */
 const openMedicineModal = () => {
   showMedicineModal.value = true;
 };
@@ -468,43 +632,26 @@ const quantity = ref(1); // Add a ref for quantity
 // In AddList.vue
 
 // In AddList.vue
+/**
+ * Adds medicine to current consultation
+ * @param {Object} medicine - Medicine to add
+ * @returns {Promise<void>}
+ */
 const addMedicine = async (medicine) => {
   try {
     if (!medicine?.med_id || !medicine?.requestedQuantity) {
       throw new Error('Invalid medicine data');
     }
 
-    const med_id = Number(medicine.med_id);
-    const requestedQty = Number(medicine.requestedQuantity);
+    const today = new Date();
+    showMedicineDetailModal.value = true;
+    selectedMedicine.value = {
+      med_id: medicine.med_id,
+      name: medicine.name,
+      quantity: medicine.requestedQuantity,  // First set
+      originalQuantity: medicine.requestedQuantity  // Also stored as originalQuantity
+    };
 
-    if (requestedQty > medicine.count) {
-      throw new Error(`Only ${medicine.count} items available`);
-    }
-
-    console.log('Sending request to reduce inventory:', {
-      med_id,
-      quantity: requestedQty
-    });
-
-    const response = await fetch(`http://localhost:3001/inventory/reduce/${med_id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        quantity: requestedQty
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Failed to update inventory item:', errorText);
-      throw new Error('Failed to update inventory item');
-    }
-
-    const data = await response.json();
-    console.log('Inventory updated successfully:', data);
-    // Handle the response data
   } catch (error) {
     console.error('AddMedicine error:', error);
     alert(error.message);
@@ -512,12 +659,22 @@ const addMedicine = async (medicine) => {
 };
 
 // Add validation helper
+/**
+ * Validates medicine quantity
+ * @param {Object} medicine - Medicine to validate
+ * @returns {boolean} True if valid quantity
+ */
 const validateQuantity = (medicine) => {
   const qty = Number(medicine.requestedQuantity);
   return !isNaN(qty) && qty > 0 && qty <= medicine.count;
 };
 
 // Helper function to validate medicine data
+/**
+ * Validates complete medicine data
+ * @param {Object} medicine - Medicine data to validate
+ * @returns {boolean} True if valid
+ */
 const validateMedicineData = (medicine) => {
   if (!medicine?.med_id) return false;
   if (!medicine?.requestedQuantity || medicine.requestedQuantity <= 0) return false;
@@ -532,41 +689,85 @@ const canAddMedicine = (medicine) => {
   return !isNaN(requestedQty) && requestedQty > 0 && requestedQty <= medicine.count;
 };
 
-
-
-
-// Edit medicine
+/**
+ * Opens medicine detail modal for editing
+ * @param {Object} medicine - Medicine to edit
+ * @param {number} index - Index in medicines array
+ */
 const editMedicine = (medicine, index) => {
-  selectedMedicine.value = { ...medicine, index };
+  selectedMedicine.value = {
+    med_id: medicine.med_id,
+    name: medicine.name,
+    quantity: medicine.quantity,
+    schedule: medicine.schedule,
+    startDate: medicine.startDate,
+    endDate: medicine.endDate,
+    remarks: medicine.remarks,
+    index,
+    originalQuantity: medicine.quantity
+  };
   showMedicineDetailModal.value = true;
 };
 
-// Save medicine details
+/**
+ * Saves medicine details back to consultation
+ * Validates required fields before saving
+ */
 const saveMedicineDetails = () => {
-  if (selectedMedicine.value.index !== undefined) {
-    selectedPerson.value.medicines[selectedMedicine.value.index] = { ...selectedMedicine.value };
-    delete selectedMedicine.value.index;
-  } else {
-    if (!selectedPerson.value.medicines) {
-      selectedPerson.value.medicines = [];
+  try {
+    const medicine = selectedMedicine.value;
+    if (!medicine || !medicine.med_id) {
+      throw new Error('Invalid medicine details');
     }
-    selectedPerson.value.medicines.push({ ...selectedMedicine.value });
+
+    // Additional validation
+    if (!medicine.startDate || !medicine.endDate) {
+      throw new Error('Start date and end date are required');
+    }
+    
+    if (!medicine.quantity || medicine.quantity <= 0) {
+      throw new Error('Valid quantity is required');
+    }
+
+    // If editing existing medicine
+    if (medicine.index !== undefined) {
+      selectedPerson.value.medicines[medicine.index] = { ...medicine };
+    } else {
+      // Add new medicine to temp storage
+      if (!selectedPerson.value.medicines) {
+        selectedPerson.value.medicines = [];
+      }
+      selectedPerson.value.medicines.push({ ...medicine });
+    }
+
+    // Close modals
+    showMedicineDetailModal.value = false;
+    showMedicineModal.value = false;
+
+  } catch (error) {
+    console.error('Error saving medicine details:', error);
+    alert(error.message);
   }
-  showMedicineDetailModal.value = false;
-  showMedicineModal.value = false;
 };
 
-// Remove medicine
+/**
+ * Removes medicine from current consultation
+ * @param {number} index - Index of medicine to remove
+ */
 const removeMedicine = (index) => {
   selectedPerson.value.medicines.splice(index, 1);
 };
 
-// Cancel medicine
+/**
+ * Cancels medicine selection modal
+ */
 const cancelMedicine = () => {
   showMedicineModal.value = false;
 };
 
-// Cancel medicine details
+/**
+ * Cancels medicine detail modal
+ */
 const cancelMedicineDetails = () => {
   showMedicineDetailModal.value = false;
   showMedicineModal.value = false;
@@ -574,12 +775,15 @@ const cancelMedicineDetails = () => {
 
 // Selected medicine for detail modal
 const selectedMedicine = ref({
+  med_id: null,
   name: '',
-  dosage: null,
   quantity: 1,
   schedule: '',
   startDate: '',
-  endDate: ''
+  endDate: '',
+  remarks: '',
+  index: null,
+  originalQuantity: 1
 });
 const emit = defineEmits(['confined', 'update-confined']);
 
@@ -595,8 +799,6 @@ watch(
     }
   }
 );
-
-
 </script>
 
 <template>
@@ -703,8 +905,8 @@ watch(
           </div>
           
         </div>
-         <!-- Complaint -->
-         <div class="mb-4">
+        <!-- Complaint -->
+        <div class="mb-4">
                 <label for="complaint" class="block text-sm font-semibold text-gray-600">Complaint</label>
                 <textarea v-model="selectedPerson.generalComplaint" placeholder="General Complaint"
                   class="w-full h-32 px-4 py-2 mt-1 border border-gray-300 rounded-lg"></textarea>
@@ -736,22 +938,30 @@ watch(
             <thead class="text-sm font-semibold text-gray-600">
               <tr>
                 <th class="py-2">Pharmaceutical Product</th>
-                <th class="py-2">Count</th>
-                <th class="py-2">Cancel</th>
+                <th class="py-2">Schedule</th>
+                <th class="py-2">Quantity</th>
+                <th class="py-2">Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(medicine, index) in selectedPerson.medicines" :key="index" v-if="medicinesVisible">
+              <tr v-for="(medicine, index) in selectedPerson.medicines" :key="index">
                 <td class="py-2">{{ medicine.name }}</td>
+                <td class="py-2">{{ medicine.schedule }}</td>
                 <td class="py-2">{{ medicine.quantity }}</td>
                 <td class="py-2">
-                  <button @click="removeMedicine(index)" class="text-red-500">-</button>
+                  <div class="flex space-x-2">
+                    <button @click="editMedicine(medicine, index)" class="text-blue-500 hover:text-blue-700">
+                      <Icon icon="mdi:pencil" />
+                    </button>
+                    <button @click="removeMedicine(index)" class="text-red-500 hover:text-red-700">
+                      <Icon icon="mdi:delete" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-       
 
         <!-- Action Buttons -->
         <div class="flex justify-between mt-6">
@@ -850,64 +1060,65 @@ watch(
     <!-- Medicine Detail Modal -->
     <div v-if="showMedicineDetailModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
   <div class="w-1/3 p-6 bg-white rounded-2xl">
-    <h2 class="mb-4 text-2xl font-semibold">Add Product</h2>
-
-    <!-- Product, Expiration Date, Quantity -->
-    <div class="grid grid-cols-3 gap-4 mb-4">
+    <h2 class="mb-4 text-2xl font-semibold">Medicine Details</h2>
+    
+    <div class="space-y-4">
+      <!-- Medicine Name -->
       <div>
-        <label class="block mb-1 text-gray-600">Product</label>
-        <input type="text" v-model="selectedMedicine.name" class="w-full p-2 bg-gray-100 border rounded-md" disabled>
+        <label class="block text-gray-700">Medicine Name</label>
+        <input type="text" v-model="selectedMedicine.name" disabled
+          class="w-full p-2 bg-gray-100 border rounded-md">
       </div>
+      
+      <!-- Quantity -->
       <div>
-        <label class="block mb-1 text-gray-600">Expiration Date</label>
-        <input type="text" v-model="formattedExpirationDate" class="w-full p-2 bg-gray-100 border rounded-md" disabled>
+        <label class="block text-gray-700">Quantity</label>
+        <input type="number" v-model="selectedMedicine.quantity"
+          class="w-full p-2 border rounded-md">
       </div>
+      
+      <!-- Schedule -->
       <div>
-        <label class="block mb-1 text-gray-600">Quantity</label>
-        <input type="number" v-model="selectedMedicine.quantity" class="w-full p-2 text-center border rounded-md">
+        <label class="block text-gray-700">Schedule</label>
+        <input type="text" v-model="selectedMedicine.schedule"
+          placeholder="e.g., 3 times a day after meals"
+          class="w-full p-2 border rounded-md">
       </div>
-    </div>
-
-    <!-- Schedule -->
-    <div class="mb-4">
-      <label class="block mb-1 text-gray-600">Schedule</label>
-      <input type="text" v-model="selectedMedicine.schedule" placeholder="e.g., Every 4 hours, 3 times a day" class="w-full p-2 border rounded-md">
-    </div>
-
-    <!-- Start Date and End Date -->
-    <div class="grid grid-cols-2 gap-4 mb-6">
-      <div>
-        <label class="block mb-1 text-gray-600">Start Date</label>
-        <div class="relative">
-          <input type="date" v-model="selectedMedicine.startDate" class="w-full p-2 border rounded-md">
-          <span class="absolute inset-y-0 flex items-center right-2">
-            <Icon icon="mdi:calendar" />
-          </span>
+      
+      <!-- Dates -->
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-gray-700">Start Date</label>
+          <input type="date" v-model="selectedMedicine.startDate"
+            class="w-full p-2 border rounded-md">
+        </div> 
+        <div>
+          <label class="block text-gray-700">End Date</label>
+          <input type="date" v-model="selectedMedicine.endDate"
+            class="w-full p-2 border rounded-md">
         </div>
       </div>
+      
+      <!-- Remarks -->
       <div>
-        <label class="block mb-1 text-gray-600">End Date</label>
-        <div class="relative">
-          <input type="date" v-model="selectedMedicine.endDate" class="w-full p-2 border rounded-md">
-          <span class="absolute inset-y-0 flex items-center right-2">
-            <Icon icon="mdi:calendar" />
-          </span>
-        </div>
+        <label class="block text-gray-700">Remarks</label>
+        <textarea v-model="selectedMedicine.remarks"
+          class="w-full p-2 border rounded-md"
+          rows="3"></textarea>
       </div>
     </div>
 
-    <!-- Action Buttons -->
-    <div class="flex justify-end mt-4">
-      <button @click="cancelMedicineDetails" class="mr-auto text-gray-600 underline">Cancel</button>
-      <button @click="saveMedicineDetails" class="p-2 text-white bg-[#2f4a71] rounded-md">Add</button>
+    <div class="flex justify-end mt-6 space-x-4">
+      <button @click="cancelMedicineDetails"
+        class="px-4 py-2 text-gray-600 bg-gray-200 rounded-md">Cancel</button>
+      <button @click="saveMedicineDetails"
+        class="px-4 py-2 text-white bg-blue-600 rounded-md">Save</button>
     </div>
   </div>
 </div>
 
   </div>
 </template>
-
-
 <style scoped>
 textarea {
   resize: none;
