@@ -113,12 +113,42 @@ export class ConsultationRecordsService {
     }
   }
   async deleteConsultationRecord(consultation_id: number) {
-    try {
-      await this.prisma.consultation_records.delete({
-        where: { consultation_id },
-      });
-    } catch (error) {
-      throw new Error(`Error deleting consultation record: ${error.message}`);
-    }
+    return await this.prisma.$transaction(async (prisma) => {
+      try {
+        // First, get all medicine administration records
+        const medAdminRecords = await prisma.medAdministration.findMany({
+          where: { consultation_id }
+        });
+
+        // Return quantities to inventory
+        for (const record of medAdminRecords) {
+          await prisma.inventory.update({
+            where: {
+              med_id_medName: {
+                med_id: record.med_id,
+                medName: record.medName
+              }
+            },
+            data: {
+              count: {
+                increment: record.count // Return quantities to inventory
+              }
+            }
+          });
+        }
+
+        // Delete all medicine administration records
+        await prisma.medAdministration.deleteMany({
+          where: { consultation_id }
+        });
+
+        // Finally delete the consultation record
+        return await prisma.consultation_records.delete({
+          where: { consultation_id }
+        });
+      } catch (error) {
+        throw new Error(`Error deleting consultation record: ${error.message}`);
+      }
+    });
   }
 }

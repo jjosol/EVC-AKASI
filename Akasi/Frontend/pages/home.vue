@@ -1,4 +1,3 @@
-
 <template>
-  <HomeLayout/>
+  <HomeLayoutA/>
 </template>

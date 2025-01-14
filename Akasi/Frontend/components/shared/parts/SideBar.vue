@@ -47,9 +47,6 @@ console.log(isActive().value)
           {{ link.label }}
         </router-link>
       </ul>
-      <!-- <a href="#" class="text-2xl hover:text-blue-400">STUDENT</a>
-      <a href="#" class="text-2xl hover:text-blue-400">FACULTY</a>
-      <a href="#" class="text-2xl text-center hover:text-blue-400">NON-TEACHING STAFF</a> -->
     </nav>
   </div>
 </template>
