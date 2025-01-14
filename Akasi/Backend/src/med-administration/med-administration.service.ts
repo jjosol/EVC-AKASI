@@ -21,8 +21,7 @@ export class MedAdministrationService {
   async createMedAdministration(data: any) {
     return await this.prisma.$transaction(async (prisma) => {
       try {
-        console.log('Received quantity:', data.count);
-        // Check if consultation exists
+        // 1. Check if consultation exists
         const consultation = await prisma.consultation_records.findUnique({
           where: { consultation_id: data.consultation_id },
         });
@@ -31,7 +30,33 @@ export class MedAdministrationService {
           throw new BadRequestException('Consultation record not found');
         }
 
-        // Check inventory availability
+        // 2. Check if record already exists
+        const existingRecord = await prisma.medAdministration.findFirst({
+          where: {
+            consultation_id: data.consultation_id,
+            med_id: data.med_id,
+            medName: data.medName
+          }
+        });
+
+        if (existingRecord) {
+          // If updating existing record, restore old quantity first
+          await prisma.inventory.update({
+            where: {
+              med_id_medName: {
+                med_id: data.med_id,
+                medName: data.medName
+              }
+            },
+            data: {
+              count: {
+                increment: existingRecord.count // Return old quantity
+              }
+            }
+          });
+        }
+
+        // 3. Check inventory availability
         const inventory = await prisma.inventory.findFirst({
           where: {
             med_id: data.med_id,
@@ -39,11 +64,15 @@ export class MedAdministrationService {
           },
         });
 
-        if (!inventory || inventory.count < data.count) {
-          throw new BadRequestException('Insufficient inventory');
+        if (!inventory) {
+          throw new BadRequestException('Medicine not found in inventory');
         }
 
-        // Update inventory
+        if (inventory.count < data.count) {
+          throw new BadRequestException(`Insufficient inventory. Available: ${inventory.count}`);
+        }
+
+        // 4. Update inventory (reduce quantity)
         await prisma.inventory.update({
           where: {
             med_id_medName: {
@@ -56,27 +85,39 @@ export class MedAdministrationService {
           },
         });
 
-        // Create medication administration record
-        return await prisma.medAdministration.create({
-          data: {
-            consultation_id: data.consultation_id,
-            client_id: data.client_id,
-            admin_id: data.admin_id,
-            med_id: data.med_id,
-            medName: data.medName,
-            count: data.count,
-            schedule: data.schedule,
-            start_date: new Date(data.start_date),
-            end_date: new Date(data.end_date),
-            remarks: data.remarks || null,
-            date: new Date(data.date),
-            patient: data.patient,
-          },
-          include: {
-            inventory: true,
-          },
-        });
+        // 5. Create or update med administration record
+        if (existingRecord) {
+          return await prisma.medAdministration.update({
+            where: { consultation_id: existingRecord.consultation_id },
+            data: {
+              count: data.count,
+              schedule: data.schedule,
+              start_date: new Date(data.start_date),
+              end_date: new Date(data.end_date),
+              remarks: data.remarks,
+              date: new Date(data.date)
+            }
+          });
+        } else {
+          return await prisma.medAdministration.create({
+            data: {
+              client_id: data.client_id,
+              admin_id: data.admin_id,
+              med_id: data.med_id,
+              medName: data.medName,
+              count: data.count,
+              schedule: data.schedule,
+              start_date: new Date(data.start_date),
+              end_date: new Date(data.end_date),
+              remarks: data.remarks || null,
+              date: new Date(data.date),
+              patient: data.patient,
+              consultation_id: data.consultation_id
+            }
+          });
+        }
       } catch (error) {
+        // All operations will be rolled back if any error occurs
         throw new BadRequestException(error.message);
       }
     });

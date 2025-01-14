@@ -44,6 +44,10 @@ export class MedAdministrationController {
 
   @Delete(':id')
   async delete(@Param('id') id: string) {
-    return this.service.deleteMedAdministration(Number(id));
+    try {
+      return await this.service.deleteMedAdministration(Number(id));
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
   }
 }

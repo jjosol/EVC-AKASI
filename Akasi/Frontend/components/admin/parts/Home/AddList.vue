@@ -36,20 +36,17 @@ const selectedConsultationRecord = ref(null);
 // Selected date/time
 const selectedDate = computed(() => {
   // Use the currentDay prop or fallback to current Manila time
-  const date = props.currentDay.date instanceof Date 
-    ? props.currentDay.date 
-    : moment().tz("Asia/Manila").toDate();
-
+  const date = props.currentDay.date instanceof Date ? props.currentDay.date : moment().tz("Asia/Manila").toDate();
   const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
   const dayOptions = { weekday: 'long' };
   const dateOptions = { year: 'numeric', month: 'long', day: 'numeric' };
-  
   return {
     day: new Intl.DateTimeFormat('en-US', dayOptions).format(date),
     monthYear: new Intl.DateTimeFormat('en-US', dateOptions).format(date),
     date: new Intl.DateTimeFormat('en-US', options).format(date)
   };
 });
+
 const confinedCount = ref(0);
 const selectedTime = ref(formatAMPM(new Date()));
 
@@ -356,55 +353,52 @@ const savePerson = async () => {
       selectedPerson.value.medicines?.length > 0
     ) {
       for (const medicine of selectedPerson.value.medicines) {
-        try {
-          // Validate required fields
-          if (!medicine.startDate || !medicine.endDate) {
-            throw new Error('Start date and end date are required for medicine administration');
-          }
+        if (medicine.markedForDeletion) {
+          // Delete the medicine
+          const response = await fetch(`http://localhost:3001/med-administration/${medicine.consultation_id}`, {
+            method: 'DELETE'
+          });
 
+          if (!response.ok) {
+            throw new Error('Failed to delete medicine record');
+          }
+        } else {
+          // Save or update the medicine
           const medAdminData = {
             consultation_id: consultationId,
             client_id: selectedPerson.value.clientId,
-            admin_id: 1, // Replace with the actual admin ID
+            admin_id: 1,
             med_id: medicine.med_id,
             medName: medicine.name,
-            count: Number(medicine.quantity),  // Using the quantity field
+            count: Number(medicine.quantity),
             schedule: medicine.schedule || '',
-            start_date: new Date(medicine.startDate).toISOString(),
-            end_date: new Date(medicine.endDate).toISOString(),
+            start_date: medicine.startDate,
+            end_date: medicine.endDate,
             remarks: medicine.remarks || '',
             date: new Date().toISOString(),
-            patient: selectedPerson.value.name,
+            patient: selectedPerson.value.name
           };
-
-          console.log('Sending medicine quantity:', medAdminData.count);
 
           const response = await fetch('http://localhost:3001/med-administration', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify(medAdminData),
+            body: JSON.stringify(medAdminData)
           });
 
           if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || `Failed to save medicine ${medicine.name}`);
+            throw new Error(`Failed to save medicine ${medicine.name}`);
           }
-        } catch (error) {
-          console.error('Error saving medicine:', error);
-          throw new Error(`Failed to save medicine ${medicine.name}: ${error.message}`);
         }
       }
     }
 
-    // Reset state and refresh data
+    // Reset form and refresh data
     selectedPerson.value = null;
-    selectedConsultationRecord.value = null;
     showEditModal.value = false;
     showAddModal.value = false;
-
-    await Promise.all([fetchPatients(), fetchPeople(), fetchRecordCount()]);
+    await fetchPatients();
   } catch (error) {
     console.error('Error saving data:', error);
     alert('Failed to save data: ' + error.message);
@@ -496,13 +490,7 @@ const filteredPeople = computed(() => {
 });
 
 const filteredMedicines = computed(() => {
-  console.log('Current medicines:', allMedicines.value); // Add this for debugging
-  if (!medicineSearchQuery.value) {
-    return allMedicines.value;
-  }
-  return allMedicines.value.filter(medicine => 
-    medicine.name.toLowerCase().includes(medicineSearchQuery.value.toLowerCase())
-  );
+  return selectedPerson.value.medicines.filter(medicine => !medicine.markedForDeletion);
 });
 
 /**
@@ -542,6 +530,7 @@ const openEditModal = async (patient) => {
     // Map the med admin records to match the expected format
     const mappedMedicines = medAdminRecords.map(record => ({
       med_id: record.med_id,
+      consultation_id: record.consultation_id, // Add this line
       name: record.medName,
       quantity: record.count,
       schedule: record.schedule,
@@ -587,7 +576,6 @@ const deleteConsultationRecord = async (consultation_id) => {
   }
 };
 
-
 /**
  * Adds a new person to selected state
  * @param {Object} person - Person to add
@@ -600,8 +588,6 @@ const addPerson = (person) => {
     showEditModal.value = true;
   }
 };
-
-
 
 // Cancel edit
 /**
@@ -629,7 +615,6 @@ const openMedicineModal = () => {
 
 const quantity = ref(1); // Add a ref for quantity
 
-// In AddList.vue
 
 // In AddList.vue
 /**
@@ -697,6 +682,7 @@ const canAddMedicine = (medicine) => {
 const editMedicine = (medicine, index) => {
   selectedMedicine.value = {
     med_id: medicine.med_id,
+    consultation_id: medicine.consultation_id, // Add this line
     name: medicine.name,
     quantity: medicine.quantity,
     schedule: medicine.schedule,
@@ -706,6 +692,7 @@ const editMedicine = (medicine, index) => {
     index,
     originalQuantity: medicine.quantity
   };
+  isViewOnly.value = false;
   showMedicineDetailModal.value = true;
 };
 
@@ -713,7 +700,7 @@ const editMedicine = (medicine, index) => {
  * Saves medicine details back to consultation
  * Validates required fields before saving
  */
-const saveMedicineDetails = () => {
+const saveMedicineDetails = async () => {
   try {
     const medicine = selectedMedicine.value;
     if (!medicine || !medicine.med_id) {
@@ -729,21 +716,14 @@ const saveMedicineDetails = () => {
       throw new Error('Valid quantity is required');
     }
 
-    // If editing existing medicine
+    // Only update local state
     if (medicine.index !== undefined) {
       selectedPerson.value.medicines[medicine.index] = { ...medicine };
     } else {
-      // Add new medicine to temp storage
-      if (!selectedPerson.value.medicines) {
-        selectedPerson.value.medicines = [];
-      }
       selectedPerson.value.medicines.push({ ...medicine });
     }
 
-    // Close modals
     showMedicineDetailModal.value = false;
-    showMedicineModal.value = false;
-
   } catch (error) {
     console.error('Error saving medicine details:', error);
     alert(error.message);
@@ -754,8 +734,9 @@ const saveMedicineDetails = () => {
  * Removes medicine from current consultation
  * @param {number} index - Index of medicine to remove
  */
-const removeMedicine = (index) => {
-  selectedPerson.value.medicines.splice(index, 1);
+ const removeMedicine = (index) => {
+  selectedPerson.value.medicines[index].markedForDeletion = true;
+  console.log(index)
 };
 
 /**
@@ -799,6 +780,14 @@ watch(
     }
   }
 );
+
+const isViewOnly = ref(false); // Add this ref to control the editable state
+
+const openViewMedicineModal = (medicine) => {
+  selectedMedicine.value = { ...medicine };
+  isViewOnly.value = true; // Set the modal to view-only mode
+  showMedicineDetailModal.value = true;
+};
 </script>
 
 <template>
@@ -940,20 +929,19 @@ watch(
                 <th class="py-2">Pharmaceutical Product</th>
                 <th class="py-2">Schedule</th>
                 <th class="py-2">Quantity</th>
-                <th class="py-2">Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(medicine, index) in selectedPerson.medicines" :key="index">
-                <td class="py-2">{{ medicine.name }}</td>
+              <tr v-for="(medicine, index) in filteredMedicines" :key="index">
+                <td class="py-2 cursor-pointer" @click="openViewMedicineModal(medicine)">{{ medicine.name }}</td>
                 <td class="py-2">{{ medicine.schedule }}</td>
                 <td class="py-2">{{ medicine.quantity }}</td>
                 <td class="py-2">
                   <div class="flex space-x-2">
-                    <button @click="editMedicine(medicine, index)" class="text-blue-500 hover:text-blue-700">
+                    <button v-if="medicine.consultation_id" @click="editMedicine(medicine, index)" class="text-blue-500 hover:text-blue-700">
                       <Icon icon="mdi:pencil" />
                     </button>
-                    <button @click="removeMedicine(index)" class="text-red-500 hover:text-red-700">
+                    <button v-if="medicine.consultation_id" @click="removeMedicine(index)" class="text-red-500 hover:text-red-700">
                       <Icon icon="mdi:delete" />
                     </button>
                   </div>
@@ -1066,21 +1054,21 @@ watch(
       <!-- Medicine Name -->
       <div>
         <label class="block text-gray-700">Medicine Name</label>
-        <input type="text" v-model="selectedMedicine.name" disabled
+        <input type="text" v-model="selectedMedicine.name" :disabled="isViewOnly"
           class="w-full p-2 bg-gray-100 border rounded-md">
       </div>
       
       <!-- Quantity -->
       <div>
         <label class="block text-gray-700">Quantity</label>
-        <input type="number" v-model="selectedMedicine.quantity"
+        <input type="number" v-model="selectedMedicine.quantity" :disabled="isViewOnly"
           class="w-full p-2 border rounded-md">
       </div>
       
       <!-- Schedule -->
       <div>
         <label class="block text-gray-700">Schedule</label>
-        <input type="text" v-model="selectedMedicine.schedule"
+        <input type="text" v-model="selectedMedicine.schedule" :disabled="isViewOnly"
           placeholder="e.g., 3 times a day after meals"
           class="w-full p-2 border rounded-md">
       </div>
@@ -1089,12 +1077,12 @@ watch(
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="block text-gray-700">Start Date</label>
-          <input type="date" v-model="selectedMedicine.startDate"
+          <input type="date" v-model="selectedMedicine.startDate" :disabled="isViewOnly"
             class="w-full p-2 border rounded-md">
         </div> 
         <div>
           <label class="block text-gray-700">End Date</label>
-          <input type="date" v-model="selectedMedicine.endDate"
+          <input type="date" v-model="selectedMedicine.endDate" :disabled="isViewOnly"
             class="w-full p-2 border rounded-md">
         </div>
       </div>
@@ -1102,16 +1090,16 @@ watch(
       <!-- Remarks -->
       <div>
         <label class="block text-gray-700">Remarks</label>
-        <textarea v-model="selectedMedicine.remarks"
+        <textarea v-model="selectedMedicine.remarks" :disabled="isViewOnly"
           class="w-full p-2 border rounded-md"
           rows="3"></textarea>
       </div>
     </div>
 
-    <div class="flex justify-end mt-6 space-x-4">
+   <div class="flex justify-end mt-6 space-x-4">
       <button @click="cancelMedicineDetails"
         class="px-4 py-2 text-gray-600 bg-gray-200 rounded-md">Cancel</button>
-      <button @click="saveMedicineDetails"
+      <button v-if="!isViewOnly" @click="saveMedicineDetails"
         class="px-4 py-2 text-white bg-blue-600 rounded-md">Save</button>
     </div>
   </div>

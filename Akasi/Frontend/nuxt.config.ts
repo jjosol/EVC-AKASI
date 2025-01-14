@@ -2,6 +2,12 @@
 import { defineNuxtConfig } from 'nuxt/config'
 export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
+  components: [
+    {
+      path: '~/components', // will get any components nested in let's say /components/test too
+      pathPrefix: false,
+    },
+  ],
   devtools: { enabled: true },
   plugins: [
     '~/plugins/iconify.ts',
@@ -26,7 +32,10 @@ export default defineNuxtConfig({
       ]
     }
   },
-  modules: ['@nuxtjs/google-fonts'],
+  modules: [
+    '@nuxtjs/google-fonts',
+    '~/modules/files-router.ts',
+  ],
   googleFonts: {
     families: {
       Inter: [400, 700] // Explicitly specify weights
