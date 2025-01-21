@@ -20,14 +20,27 @@ model EditsInverntory {
 }
 
 model HSU_bulletin {
-  admin_id Int
-  username String @db.VarChar(225)
-  caption  String @db.VarChar(500)
-  file     String? @db.Text
-  post_id  Int    @id @unique(map: "post_id") @default(autoincrement())
-  admin    admin  @relation(fields: [admin_id, username], references: [admin_id, username], onDelete: NoAction, onUpdate: NoAction, map: "FK_admin_TO_HSU_bulletin")
+  admin_id   Int
+  username   String           @db.VarChar(225)
+  caption    String?          @db.VarChar(500)
+  post_id    Int              @id @default(autoincrement())
+  created_at DateTime         @default(now())
+  files      HSU_bulletin_files[]
+  admin      admin            @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_admin_TO_HSU_bulletin")
 
   @@index([admin_id, username], map: "FK_admin_TO_HSU_bulletin")
+}
+
+model HSU_bulletin_files {
+  file_id    Int          @id @default(autoincrement())
+  post_id    Int
+  file_name  String?      @db.VarChar(255)
+  file_type  String?      @db.VarChar(50)
+  file_path  String?      @db.Text
+  created_at DateTime     @default(now())
+  bulletin   HSU_bulletin @relation(fields: [post_id], references: [post_id], onDelete: Cascade)
+
+  @@index([post_id])
 }
 
 model admin {
@@ -42,7 +55,7 @@ model admin {
   @@id([admin_id, username])
 }
 
-model appointmant {
+model appointment {
   appointment_id Int      @id @unique(map: "appointment_id")
   client_id      Int
   date           DateTime @db.Date
@@ -64,7 +77,7 @@ model client {
   category             String                 @db.VarChar(225)
   grade                Int?         
   section              String                 @db.VarChar(225)
-  appointmant          appointmant[]
+  appointment          appointment[]
   consultation_records consultation_records[]
   dental_certificates  dental_certificates[]
   medAdministration    medAdministration[]
