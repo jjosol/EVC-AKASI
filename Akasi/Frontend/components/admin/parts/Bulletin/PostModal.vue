@@ -9,6 +9,7 @@ const props = defineProps({
 const localText = ref('');
 const localMediaFiles = ref([]);
 const emit = defineEmits(['add-post', 'close']);
+const isLoading = ref(false);
 
 watch(props.post, (newPost) => {
   if (newPost) {
@@ -45,39 +46,30 @@ function removeFile(index) {
   localMediaFiles.value.splice(index, 1);
 }
 async function addNewPost() {
-  if (localText.value || localMediaFiles.value.length) {
-    const post = {
-      admin_id: 1, // Replace with actual admin ID from auth
-      username: "admin", // Replace with actual username from auth
-      caption: localText.value,
-      file: localMediaFiles.value.length ? 
-        localMediaFiles.value.map(file => file.preview).join(',') : 
-        null
-    };
-
-    try {
-      const url = 'http://localhost:3001/posts';
-      console.log('Sending post:', post);
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(post)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.message}`);
+  try {
+    isLoading.value = true;
+    const formData = new FormData();
+    formData.append('admin_id', 1);
+    formData.append('username', 'admin');
+    formData.append('caption', localText.value);
+    
+    localMediaFiles.value.forEach(fileObj => {
+      if (fileObj.file) {
+        formData.append('files', fileObj.file);
       }
+    });
 
-      const data = await response.json();
-      emit('add-post', data);
-      resetPost();
-    } catch (error) {
-      console.error('Error details:', error);
-    }
+    const response = await fetch('http://localhost:3001/posts', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) throw new Error('Upload failed');
+    emit('close');
+  } catch (error) {
+    console.error('Error:', error);
+  } finally {
+    isLoading.value = false;
   }
 }
 function resetPost() {
@@ -99,8 +91,10 @@ function resetPost() {
       </div>
     </div>
     <div class="flex space-x-2">
-      <button @click="resetPost" class="text-purple-600">Cancel</button>
-      <button @click="addNewPost" class="p-2 text-white bg-purple-500 rounded">Post</button>
+      <button @click="resetPost" :disabled="isLoading" class="text-purple-600">Cancel</button>
+      <button @click="addNewPost" :disabled="isLoading" class="p-2 text-white bg-purple-500 rounded">
+        {{ isLoading ? 'Posting...' : 'Post' }}
+      </button>
     </div>
   </div>
 
@@ -129,6 +123,11 @@ function resetPost() {
       <button @click="removeFile(index)" class="absolute p-1 text-white bg-red-500 rounded top-1 right-1">X</button>
     </div>
   </div>
+</div>
+
+<!-- Add loading overlay -->
+<div v-if="isLoading" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+  <div class="text-white">Uploading...</div>
 </div>
 </template>
 
