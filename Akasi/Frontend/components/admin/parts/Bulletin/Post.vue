@@ -8,7 +8,7 @@ const props = defineProps({
     required: true,
     default: () => ({
       text: '',
-      caption: '',
+      caption: '', 
       files: [],
       post_id: null,
       created_at: null
