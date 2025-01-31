@@ -7,6 +7,7 @@ const links = [
   { path: '/files/student', label: 'Files' },
   { path: '/reports', label: 'Reports' },
   { path: '/inventory', label: 'Inventory' },
+  { path: '/profile', label: 'Profile' },
 ];
 const isActive = (path) => computed(() => {
   if (route.path === path)  {

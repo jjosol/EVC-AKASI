@@ -18,10 +18,14 @@ import { StorageModule } from './storage/storage.module';
 import { FileController } from './file/file.controller';
 import { FileService } from './file/file.service';
 import { FileModule } from './file/file.module';
+import { ProfileService } from './profile/profile.service';
+import { ProfileModule } from './profile/profile.module';
+import { ProfileController } from './profile/profile.controller';
+
 
 @Module({
-  imports: [PrismaModule, AdminsModule, AuthModule, ClientsModule, ConsultationRecordsModule, PostsModule, InventoryModule, MedAdministrationModule, StorageModule, FileModule],
-  providers: [PostsService, MedAdministrationService, StorageService, FileService],
-  controllers: [PostsController, MedAdministrationController, FileController],
+  imports: [PrismaModule, AdminsModule, AuthModule, ClientsModule, ConsultationRecordsModule, PostsModule, InventoryModule, MedAdministrationModule, StorageModule, FileModule, ProfileModule],
+  providers: [PostsService, MedAdministrationService, StorageService, FileService, ProfileService],
+  controllers: [PostsController, MedAdministrationController, FileController, ProfileController],
 })
 export class AppModule {}
