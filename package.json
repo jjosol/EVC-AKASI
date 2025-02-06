@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "scripts": {
+    "dev": "concurrently -n \"FRONTEND,BACKEND,PRISMA\" \"cd akasi/frontend && npm run dev\" \"cd akasi/backend && npm run start:dev\" \"cd akasi/backend && npx prisma studio\""
+  }
+}
+
