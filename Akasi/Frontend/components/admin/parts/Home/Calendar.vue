@@ -8,6 +8,8 @@ const selectedMonth = ref(today.month());
 const selectedDate = ref(today.toDate());
 const calendar = ref([]);
 const confinedCount = ref(0);
+const monthlyConsultationCount = ref(0);
+const yearlyConsultationCount = ref(0);
 
 const years = Array.from({ length: 7 }, (_, i) => moment().tz("Asia/Manila").year() - 6 + i);
 const months = [
@@ -30,7 +32,7 @@ const props = defineProps({
 const emit = defineEmits(['day-selected', 'update-date']);
 
 // Define updateCalendar function first
-const updateCalendar = () => {
+const updateCalendar = async () => {
   const firstDayOfMonth = moment.tz({ 
     year: selectedYear.value, 
     month: selectedMonth.value, 
@@ -66,6 +68,42 @@ const updateCalendar = () => {
     year: selectedYear.value, 
     month: selectedMonth.value 
   });
+
+  // Fetch confined count
+  try {
+    const response = await fetch(`http://localhost:3001/consultation-records/count?year=${selectedYear.value}&month=${selectedMonth.value}&confined=true`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch confined count');
+    }
+    const data = await response.json();
+    confinedCount.value = data;
+  } catch (error) {
+    console.error('Error fetching confined count:', error);
+  }
+
+  // Fetch monthly consultation count
+  try {
+    const response = await fetch(`http://localhost:3001/consultation-records/count?year=${selectedYear.value}&month=${selectedMonth.value}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch monthly consultation count');
+    }
+    const data = await response.json();
+    monthlyConsultationCount.value = data;
+  } catch (error) {
+    console.error('Error fetching monthly consultation count:', error);
+  }
+
+  // Fetch yearly consultation count
+  try {
+    const response = await fetch(`http://localhost:3001/consultation-records/year-count?year=${selectedYear.value}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch yearly consultation count');
+    }
+    const data = await response.json();
+    yearlyConsultationCount.value = data;
+  } catch (error) {
+    console.error('Error fetching yearly consultation count:', error);
+  }
 };
 
 // Now we can watch for changes
@@ -103,6 +141,10 @@ const isSelected = (date) => {
 
 onMounted(() => {
   updateCalendar();
+});
+
+defineExpose({
+  updateCalendar
 });
 </script>
 
@@ -152,7 +194,9 @@ onMounted(() => {
       </tbody>
     </table>
     <div class="text-[#2f4a71] text-xl">
-      <h1 class="font-bold">Total Confined in {{ months[selectedMonth] }} {{ selectedYear }}: {{ updateConfined }}</h1>
+      <h1 class="font-bold">Total Confined in {{ months[selectedMonth] }} {{ selectedYear }}: {{ confinedCount }}</h1>
+      <h1 class="font-bold">Total Consultations in {{ months[selectedMonth] }} {{ selectedYear }}: {{ monthlyConsultationCount }}</h1>
+      <h1 class="font-bold">Total Consultations in {{ selectedYear }}: {{ yearlyConsultationCount }}</h1>
     </div>
   </div>
 </template>

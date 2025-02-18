@@ -5,19 +5,25 @@ const posts = ref([]);
 const isModalVisible = ref(false);
 const currentPost = ref(null);
 
-onMounted(async () => {
+// Add fetchPosts function to make it reusable
+async function fetchPosts() {
   const response = await fetch('http://localhost:3001/posts');
   posts.value = await response.json();
-});
+}
 
-function addPost(newPost) {
+onMounted(fetchPosts);
+
+// Modify addPost to properly handle the new post
+async function addPost(newPost) {
   if (currentPost.value) {
+    // Handle edit case
     const index = posts.value.findIndex(post => post.post_id === newPost.post_id);
     if (index !== -1) {
       posts.value[index] = newPost;
     }
   } else {
-    posts.value.push(newPost);
+    // For new posts, fetch all posts again to ensure we have the latest data
+    await fetchPosts();
   }
   closeModal();
 }
@@ -44,9 +50,7 @@ function closeModal() {
   isModalVisible.value = false;
 }
 
-definePageMeta({
-  middleware: 'auth',
-});
+
 </script>
 
 <template>

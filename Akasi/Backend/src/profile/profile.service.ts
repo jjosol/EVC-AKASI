@@ -23,7 +23,7 @@ export class ProfileService {
     return {
       name: client?.name || 'N/A',
       email: client?.gmail || 'N/A',
-      role: 'Student',
+      role: 'Client',
       age: client?.age || 'N/A',
       gender: client?.gender || 'N/A',
       grade: client?.grade || 'N/A',

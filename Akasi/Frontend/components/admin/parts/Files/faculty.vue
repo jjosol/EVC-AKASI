@@ -1,8 +1,4 @@
 <script setup>
-definePageMeta({
-  layout: 'custom',
-  middleware: 'auth', // Reference your middleware here
-})
 
 // import { ref, computed } from 'vue';
 
@@ -53,14 +49,21 @@ const goToStudentFiles = (id) => {
   alert(`Navigating to files of student ID: ${id}`);
 };
 
+definePageMeta({
+  layout: 'flayout',
+  middleware: 'auth'
+})
 </script>
 
 <template>
-    <NuxtLayout>
+    <!-- <NuxtLayout> -->
         <div class="flex items-center justify-center student-list">
             <h1>FACULTY LIST</h1>
+          
         </div>
-    </NuxtLayout>
-    
+    <!-- </NuxtLayout> -->
+    <h1 class="font-bold text-center text-9xl">
+      DNJASKNDJANJADN
+    </h1>
 </template>
   

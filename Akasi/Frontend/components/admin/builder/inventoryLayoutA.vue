@@ -18,7 +18,8 @@
   import { ref } from 'vue'
   
   definePageMeta({
-    middleware: 'auth'
+    middleware: 'auth',
+    layout: 'main',
   })
   
   const isModalOpen = ref(false)

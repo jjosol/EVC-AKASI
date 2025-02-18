@@ -1,4 +1,7 @@
 <script setup>
+import { ref } from 'vue';
+// import axios from 'axios';
+
 const props = defineProps({
   post: {
     type: Object,
@@ -10,6 +13,7 @@ const localText = ref('');
 const localMediaFiles = ref([]);
 const emit = defineEmits(['add-post', 'close']);
 const isLoading = ref(false);
+const error = ref(null);
 
 watch(props.post, (newPost) => {
   if (newPost) {
@@ -26,16 +30,17 @@ watch(props.post, (newPost) => {
   }
 }, { immediate: true });
 
-function handleFileSelection(event) {
+function handleFileUpload(event) {
   const files = Array.from(event.target.files);
+  
   files.forEach(file => {
     const reader = new FileReader();
     reader.onload = (e) => {
       localMediaFiles.value.push({
-        type: file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'file',
-        name: file.name,
+        file: file, // Store the actual file object
         preview: e.target.result,
-        file: file
+        type: file.type.split('/')[0],
+        name: file.name
       });
     };
     reader.readAsDataURL(file);
@@ -45,17 +50,19 @@ function handleFileSelection(event) {
 function removeFile(index) {
   localMediaFiles.value.splice(index, 1);
 }
-async function addNewPost() {
+
+const onSubmit = async () => {
+  isLoading.value = true;
   try {
-    isLoading.value = true;
     const formData = new FormData();
-    formData.append('admin_id', 1);
+    formData.append('admin_id', '1');
     formData.append('username', 'admin');
     formData.append('caption', localText.value);
-    
-    localMediaFiles.value.forEach(fileObj => {
-      if (fileObj.file) {
-        formData.append('files', fileObj.file);
+
+    // Append actual file objects
+    localMediaFiles.value.forEach(media => {
+      if (media.file) {
+        formData.append('files', media.file);
       }
     });
 
@@ -63,15 +70,22 @@ async function addNewPost() {
       method: 'POST',
       body: formData
     });
+    
+    if (!response.ok) {
+      throw new Error('Upload failed');
+    }
 
-    if (!response.ok) throw new Error('Upload failed');
+    const data = await response.json();
+    emit('add-post', data);
     emit('close');
-  } catch (error) {
-    console.error('Error:', error);
+  } catch (err) {
+    console.error('Upload error:', err);
+    error.value = 'Failed to upload post';
   } finally {
     isLoading.value = false;
   }
-}
+};
+
 function resetPost() {
   localText.value = '';
   localMediaFiles.value = [];
@@ -92,7 +106,7 @@ function resetPost() {
     </div>
     <div class="flex space-x-2">
       <button @click="resetPost" :disabled="isLoading" class="text-purple-600">Cancel</button>
-      <button @click="addNewPost" :disabled="isLoading" class="p-2 text-white bg-purple-500 rounded">
+      <button @click="onSubmit" :disabled="isLoading" class="p-2 text-white bg-purple-500 rounded">
         {{ isLoading ? 'Posting...' : 'Post' }}
       </button>
     </div>
@@ -111,16 +125,48 @@ function resetPost() {
       </svg>
       <span>Attach Files</span>
     </label>
-    <input id="file-upload" type="file" @change="handleFileSelection" multiple class="hidden">
+    <input id="file-upload" type="file" @change="handleFileUpload" multiple class="hidden">
   </div>
 
   <!-- Media Previews -->
-  <div class="grid grid-cols-1 gap-2 mt-5 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 max-h-60">
-    <div v-for="(file, index) in localMediaFiles" :key="file.name" class="relative">
-      <img v-if="file.type === 'image'" :src="file.preview" alt="Image" class="object-cover w-full h-full rounded">
-      <video v-if="file.type === 'video'" controls :src="file.preview" class="object-cover w-full h-full rounded"></video>
-      <a v-if="file.type === 'file'" :href="file.preview" target="_blank" class="text-blue-500 underline">{{ file.name }}</a>
-      <button @click="removeFile(index)" class="absolute p-1 text-white bg-red-500 rounded top-1 right-1">X</button>
+  <div class="grid grid-cols-1 gap-4 mt-5 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 max-h-60">
+    <div v-for="(file, index) in localMediaFiles" :key="file.name" class="relative group">
+      <!-- Image Preview -->
+      <div v-if="file.type === 'image'" class="relative aspect-w-16 aspect-h-9">
+        <img 
+          :src="file.preview" 
+          :alt="file.name"
+          class="object-cover w-full h-full rounded-lg shadow-md"
+          @error="handleImageError"
+        />
+      </div>
+
+      <!-- Video Preview -->
+      <div v-else-if="file.type === 'video'" class="relative aspect-w-16 aspect-h-9">
+        <video 
+          :src="file.preview" 
+          controls
+          class="w-full h-full rounded-lg shadow-md"
+        >
+          Your browser does not support video playback.
+        </video>
+      </div>
+
+      <!-- Document Preview -->
+      <div v-else class="p-4 border rounded-lg shadow-md">
+        <div class="flex items-center space-x-2">
+          <Icon icon="mdi:file-document-outline" class="w-6 h-6"/>
+          <span class="truncate">{{ file.name }}</span>
+        </div>
+      </div>
+
+      <!-- Remove Button -->
+      <button 
+        @click="removeFile(index)" 
+        class="absolute p-1 text-white bg-red-500 rounded-full -top-2 -right-2 hover:bg-red-600"
+      >
+        <Icon icon="mdi:close" class="w-4 h-4"/>
+      </button>
     </div>
   </div>
 </div>
@@ -129,10 +175,36 @@ function resetPost() {
 <div v-if="isLoading" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
   <div class="text-white">Uploading...</div>
 </div>
+
+<div v-if="error" class="error-message">
+  {{ error }}
+</div>
 </template>
 
 <style scoped>
-textarea {
-  min-height: 100px;
+.aspect-w-16 {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+}
+
+.aspect-w-16 > * {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  object-fit: cover;
+}
+
+/* For document preview */
+.truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.error-message {
+  color: red;
+  margin-top: 1rem;
 }
 </style>
