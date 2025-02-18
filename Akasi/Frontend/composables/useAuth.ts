@@ -1,15 +1,19 @@
 // composables/useAuth.ts
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed } from 'vue';
 import { jwtDecode } from 'jwt-decode';
-import { navigateTo } from 'nuxt/app';
+import { navigateTo, useRouter } from 'nuxt/app';
 
 export const useAuth = () => {
   const isAuthenticated = ref(false);
+  const userRole = ref<string | null>(null);
+  const router = useRouter(); // Get the router instance
   let tokenCheckInterval: ReturnType<typeof setInterval> | null = null;
 
   const checkToken = () => {
+    if (process.server) return true; // Skip token check on server-side
+
     const token = localStorage.getItem('token');
-    
+
     if (!token) {
       handleLogout();
       return false;
@@ -25,6 +29,7 @@ export const useAuth = () => {
       }
 
       isAuthenticated.value = true;
+      userRole.value = decoded.role || null;
       return true;
     } catch (error) {
       console.error('Error decoding token:', error);
@@ -36,15 +41,17 @@ export const useAuth = () => {
   const handleLogout = () => {
     localStorage.removeItem('token');
     isAuthenticated.value = false;
+    userRole.value = null;
     navigateTo('/login');
   };
 
   const startTokenCheck = () => {
-    // Initial check
+    if (process.server) return;
+
     checkToken();
-    
-    // Set up interval for subsequent checks
-    tokenCheckInterval = setInterval(checkToken, 30000); // 30 seconds
+    tokenCheckInterval = setInterval(() => {
+      checkToken();
+    }, 30000);
   };
 
   const stopTokenCheck = () => {
@@ -54,25 +61,25 @@ export const useAuth = () => {
     }
   };
 
-  // Start monitoring when component is mounted
-  onMounted(() => {
-    if (import.meta.client) {
-      startTokenCheck();
-    }
-  });
+  const setToken = (token: string) => {
+    localStorage.setItem('token', token);
+    checkToken(); // Update isAuthenticated and userRole
+  };
 
-  // Clean up when component is unmounted
-  onUnmounted(() => {
-    if (import.meta.client) {
-      stopTokenCheck();
-    }
-  });
+  const isAdmin = computed(() => userRole.value === 'admin');
+  const isClient = computed(() => userRole.value === 'client');
+
+  startTokenCheck(); // Start token check immediately
 
   return {
     isAuthenticated,
+    userRole,
+    isAdmin,
+    isClient,
     checkToken,
     handleLogout,
     startTokenCheck,
-    stopTokenCheck
+    stopTokenCheck,
+    setToken,
   };
 };

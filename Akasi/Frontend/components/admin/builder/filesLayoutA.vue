@@ -1,4 +1,3 @@
-<!-- filepath: components/admin/builder/FilesLayout.vue -->
 <template>
   <div>
     <slot />
@@ -6,5 +5,5 @@
 </template>
 
 <script setup>
-// Any necessary script setup
+
 </script>

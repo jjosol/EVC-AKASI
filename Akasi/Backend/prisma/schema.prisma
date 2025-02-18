@@ -32,13 +32,14 @@ model HSU_bulletin {
 }
 
 model HSU_bulletin_files {
-  file_id    Int          @id @default(autoincrement())
+  file_id    Int      @id @default(autoincrement())
   post_id    Int
-  file_name  String?      @db.VarChar(255)
-  file_type  String?      @db.VarChar(50)
-  file_path  String?      @db.Text
-  created_at DateTime     @default(now())
-  bulletin   HSU_bulletin @relation(fields: [post_id], references: [post_id], onDelete: Cascade)
+  file_name  String
+  file_type  String
+  mime_type  String
+  data       Bytes    // For storing file binary data
+  created_at DateTime @default(now())
+  bulletin   HSU_bulletin @relation(fields: [post_id], references: [post_id])
 
   @@index([post_id])
 }

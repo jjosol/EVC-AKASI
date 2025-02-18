@@ -2,6 +2,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { formatAMPM } from '~/composables/useTimeFormatter';
 import moment from 'moment-timezone';
+import { useProfile } from '~/composables/useProfile'
+
+const { profile, fetchProfile } = useProfile()
 
 //prop
 const props = defineProps({
@@ -244,7 +247,7 @@ const fetchRecordCount = async () => {
   try {
     const year = props.currentDay.date.getFullYear();
     const month = props.currentDay.date.getMonth();
-    const response = await fetch(`http://localhost:3001/consultation-records/count?year=${year}&month=${month}`);
+    const response = await fetch(`http://localhost:3001/consultation-records/count?year=${year}&month=${month}&confined=true`);
     if (!response.ok) {
       throw new Error(`Error: ${response.status} - ${response.statusText}`);
     }
@@ -299,7 +302,7 @@ const savePerson = async () => {
       doctor: 'John Doe',
       complaint: selectedPerson.value.generalComplaint || '',
       remarks: selectedPerson.value.remarks || '',
-      confined: Boolean(selectedPerson.value.confined),
+      confined: Boolean(selectedPerson.value.confined), // Ensure correct boolean value
       medAdministration: Boolean(selectedPerson.value.medicationAdministration),
     };
 
@@ -399,6 +402,7 @@ const savePerson = async () => {
     showEditModal.value = false;
     showAddModal.value = false;
     await fetchPatients();
+    emit('consultation-saved'); // Emit the event
   } catch (error) {
     console.error('Error saving data:', error);
     alert('Failed to save data: ' + error.message);
@@ -434,7 +438,8 @@ onMounted(() => {
   fetchPeople();
   fetchPatients();
   fetchRecordCount();
-  fetchInventory(); // This should be called
+  fetchInventory(); 
+  fetchProfile()
 });
 console.log(patients)
 // Initialize values for meds list
@@ -566,13 +571,16 @@ const deleteConsultationRecord = async (consultation_id) => {
     const response = await fetch(`http://localhost:3001/consultation-records/${consultation_id}/delete`, {
       method: 'DELETE',
     });
-    if(!response.ok){
-      throw new Error('Failed to delete consultation record ${consultation_id}');
+
+    if (!response.ok) {
+      throw new Error('Failed to delete consultation record');
     }
+
     await fetchPatients();
+    emit('consultation-deleted'); // Emit the event
   } catch (error) {
     console.error('Error deleting consultation record:', error);
-    alert('Failed to delete consultation record');
+    alert('Failed to delete consultation record: ' + error.message);
   }
 };
 
@@ -853,14 +861,14 @@ const openViewMedicineModal = (medicine) => {
               <!-- Attending Physician -->
               <div class="mb-4">
                 <label for="ap" class="block text-sm font-semibold text-gray-600">Attending Physician</label>
-                <input type="text" value="John Doe" id="ap" disabled
+                <input type="text" :value="profile.name" id="ap" disabled
                   class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
               </div>
 
               <!-- Name -->
               <div class="mb-4">
                 <label for="name" class="block text-sm font-semibold text-gray-600">Name</label>
-                <input type="text" value="Fiona Nadine Macalalag" id="name" disabled
+                <input type="text" :value="selectedPerson.name" id="name" disabled
                   class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
               </div>
 
@@ -871,7 +879,7 @@ const openViewMedicineModal = (medicine) => {
               <!-- Date -->
               <div class="mb-4">
                 <label for="date" class="block text-sm font-semibold text-gray-600">Date</label>
-                <input type="text" :value="selectedDate.monthyear" id="date" disabled
+                <input type="text" :value="selectedDate.monthYear" id="date" disabled
                   class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
               </div>
 
@@ -879,12 +887,12 @@ const openViewMedicineModal = (medicine) => {
               <div class="flex items-center mb-4 space-x-4">
                 <div class="w-1/2">
                   <label for="grade-level" class="block text-sm font-semibold text-gray-600">Grade Level</label>
-                  <input type="text" value="12" id="grade-level" disabled
+                  <input type="text" :value="selectedPerson.grade" id="grade-level" disabled
                     class="w-full px-4 py-2 mt-1 text-center bg-gray-200 border border-gray-300 rounded-full">
                 </div>
                 <div class="w-1/2">
                   <label for="section" class="block text-sm font-semibold text-gray-600">Section</label>
-                  <input type="text" value="C" id="section" disabled
+                  <input type="text" :value="selectedPerson.section" id="section" disabled
                     class="w-full px-4 py-2 mt-1 text-center bg-gray-200 border border-gray-300 rounded-full">
                 </div>
               </div>

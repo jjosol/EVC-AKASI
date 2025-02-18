@@ -86,8 +86,23 @@ export class ConsultationRecordsController {
   }
 
   @Get('count')
-  async getConsultationRecordsCount(@Query('year', ParseIntPipe) year: number, @Query('month', ParseIntPipe) month: number) {
-    return this.service.countConsultationRecordsByMonth(year, month);
+  async getConsultationRecordsCount(
+    @Query('year', ParseIntPipe) year: number,
+    @Query('month', ParseIntPipe) month: number,
+    @Query('confined') confined?: string,
+  ) {
+    const confinedBool = confined === 'true' ? true : confined === 'false' ? false : undefined;
+    return this.service.countConsultationRecordsByMonth(year, month, confinedBool);
+  }
+
+  @Get('total-count')
+  async getTotalConsultationCount() {
+    return this.service.getTotalConsultationCount();
+  }
+
+  @Get('year-count')
+  async getConsultationRecordsCountByYear(@Query('year', ParseIntPipe) year: number) {
+    return this.service.getConsultationRecordsCountByYear(year);
   }
 
   // GET request to retrieve a single consultation record

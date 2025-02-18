@@ -43,5 +43,5 @@ export default defineNuxtConfig({
     display: 'swap',
     download: true, // Force download of font files
     prefetch: true, // Adds prefetch hints
-  }
-});
+  },
+})

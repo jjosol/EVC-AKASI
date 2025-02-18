@@ -97,21 +97,56 @@ export class ConsultationRecordsService {
       throw new Error(`Error fetching consultation record: ${error.message}`);
     }
   }
-  async countConsultationRecordsByMonth(year: number, month: number) {
+
+  async countConsultationRecordsByMonth(year: number, month: number, confined?: boolean) {
     try {
-      const count = await this.prisma.consultation_records.count({
-        where: {
-          date: {
-            gte: new Date(year, month, 1),
-            lt: new Date(year, month + 1, 1),
-          },
+      const whereCondition: any = {
+        date: {
+          gte: new Date(year, month, 1),
+          lt: new Date(year, month + 1, 1),
         },
+      };
+
+      if (confined !== undefined) {
+        whereCondition.confined = confined;
+      }
+
+      const count = await this.prisma.consultation_records.count({
+        where: whereCondition,
       });
       return count;
     } catch (error) {
       throw new Error(`Error counting consultation records: ${error.message}`);
     }
   }
+
+  async getTotalConsultationCount(): Promise<number> {
+    try {
+      return await this.prisma.consultation_records.count();
+    } catch (error) {
+      throw new Error(`Error getting total consultation count: ${error.message}`);
+    }
+  }
+
+  async getConsultationRecordsCountByYear(year: number): Promise<number> {
+    try {
+      const startDate = new Date(year, 0, 1); // January 1st of the year
+      const endDate = new Date(year + 1, 0, 1); // January 1st of the next year
+
+      const count = await this.prisma.consultation_records.count({
+        where: {
+          date: {
+            gte: startDate,
+            lt: endDate,
+          },
+        },
+      });
+      return count;
+    } catch (error) {
+      throw new Error(`Error getting consultation records count by year: ${error.message}`);
+    }
+  }
+
   async deleteConsultationRecord(consultation_id: number) {
     return await this.prisma.$transaction(async (prisma) => {
       try {

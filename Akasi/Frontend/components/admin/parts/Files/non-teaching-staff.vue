@@ -1,9 +1,5 @@
 <script setup>
 // import { ref, computed } from 'vue';
-definePageMeta({
-  layout: 'custom',
-  middleware: 'auth', // Reference your middleware here
-})
 
 // Reactive state using ref
 const searchQuery = ref('');
@@ -52,16 +48,16 @@ const goToStudentFiles = (id) => {
   alert(`Navigating to files of student ID: ${id}`);
 };
 
+definePageMeta({
+  layout: 'flayout',
+  middleware: 'auth'
+})
 
 </script>
-
-
 <template>
-    <NuxtLayout>
+    
         <div class="flex items-center justify-center student-list">
             <h1>NON TEACHING LIST</h1>
         </div>
-    </NuxtLayout>
-   
 </template>
   

@@ -9,32 +9,67 @@ export class PostsService {
     private storageService: StorageService
   ) {}
 
-  async create(post: any) {
-    console.log('Received post data:', post);
-    // First create the post
-    const newPost = await this.prisma.hSU_bulletin.create({
-      data: {
-        admin_id: parseInt(post.admin_id, 10), // Convert admin_id to integer
-        username: post.username,
-        caption: post.caption,
-      }
-    });
+  async create(post: { admin_id: number; username: string; caption?: string }, files: Express.Multer.File[]) {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        // Create post first
+        const newPost = await tx.hSU_bulletin.create({
+          data: {
+            admin_id: Number(post.admin_id),
+            username: post.username,
+            caption: post.caption || ""
+          }
+        });
 
-    // Upload files if any
-    if (post.files?.length) {
-      for (const file of post.files) {
-        await this.storageService.uploadFile(file, newPost.post_id);
-      }
+        // Handle files if any
+        if (files?.length) {
+          const filePromises = files.map(file => 
+            tx.hSU_bulletin_files.create({
+              data: {
+                post_id: newPost.post_id,
+                file_name: file.originalname,
+                file_type: file.mimetype.split('/')[0],
+                mime_type: file.mimetype,
+                data: file.buffer
+              }
+            })
+          );
+          await Promise.all(filePromises);
+        }
+
+        // Return complete post with files
+        return await tx.hSU_bulletin.findUnique({
+          where: { post_id: newPost.post_id },
+          include: {
+            files: {
+              select: {
+                file_id: true,
+                file_name: true,
+                file_type: true,
+                mime_type: true
+              }
+            }
+          }
+        });
+      });
+    } catch (error) {
+      console.error('Post creation failed:', error);
+      throw error;
     }
-
-    // Return post with files
-    return this.findOne(newPost.post_id);
   }
 
   async findAll() {
     return this.prisma.hSU_bulletin.findMany({
       include: {
-        admin: true // Include the related admin data
+        admin: true,
+        files: {
+          select: {
+            file_id: true,
+            file_name: true,
+            file_type: true,
+            mime_type: true
+          }
+        }
       }
     });
   }
@@ -43,50 +78,68 @@ export class PostsService {
     return this.prisma.hSU_bulletin.findUnique({
       where: { post_id: id },
       include: {
-        files: true
+        files: {
+          select: {
+            file_id: true,
+            file_name: true,
+            file_type: true,
+            mime_type: true
+            // Exclude binary data from detail view
+          }
+        }
       }
     });
   }
 
-  async update(id: number, updatePost: any) {
-    return this.prisma.hSU_bulletin.update({
-      where: { post_id: id },
-      data: updatePost,
-    });
-  }
-
-  
-  async remove(id: number) {
-    const post = await this.prisma.hSU_bulletin.findUnique({
-      where: { post_id: id },
-      include: { files: true }
-    });
-
-    if (!post) {
-      throw new NotFoundException(`Post with ID ${id} not found`);
-    }
-
-    // Delete files from Google Drive first
-    if (post.files?.length > 0) {
-      console.log(`Deleting files for post_id: ${id}`);
-      console.log(`Found ${post.files.length} files to delete`);
-      for (const file of post.files) {
-        await this.storageService.deleteFile(file.file_path);
-      }
-    }
-
-    // Delete post and files in a transaction
+  async update(id: number, updateData: { caption?: string }, files?: Express.Multer.File[]) {
     return await this.prisma.$transaction(async (tx) => {
-      // Delete files first
-      const deletedFiles = await tx.hSU_bulletin_files.deleteMany({
-        where: { post_id: id }
+      // Update post details
+      const updatedPost = await tx.hSU_bulletin.update({
+        where: { post_id: id },
+        data: {
+          caption: updateData.caption
+        }
       });
-      console.log(`Deleted ${deletedFiles.count} files from database`);
 
-      // Then delete the post
-      return await tx.hSU_bulletin.delete({
-        where: { post_id: id }
-      });
+      // Handle new files if any
+      if (files?.length) {
+        for (const file of files) {
+          await tx.hSU_bulletin_files.create({
+            data: {
+              post_id: id,
+              file_name: file.originalname,
+              file_type: file.mimetype.split('/')[0],
+              mime_type: file.mimetype,
+              data: file.buffer
+            }
+          });
+        }
+      }
+
+      return updatedPost;
     });
   }
+
+  async remove(id: number) {
+  // Check if the post exists before deletion.
+  const post = await this.prisma.hSU_bulletin.findUnique({
+    where: { post_id: id }
+  });
+  if (!post) {
+    // Log a warning and return silently to keep DELETE idempotent.
+    console.warn(`Post with ID ${id} not found. Deletion skipped.`);
+    return;
+  }
+
+  return this.prisma.$transaction(async (tx) => {
+    // Delete associated files first if any.
+    await tx.hSU_bulletin_files.deleteMany({
+      where: { post_id: id }
+    });
+    // Then delete the post.
+    return tx.hSU_bulletin.delete({
+      where: { post_id: id }
+    });
+  });
+}
 }

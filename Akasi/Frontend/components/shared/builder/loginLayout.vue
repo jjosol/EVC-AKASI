@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { useAuth } from '~/composables/useAuth';
 
-const router = useRouter()
-const username = ref<string>('')
-const password = ref<string>('')
-const loginError = ref<string>()
+const router = useRouter();
+const username = ref<string>('');
+const password = ref<string>('');
+const loginError = ref<string>();
+
+const { setToken, isAdmin, isClient } = useAuth(); // Import setToken, isAdmin, and isClient
 
 const handleLogin = async () => {
   try {
@@ -14,43 +17,48 @@ const handleLogin = async () => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ 
-        username: username.value, 
-        password: password.value 
+      body: JSON.stringify({
+        username: username.value,
+        password: password.value,
       }),
-    })
+    });
 
     if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.message || 'Login failed')
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Login failed');
     }
 
-    const { isAuthenticated, token, role } = await response.json()
+    const { isAuthenticated, token, role } = await response.json();
 
     if (isAuthenticated) {
-      localStorage.setItem('token', token)
-      localStorage.setItem('userRole', role)
+      setToken(token); // Use setToken from useAuth
 
-      loginError.value = undefined
-      router.push('/home')
+      loginError.value = undefined;
+      if (role === 'admin') {
+        router.push('/home');
+      } else if (role === 'client') {
+        router.push('/bulletin');
+      } else {
+        router.push('/login');
+      }
     }
   } catch (error) {
-    loginError.value = error instanceof Error ? error.message : 'An unexpected error occurred'
-    password.value = ''
+    loginError.value = error instanceof Error ? error.message : 'An unexpected error occurred';
+    password.value = '';
   }
-}
+};
 </script>
 
 <template>
   <div class="font-inter bg-[url('~/assets/EVC.png')] h-screen min-h-screen w-full bg-[length:125rem_60rem]">
     <div class="flex justify-end">
       <div class="bg-[#d9d9d9] w-5/12 h-screen">
-        <Header class="mt-10 mb-36"/>
+        <Header class="mt-10 mb-36" />
         <MidTitle class="my-6 text-7xl" />
         <div class="my-6 text-center">
           <div class="p-6 text-[#2f4a71] rounded-full text-center flex flex-col items-center">
             <div class="text-red-900 ">
-              <input 
+              <input
                 type="text"
                 placeholder="Username"
                 v-model="username"
@@ -71,7 +79,7 @@ const handleLogin = async () => {
         <div class="flex flex-col items-center justify-center">
           <LoginButton @click="handleLogin" />
         </div>
-        <Footer/>
+        <Footer />
       </div>
     </div>
   </div>

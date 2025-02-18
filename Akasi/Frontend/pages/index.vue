@@ -4,6 +4,7 @@
     navigateTo({
         path:'/login'
     })
+    
 </script>
 
 <template>

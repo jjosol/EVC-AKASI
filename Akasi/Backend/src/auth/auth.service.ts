@@ -38,10 +38,16 @@ export class AuthService {
 
     return { 
       isAuthenticated: true, 
-      token, 
+      token,
       role: payload.role 
     };
   }
 
-  
+  async logout(token: string) {
+    // You could implement token blacklisting here if needed
+    return {
+      success: true,
+      message: 'Logged out successfully'
+    };
+  }
 }
