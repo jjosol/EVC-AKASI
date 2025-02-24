@@ -2,9 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { formatAMPM } from '~/composables/useTimeFormatter';
 import moment from 'moment-timezone';
-import { useProfile } from '~/composables/useProfile'
-
-const { profile, fetchProfile } = useProfile()
+import * as consultationRecordService from '~/services/consultationRecordService';
 
 //prop
 const props = defineProps({
@@ -71,33 +69,22 @@ const patients = ref([]);//records of patients basicaaly
 const updateConsultationRecord = async (consultation_id, person) => {
   try {
     // First, fetch the existing record to get the original date
-    const existingRecord = await fetchConsultationRecord(consultation_id);
+    const existingRecord = await consultationRecordService.fetchConsultationRecord(consultation_id);
 
-    const response = await fetch(`http://localhost:3001/consultation-records/${consultation_id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        client_id: person.clientId,
-        admin_id: 1, // Replace with actual admin_id
-        date: existingRecord.date, // Use the original date and time
-        patient_name: person.name,
-        patient_occupation: person.occupation || `${person.grade}-${person.section}`,
-        doctor: 'John Doe',
-        complaint: person.generalComplaint || '',
-        remarks: person.remarks || '',
-        confined: person.confined || false,
-        medAdministration: person.medicationAdministration || false,
-      }),
+    const response = await consultationRecordService.updateConsultationRecord(consultation_id, {
+      client_id: person.clientId,
+      admin_id: 1, // Default admin ID
+      date: existingRecord.date, // Use the original date and time
+      patient_name: person.name,
+      patient_occupation: person.occupation || `${person.grade}-${person.section}`,
+      doctor: 'John Doe',
+      complaint: person.generalComplaint || '',
+      remarks: person.remarks || '',
+      confined: person.confined || false,
+      medAdministration: person.medicationAdministration || false,
     });
 
-    if (!response.ok) {
-      throw new Error('Failed to update consultation record');
-    }
-
-    const data = await response.json();
-    return data;
+    return response;
   } catch (error) {
     console.error('Error updating consultation record:', error);
     throw error;
@@ -111,19 +98,7 @@ const updateConsultationRecord = async (consultation_id, person) => {
  */
 const updateConsultationWithMedication = async (consultation_id) => {
   try {
-    const response = await fetch(`http://localhost:3001/consultation-records/${consultation_id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        medAdministration: true
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to update consultation record medication status');
-    }
+    await consultationRecordService.updateConsultationWithMedication(consultation_id);
   } catch (error) {
     console.error('Error updating medication status:', error);
     throw error;
@@ -148,31 +123,20 @@ const createConsultationRecord = async (person) => {
     
     const formattedDateTime = selectedDateTime.toISOString();
 
-    const response = await fetch('http://localhost:3001/consultation-records', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        client_id: person.clientId,
-        admin_id: 1, // Default admin ID
-        date: formattedDateTime,
-        patient_name: person.name,
-        patient_occupation: person.occupation || `${person.grade}-${person.section}`,
-        complaint: selectedConsultationRecord.value?.complaint || '',
-        remarks: selectedConsultationRecord.value?.remarks || '',
-        confined: selectedConsultationRecord.value?.confined || false,
-        medAdministration: true,
-        doctor: 'John Doe'
-      })
-    });
+    const data = {
+      client_id: person.clientId,
+      admin_id: 1, // Default admin ID
+      date: formattedDateTime,
+      patient_name: person.name,
+      patient_occupation: person.occupation || `${person.grade}-${person.section}`,
+      complaint: selectedConsultationRecord.value?.complaint || '',
+      remarks: selectedConsultationRecord.value?.remarks || '',
+      confined: selectedConsultationRecord.value?.confined || false,
+      medAdministration: true,
+      doctor: 'John Doe'
+    };
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to create consultation record');
-    }
-
-    return await response.json();
+    return await consultationRecordService.createConsultationRecord(data);
   } catch (error) {
     console.error('Error creating consultation record:', error);
     throw error;
@@ -185,11 +149,7 @@ const createConsultationRecord = async (person) => {
  */
 const fetchPeople = async () => {
   try {
-    const response = await fetch('http://localhost:3001/clients');
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status} - ${response.statusText}`);
-    }
-    const data = await response.json();
+    const data = await consultationRecordService.fetchPeople();
     allPeople.value = data.map((client) => ({
       clientId: client.client_id,
       name: client.name,
@@ -209,16 +169,12 @@ const fetchPeople = async () => {
  */
 const fetchPatients = async () => {
   try {
-    const response = await fetch('http://localhost:3001/consultation-records');
-    if (!response.ok) {
-      throw new Error('Failed to fetch consultation records');
-    }
-    const data = await response.json();
+    const consultationRecords = await consultationRecordService.fetchConsultationRecords();
 
     // Use moment.js for consistent timezone handling
     const currentDate = moment(props.currentDay.date).tz("Asia/Manila");
     
-    patients.value = data
+    const newPatients = consultationRecords // Changed from patients.value = ...
       .filter(record => {
         const recordDate = moment(record.date).tz("Asia/Manila");
         return recordDate.isSame(currentDate, 'day');
@@ -234,6 +190,9 @@ const fetchPatients = async () => {
         confined: record.confined,
         medAdministration: record.medAdministration,
       }));
+
+      // Append the new patients to the existing array
+      patients.value = newPatients; // changed from concat to direct assignment
   } catch (error) {
     console.error('Error fetching patients:', error.message);
   }
@@ -247,11 +206,7 @@ const fetchRecordCount = async () => {
   try {
     const year = props.currentDay.date.getFullYear();
     const month = props.currentDay.date.getMonth();
-    const response = await fetch(`http://localhost:3001/consultation-records/count?year=${year}&month=${month}&confined=true`);
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status} - ${response.statusText}`);
-    }
-    const count = await response.json();
+    const count = await consultationRecordService.fetchConsultationRecordsCount(year, month);
     confinedCount.value = count;
     emit('update-confined', confinedCount.value);
     console.log(confinedCount.value); // Update the confined count
@@ -302,7 +257,7 @@ const savePerson = async () => {
       doctor: 'John Doe',
       complaint: selectedPerson.value.generalComplaint || '',
       remarks: selectedPerson.value.remarks || '',
-      confined: Boolean(selectedPerson.value.confined), // Ensure correct boolean value
+      confined: Boolean(selectedPerson.value.confined),
       medAdministration: Boolean(selectedPerson.value.medicationAdministration),
     };
 
@@ -310,38 +265,22 @@ const savePerson = async () => {
 
     // Check if updating an existing consultation record
     if (selectedConsultationRecord.value?.consultation_id) {
-      // Update the existing consultation record
-      const response = await fetch(
-        `http://localhost:3001/consultation-records/${selectedConsultationRecord.value.consultation_id}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(consultationData),
-        }
-      );
+      try {
+        // First, fetch the existing record to check if it exists
+        await consultationRecordService.fetchConsultationRecord(selectedConsultationRecord.value.consultation_id);
 
-      if (!response.ok) {
-        throw new Error('Failed to update consultation record');
+        // Update the existing consultation record
+        await consultationRecordService.updateConsultationRecord(selectedConsultationRecord.value.consultation_id, consultationData);
+        consultationId = selectedConsultationRecord.value.consultation_id;
+      } catch (fetchError) {
+        // If the record is not found, create a new one
+        console.warn('Consultation record not found, creating a new one.');
+        const newRecord = await consultationRecordService.createConsultationRecord(consultationData);
+        consultationId = newRecord.consultation_id;
       }
-
-      consultationId = selectedConsultationRecord.value.consultation_id;
     } else {
       // Create a new consultation record
-      const response = await fetch('http://localhost:3001/consultation-records', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(consultationData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create consultation record');
-      }
-
-      const newRecord = await response.json();
+      const newRecord = await consultationRecordService.createConsultationRecord(consultationData);
       consultationId = newRecord.consultation_id;
     }
 
@@ -358,13 +297,7 @@ const savePerson = async () => {
       for (const medicine of selectedPerson.value.medicines) {
         if (medicine.markedForDeletion) {
           // Delete the medicine
-          const response = await fetch(`http://localhost:3001/med-administration/${medicine.consultation_id}`, {
-            method: 'DELETE'
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to delete medicine record');
-          }
+          await consultationRecordService.deleteMedAdministrationRecord(medicine.consultation_id);
         } else {
           // Save or update the medicine
           const medAdminData = {
@@ -382,27 +315,35 @@ const savePerson = async () => {
             patient: selectedPerson.value.name
           };
 
-          const response = await fetch('http://localhost:3001/med-administration', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(medAdminData)
-          });
-
-          if (!response.ok) {
-            throw new Error(`Failed to save medicine ${medicine.name}`);
-          }
+          await consultationRecordService.createMedAdministrationRecord(medAdminData);
         }
       }
     }
+
+    // After processing medicines, update the selectedPerson.medicines array
+    // to trigger reactivity
+    const medAdminRecords = await consultationRecordService.fetchMedAdministrationRecords(consultationId);
+
+    // Map the med admin records to match the expected format
+    const mappedMedicines = medAdminRecords.map(record => ({
+      med_id: record.med_id,
+      consultation_id: record.consultation_id, // Add this line
+      name: record.medName,
+      quantity: record.count,
+      schedule: record.schedule,
+      startDate: new Date(record.start_date).toISOString().split('T')[0],
+      endDate: new Date(record.end_date).toISOString().split('T')[0],
+      remarks: record.remarks
+    }));
+
+    selectedPerson.value.medicines = mappedMedicines;
 
     // Reset form and refresh data
     selectedPerson.value = null;
     showEditModal.value = false;
     showAddModal.value = false;
     await fetchPatients();
-    emit('consultation-saved'); // Emit the event
+    emit('consultation-saved');
   } catch (error) {
     console.error('Error saving data:', error);
     alert('Failed to save data: ' + error.message);
@@ -415,11 +356,7 @@ const savePerson = async () => {
  */
 const fetchInventory = async () => {
   try {
-    const response = await fetch('http://localhost:3001/inventory');
-    if (!response.ok) {
-      throw new Error('Failed to fetch inventory');
-    }
-    const data = await response.json();
+    const data =  await consultationRecordService.fetchInventory();
     allMedicines.value = data.map(item => ({
       med_id: item.med_id,
       name: item.medName,
@@ -438,8 +375,7 @@ onMounted(() => {
   fetchPeople();
   fetchPatients();
   fetchRecordCount();
-  fetchInventory(); 
-  fetchProfile()
+  fetchInventory(); // This should be called
 });
 console.log(patients)
 // Initialize values for meds list
@@ -495,7 +431,7 @@ const filteredPeople = computed(() => {
 });
 
 const filteredMedicines = computed(() => {
-  return selectedPerson.value.medicines.filter(medicine => !medicine.markedForDeletion);
+  return selectedPerson.value?.medicines?.filter(medicine => !medicine.markedForDeletion) || [];
 });
 
 /**
@@ -505,12 +441,7 @@ const filteredMedicines = computed(() => {
  */
 const fetchConsultationRecord = async (consultation_id) => {
   try {
-    const response = await fetch(`http://localhost:3001/consultation-records/${consultation_id}`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch consultation record`);
-    }
-    const data = await response.json();
-    return data;
+    return await consultationRecordService.fetchConsultationRecord(consultation_id);
   } catch (error) {
     console.error('Error fetching consultation record:', error);
     throw error;
@@ -529,8 +460,7 @@ const openEditModal = async (patient) => {
     selectedConsultationRecord.value = consultationRecord;
     
     // Fetch medication administration records
-    const medAdminResponse = await fetch(`http://localhost:3001/med-administration/consultation/${patient.consultation_id}`);
-    const medAdminRecords = await medAdminResponse.json();
+    const medAdminRecords = await consultationRecordService.fetchMedAdministrationRecords(patient.consultation_id);
     
     // Map the med admin records to match the expected format
     const mappedMedicines = medAdminRecords.map(record => ({
@@ -568,19 +498,12 @@ const openEditModal = async (patient) => {
  */
 const deleteConsultationRecord = async (consultation_id) => {
   try {
-    const response = await fetch(`http://localhost:3001/consultation-records/${consultation_id}/delete`, {
-      method: 'DELETE',
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to delete consultation record');
-    }
-
+    await consultationRecordService.deleteConsultationRecord(consultation_id);
     await fetchPatients();
-    emit('consultation-deleted'); // Emit the event
+    emit('consultation-deleted');
   } catch (error) {
     console.error('Error deleting consultation record:', error);
-    alert('Failed to delete consultation record: ' + error.message);
+    alert('Failed to delete consultation record');
   }
 };
 
@@ -690,7 +613,7 @@ const canAddMedicine = (medicine) => {
 const editMedicine = (medicine, index) => {
   selectedMedicine.value = {
     med_id: medicine.med_id,
-    consultation_id: medicine.consultation_id, // Add this line
+    consultation_id: medicine.consultation_id,
     name: medicine.name,
     quantity: medicine.quantity,
     schedule: medicine.schedule,
@@ -774,7 +697,12 @@ const selectedMedicine = ref({
   index: null,
   originalQuantity: 1
 });
-const emit = defineEmits(['confined', 'update-confined']);
+const emit = defineEmits([
+  'confined', 
+  'update-confined', 
+  'consultation-saved', 
+  'consultation-deleted'
+]);
 
 
 // To make sure that if meds is false all meds in list would be removed
@@ -861,14 +789,14 @@ const openViewMedicineModal = (medicine) => {
               <!-- Attending Physician -->
               <div class="mb-4">
                 <label for="ap" class="block text-sm font-semibold text-gray-600">Attending Physician</label>
-                <input type="text" :value="profile.name" id="ap" disabled
+                <input type="text" value="John Doe" id="ap" disabled
                   class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
               </div>
 
               <!-- Name -->
               <div class="mb-4">
                 <label for="name" class="block text-sm font-semibold text-gray-600">Name</label>
-                <input type="text" :value="selectedPerson.name" id="name" disabled
+                <input type="text" value="Fiona Nadine Macalalag" id="name" disabled
                   class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
               </div>
 
@@ -879,7 +807,7 @@ const openViewMedicineModal = (medicine) => {
               <!-- Date -->
               <div class="mb-4">
                 <label for="date" class="block text-sm font-semibold text-gray-600">Date</label>
-                <input type="text" :value="selectedDate.monthYear" id="date" disabled
+                <input type="text" :value="selectedDate.monthyear" id="date" disabled
                   class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
               </div>
 
@@ -887,12 +815,12 @@ const openViewMedicineModal = (medicine) => {
               <div class="flex items-center mb-4 space-x-4">
                 <div class="w-1/2">
                   <label for="grade-level" class="block text-sm font-semibold text-gray-600">Grade Level</label>
-                  <input type="text" :value="selectedPerson.grade" id="grade-level" disabled
+                  <input type="text" value="12" id="grade-level" disabled
                     class="w-full px-4 py-2 mt-1 text-center bg-gray-200 border border-gray-300 rounded-full">
                 </div>
                 <div class="w-1/2">
                   <label for="section" class="block text-sm font-semibold text-gray-600">Section</label>
-                  <input type="text" :value="selectedPerson.section" id="section" disabled
+                  <input type="text" value="C" id="section" disabled
                     class="w-full px-4 py-2 mt-1 text-center bg-gray-200 border border-gray-300 rounded-full">
                 </div>
               </div>
@@ -946,10 +874,10 @@ const openViewMedicineModal = (medicine) => {
                 <td class="py-2">{{ medicine.quantity }}</td>
                 <td class="py-2">
                   <div class="flex space-x-2">
-                    <button v-if="medicine.consultation_id" @click="editMedicine(medicine, index)" class="text-blue-500 hover:text-blue-700">
+                    <button @click="editMedicine(medicine, index)" class="text-blue-500 hover:text-blue-700">
                       <Icon icon="mdi:pencil" />
                     </button>
-                    <button v-if="medicine.consultation_id" @click="removeMedicine(index)" class="text-red-500 hover:text-red-700">
+                    <button @click="removeMedicine(index)" class="text-red-500 hover:text-red-700">
                       <Icon icon="mdi:delete" />
                     </button>
                   </div>

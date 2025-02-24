@@ -48,6 +48,9 @@ definePageMeta({
 <template>
   <NuxtLayout>
     <Calendar @day-selected="handleDaySelected" @update-date="handleUpdateDate" :updateConfined="confinedCount" ref="calendarRef" />
-    <AddList :current-day="currentDay" @update-confined="updateConfinedCount" @consultation-saved="refreshCalendar" @consultation-deleted="refreshCalendar" />
+    <AddList :current-day="currentDay" 
+             @update-confined="updateConfinedCount" 
+             @consultation-saved="refreshCalendar" 
+             @consultation-deleted="refreshCalendar" />
   </NuxtLayout>
 </template>
