@@ -121,12 +121,15 @@ model dental_certificates {
 model inventory {
   med_id            Int                 @default(autoincrement())
   medName           String              @db.VarChar(225)
+  category_id       Int
   expiration        DateTime            @db.Date
   count             Int
+  category          medicineCategory    @relation(fields: [category_id], references: [category_id])
   EditsInverntory   EditsInverntory[]
   medAdministration medAdministration[]
 
   @@id([med_id, medName])
+  @@index([category_id])
 }
 
 model medAdministration {
@@ -187,4 +190,10 @@ model equipment {
   count       Int
 
   @@map("equipment")
+}
+
+model medicineCategory {
+  category_id Int         @id @default(autoincrement())
+  name        String      @unique @db.VarChar(225)
+  inventory   inventory[]
 }

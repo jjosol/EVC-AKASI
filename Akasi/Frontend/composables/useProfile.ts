@@ -1,5 +1,5 @@
 // composables/useProfile.ts
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 
 export function useProfile() {
   const profile = ref(null)

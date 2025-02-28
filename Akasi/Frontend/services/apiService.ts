@@ -1,57 +1,120 @@
 const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
-export async function get(endpoint: string) {
-  const response = await fetch(`${baseUrl}${endpoint}`);
-  if (!response.ok) {
-    throw new Error(`GET ${endpoint} failed: ${response.statusText}`);
+// Add timeout utility function
+const fetchWithTimeout = async (url: string, options: RequestInit, timeout = 30000) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Request timeout for ${url}`);
+    }
+    throw error;
   }
-  return response.json();
+};
+
+export async function get(endpoint: string) {
+  try {
+    const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {}, 30000);
+    if (!response.ok) {
+      throw new Error(`GET ${endpoint} failed: ${response.statusText}`);
+    }
+    return response.json();
+  } catch (error) {
+    console.error(`Network error during GET ${endpoint}:`, error);
+    throw error;
+  }
 }
 
 export async function post(endpoint: string, data: any) {
   const token = localStorage.getItem('authToken');
-  const response = await fetch(`${baseUrl}${endpoint}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify(data)
-  });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || `POST ${endpoint} failed`);
+  try {
+    const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(data)
+    }, 30000);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `POST ${endpoint} failed`);
+    }
+    return response.json();
+  } catch (error) {
+    console.error(`Network error during POST ${endpoint}:`, error);
+    throw error;
   }
-  return response.json();
 }
 
 export async function put(endpoint: string, data: any) {
   const token = localStorage.getItem('authToken');
-  const response = await fetch(`${baseUrl}${endpoint}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify(data)
-  });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || `PUT ${endpoint} failed`);
+  try {
+    const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(data)
+    }, 30000);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `PUT ${endpoint} failed`);
+    }
+    return response.json();
+  } catch (error) {
+    console.error(`Network error during PUT ${endpoint}:`, error);
+    throw error;
   }
-  return response.json();
 }
 
 export async function del(endpoint: string) {
   const token = localStorage.getItem('authToken');
-  const response = await fetch(`${baseUrl}${endpoint}`, {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${token}`
+  
+  try {
+    const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      // Clone the response to use it twice
+      const clonedResponse = response.clone();
+      
+      // Try to parse error message from JSON response
+      try {
+        const errorData = await clonedResponse.json();
+        throw new Error(errorData.message || `DELETE ${endpoint} failed: ${response.statusText}`);
+      } catch (jsonError) {
+        // If JSON parsing fails, fall back to statusText
+        throw new Error(`DELETE ${endpoint} failed: ${response.statusText}`);
+      }
     }
-  });
-  if (!response.ok) {
-    throw new Error(`DELETE ${endpoint} failed: ${response.statusText}`);
+    
+    const text = await response.text();
+    if (text && text.length > 0) {
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        return text;
+      }
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error(`Network error during DELETE ${endpoint}:`, error);
+    throw error;
   }
-  return response.json();
 }

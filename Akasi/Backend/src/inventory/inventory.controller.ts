@@ -46,11 +46,35 @@ export class InventoryController {
     return this.inventoryService.deleteGroupByName(name);
   }
 
+  // Place the more specific route BEFORE the general route
+  @Delete('category/:id')
+  async deleteCategory(@Param('id') id: string) {
+    return this.inventoryService.deleteCategory(Number(id));
+  }
+
   @Delete(':id/:name')
   async deleteItem(
     @Param('id') id: string,
     @Param('name') name: string
   ) {
     return this.inventoryService.deleteItem(Number(id), name);
+  }
+
+  @Get('categories')
+  async getAllCategories() {
+    return this.inventoryService.getAllCategories();
+  }
+
+  @Post('category')
+  async addCategory(@Body() data: { name: string }) {
+    return this.inventoryService.addCategory(data);
+  }
+
+  @Put('category/:id')
+  async updateCategory(
+    @Param('id') id: string,
+    @Body() data: { name: string }
+  ) {
+    return this.inventoryService.updateCategory(Number(id), data.name);
   }
 }
