@@ -11,7 +11,6 @@ const isLoading = ref(true);
 async function loadPosts() {
   try {
     isLoading.value = true;
-    // The sorting is now handled in the service
     posts.value = await fetchPostsAPI();
   } catch (error) {
     console.error('Error fetching posts:', error);
@@ -85,7 +84,7 @@ function closeModal() {
         
         <div v-else>
           <div v-for="post in posts" :key="post.post_id" class="mb-5">
-            <Post :post="post" @delete-post="handleDeletePost" @edit-post="openEditModal" />
+            <PostA :post="post" @delete-post="handleDeletePost" @edit-post="openEditModal" />
           </div>
         </div>
       </div>
