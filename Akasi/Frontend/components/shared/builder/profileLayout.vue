@@ -2,10 +2,10 @@
     <div class="min-h-screen p-8 bg-gray-100">
       <div class="max-w-4xl mx-auto">
         <div v-if="loading" class="text-center">
-          Loading profile...
+          Loading profile... 
         </div>
-        <div v-else-if="error" class="text-red-500">
-          {{ error }}
+        <div v-else-if="error" class="text-red">
+          {{ error }} 
         </div>
         <template v-else>
           <ProfileHeader/>

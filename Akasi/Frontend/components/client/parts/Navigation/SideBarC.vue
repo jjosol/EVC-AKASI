@@ -6,6 +6,7 @@ const route = useRoute();
 const links = [
   { path: '/bulletin', label: 'Bulletin' },
   { path: '/profile', label: 'Profile' },
+  { path: '/services', label: 'Services' },
 ];
 
 const isActive = (path) => computed(() => {
@@ -15,6 +16,9 @@ const isActive = (path) => computed(() => {
     return true;
   }
    else if (path === '/profile' && route.path === '/profile') {
+    return true;
+  }
+  else if (path === '/services' && route.path === '/services') {
     return true;
   }
    else {
@@ -30,7 +34,7 @@ onMounted(() => {
 <template>
   <div class="fixed top-0 left-0 z-50 h-full font-inter">
     <!-- Left-side Navbar -->
-    <nav class="flex flex-col items-center h-full space-y-16 pt-10 w-64 text-white bg-[#e6e6e6]">
+    <nav class="flex flex-col items-center h-full space-y-16 pt-10 w-64 text-white bg-[#f8f4ff]">
       <MidTitle class="text-5xl" />
       <div class="flex items-center w-full px-4">
         <input

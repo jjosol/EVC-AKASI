@@ -14,8 +14,8 @@ async function bootstrap() {
   //   allowedHeaders: 'Content-Type, Authorization',
   //   credentials: true, // Needed if you're sending cookies or authentication headers
   // });
-  
-    await app.listen(process.env.PORT || 3001);
+
+  await app.listen(process.env.PORT || 3001);
   // await app.listen(process.env.PORT || 3001, '0.0.0.0');
 }
 bootstrap();  

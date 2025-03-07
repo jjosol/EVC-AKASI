@@ -21,24 +21,24 @@ model EditsInverntory {
 
 model HSU_bulletin {
   admin_id   Int
-  username   String           @db.VarChar(225)
-  caption    String?          @db.VarChar(500)
-  post_id    Int              @id @default(autoincrement())
-  created_at DateTime         @default(now())
+  username   String               @db.VarChar(225)
+  caption    String?              @db.VarChar(500)
+  post_id    Int                  @id @default(autoincrement())
+  created_at DateTime             @default(now())
   files      HSU_bulletin_files[]
-  admin      admin            @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_admin_TO_HSU_bulletin")
+  admin      admin                @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_admin_TO_HSU_bulletin")
 
   @@index([admin_id, username], map: "FK_admin_TO_HSU_bulletin")
 }
 
 model HSU_bulletin_files {
-  file_id    Int      @id @default(autoincrement())
+  file_id    Int          @id @default(autoincrement())
   post_id    Int
   file_name  String
   file_type  String
   mime_type  String
-  data       Bytes    // For storing file binary data
-  created_at DateTime @default(now())
+  data       Bytes // For storing file binary data
+  created_at DateTime     @default(now())
   bulletin   HSU_bulletin @relation(fields: [post_id], references: [post_id])
 
   @@index([post_id])
@@ -76,7 +76,7 @@ model client {
   age                  Int
   gender               String                 @db.VarChar(225)
   category             String                 @db.VarChar(225)
-  grade                Int?         
+  grade                Int?
   section              String                 @db.VarChar(225)
   appointment          appointment[]
   consultation_records consultation_records[]
@@ -90,19 +90,19 @@ model client {
 }
 
 model consultation_records {
-  client_id         Int
-  admin_id          Int
-  consultation_id   Int      @id @unique(map: "consultation_id") @default(autoincrement())
-  date              DateTime @db.DateTime(0)
-  patient_name      String   @db.VarChar(225)
-  patient_occupation String  @db.VarChar(225)
-  doctor            String   @db.VarChar(225)
-  complaint         String   @db.VarChar(225)
-  remarks           String   @db.VarChar(500)
-  confined          Boolean
-  medAdministration Boolean
-  admin             admin    @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_admin_TO_consultation_records")
-  client            client   @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_client_TO_consultation_records")
+  client_id          Int
+  admin_id           Int
+  consultation_id    Int      @id @unique(map: "consultation_id") @default(autoincrement())
+  date               DateTime @db.DateTime(0)
+  patient_name       String   @db.VarChar(225)
+  patient_occupation String   @db.VarChar(225)
+  doctor             String   @db.VarChar(225)
+  complaint          String   @db.VarChar(225)
+  remarks            String   @db.VarChar(500)
+  confined           Boolean
+  medAdministration  Boolean
+  admin              admin    @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_admin_TO_consultation_records")
+  client             client   @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_client_TO_consultation_records")
 
   @@index([admin_id], map: "FK_admin_TO_consultation_records")
   @@index([client_id], map: "FK_client_TO_consultation_records")
@@ -138,10 +138,10 @@ model medAdministration {
   patient         String    @db.VarChar(225)
   medName         String    @db.VarChar(225)
   count           Int
-  schedule        String    @db.VarChar(225)  // Add schedule field
-  start_date      DateTime  @db.Date          // Add start date
-  end_date        DateTime  @db.Date          // Add end date
-  remarks         String?   @db.VarChar(500)  // Add remarks field
+  schedule        String    @db.VarChar(225) // Add schedule field
+  start_date      DateTime  @db.Date // Add start date
+  end_date        DateTime  @db.Date // Add end date
+  remarks         String?   @db.VarChar(500) // Add remarks field
   admin           admin     @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction)
   client          client    @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
   inventory       inventory @relation(fields: [med_id, medName], references: [med_id, medName], onDelete: NoAction, onUpdate: NoAction)
@@ -182,9 +182,9 @@ model physical_exam {
 }
 
 model equipment {
-  equip_id    Int      @id @default(autoincrement())
-  equipName   String   @unique @db.VarChar(225)
-  count       Int
+  equip_id  Int    @id @default(autoincrement())
+  equipName String @unique @db.VarChar(225)
+  count     Int
 
   @@map("equipment")
 }

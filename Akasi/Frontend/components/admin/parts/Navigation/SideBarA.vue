@@ -30,7 +30,7 @@ onMounted(() => {
 <template>
   <div class="fixed top-0 left-0 z-50 h-full font-inter">
     <!-- Left-side Navbar -->
-    <nav class="flex flex-col items-center h-full space-y-16 pt-10 w-64 text-white bg-[#e6e6e6]">
+    <nav class="flex flex-col items-center h-full space-y-16 pt-10 w-64 text-white bg-[#f8f4ff] padding-100">
       <MidTitle class="text-5xl"/>
       <div class="flex items-center w-full px-4">
         <input

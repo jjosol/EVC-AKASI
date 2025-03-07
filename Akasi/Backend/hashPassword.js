@@ -1,3 +1,5 @@
+require('dotenv').config(); // Load environment variables from .env
+
 const { PrismaClient } = require('@prisma/client')
 const bcrypt = require('bcrypt')
 
@@ -18,7 +20,7 @@ async function hashPasswords(tableName, idField) {
 
             // Hash the password
             const hashedPassword = await bcrypt.hash(user.password, 10)
-            
+
             // Perform update
             await prisma[tableName].update({
                 where: { [idField]: user[idField] },
