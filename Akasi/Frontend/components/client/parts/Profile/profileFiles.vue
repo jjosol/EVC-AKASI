@@ -10,7 +10,6 @@
             <p><button class="buttonGrey">Grade 12</button></p>
         </div>
     </div>
-<h1>test</h1>
     <table>
         <tr> <th> Consulation Records </th></tr>
         <tr> <td> stuff </td></tr>

@@ -3,14 +3,14 @@ import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class StorageService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async uploadFile(file: {
     originalname: string;
     mimetype: string;
     buffer: Buffer;
   }, postId: number) {
-    return await this.prisma.hSU_bulletin_files.create({
+    return await this.prisma.hsu_bulletin_files.create({
       data: {
         post_id: postId,
         file_name: file.originalname,
@@ -22,7 +22,7 @@ export class StorageService {
   }
 
   async deleteFile(fileId: number) {
-    return await this.prisma.hSU_bulletin_files.delete({
+    return await this.prisma.hsu_bulletin_files.delete({
       where: { file_id: fileId }
     });
   }

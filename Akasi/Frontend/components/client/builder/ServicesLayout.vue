@@ -4,6 +4,7 @@ import moment from 'moment-timezone'
 import Calendar from '~/components/admin/parts/Home/Calendar.vue';
 import AddList from '~/components/admin/parts/Home/AddList.vue';
 import CalendarClient from '../parts/Services/CalendarClient.vue';
+import AddAppointment from '../parts/Services/AddAppointment.vue';
 
 const currentDay = ref({ 
     date: moment().tz("Asia/Manila").toDate()
@@ -49,6 +50,6 @@ layout: 'main',
 <template>
 <NuxtLayout>
     <CalendarClient @day-selected="handleDaySelected" @update-date="handleUpdateDate" :updateConfined="confinedCount" ref="calendarRef" />
-    <AddList :current-day="currentDay" @update-confined="updateConfinedCount" @consultation-saved="refreshCalendar" @consultation-deleted="refreshCalendar" />
+    <AddAppointment :current-day="currentDay" @update-confined="updateConfinedCount" @consultation-saved="refreshCalendar" @consultation-deleted="refreshCalendar" />
 </NuxtLayout>
 </template>

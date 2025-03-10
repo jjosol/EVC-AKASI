@@ -7,13 +7,13 @@ export class PostsService {
   constructor(
     private prisma: PrismaService,
     private storageService: StorageService
-  ) {}
+  ) { }
 
   async create(post: { admin_id: number; username: string; caption?: string }, files: Express.Multer.File[]) {
     try {
       return await this.prisma.$transaction(async (tx) => {
         // Create post first
-        const newPost = await tx.hSU_bulletin.create({
+        const newPost = await tx.hsu_bulletin.create({
           data: {
             admin_id: Number(post.admin_id),
             username: post.username,
@@ -23,8 +23,8 @@ export class PostsService {
 
         // Handle files if any
         if (files?.length) {
-          const filePromises = files.map(file => 
-            tx.hSU_bulletin_files.create({
+          const filePromises = files.map(file =>
+            tx.hsu_bulletin_files.create({
               data: {
                 post_id: newPost.post_id,
                 file_name: file.originalname,
@@ -38,7 +38,7 @@ export class PostsService {
         }
 
         // Return complete post with files
-        return await tx.hSU_bulletin.findUnique({
+        return await tx.hsu_bulletin.findUnique({
           where: { post_id: newPost.post_id },
           include: {
             files: {
@@ -59,7 +59,7 @@ export class PostsService {
   }
 
   async findAll() {
-    return this.prisma.hSU_bulletin.findMany({
+    return this.prisma.hsu_bulletin.findMany({
       include: {
         admin: true,
         files: {
@@ -75,7 +75,7 @@ export class PostsService {
   }
 
   async findOne(id: number) {
-    return this.prisma.hSU_bulletin.findUnique({
+    return this.prisma.hsu_bulletin.findUnique({
       where: { post_id: id },
       include: {
         files: {
@@ -94,7 +94,7 @@ export class PostsService {
   async update(id: number, updateData: { caption?: string }, files?: Express.Multer.File[]) {
     return await this.prisma.$transaction(async (tx) => {
       // Update post details
-      const updatedPost = await tx.hSU_bulletin.update({
+      const updatedPost = await tx.hsu_bulletin.update({
         where: { post_id: id },
         data: {
           caption: updateData.caption
@@ -104,7 +104,7 @@ export class PostsService {
       // Handle new files if any
       if (files?.length) {
         for (const file of files) {
-          await tx.hSU_bulletin_files.create({
+          await tx.hsu_bulletin_files.create({
             data: {
               post_id: id,
               file_name: file.originalname,
@@ -121,25 +121,25 @@ export class PostsService {
   }
 
   async remove(id: number) {
-  // Check if the post exists before deletion.
-  const post = await this.prisma.hSU_bulletin.findUnique({
-    where: { post_id: id }
-  });
-  if (!post) {
-    // Log a warning and return silently to keep DELETE idempotent.
-    console.warn(`Post with ID ${id} not found. Deletion skipped.`);
-    return;
-  }
+    // Check if the post exists before deletion.
+    const post = await this.prisma.hsu_bulletin.findUnique({
+      where: { post_id: id }
+    });
+    if (!post) {
+      // Log a warning and return silently to keep DELETE idempotent.
+      console.warn(`Post with ID ${id} not found. Deletion skipped.`);
+      return;
+    }
 
-  return this.prisma.$transaction(async (tx) => {
-    // Delete associated files first if any.
-    await tx.hSU_bulletin_files.deleteMany({
-      where: { post_id: id }
+    return this.prisma.$transaction(async (tx) => {
+      // Delete associated files first if any.
+      await tx.hsu_bulletin_files.deleteMany({
+        where: { post_id: id }
+      });
+      // Then delete the post.
+      return tx.hsu_bulletin.delete({
+        where: { post_id: id }
+      });
     });
-    // Then delete the post.
-    return tx.hSU_bulletin.delete({
-      where: { post_id: id }
-    });
-  });
-}
+  }
 }
