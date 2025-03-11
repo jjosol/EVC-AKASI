@@ -921,20 +921,22 @@ const removeComplaint = (complaintId) => {
 
         <!-- Confined and Medication Administration -->
         <div class="flex items-center w-full mb-6 space-x-8">
+          <!-- Confined Checkbox -->
           <div class="flex items-center space-x-2">
             <input type="checkbox" id="confined" v-model="selectedPerson.confined" class="text-blue-500 form-checkbox">
             <label for="confined" class="text-sm font-semibold">Confined</label>
           </div>
-          <div class="flex items-center space-x-2">
-            <input type="checkbox" id="medication-admin" v-model="selectedPerson.medicationAdministration" class="text-blue-500 form-checkbox">
-            <label for="medication-admin" class="text-sm font-semibold">Medication Administration</label>
-          </div>
-          
+          <!-- Intern Checkbox -->
           <div class="flex items-center space-x-2">
             <input type="checkbox" id="intern" v-model="selectedPerson.intern" class="text-blue-500 form-checkbox">
             <label for="intern" class="text-sm font-semibold">Intern</label>
           </div>
-          
+          <!-- Medicine Administration Checkbox -->
+          <div class="flex items-center space-x-2">
+            <input type="checkbox" id="medication-admin" v-model="selectedPerson.medicationAdministration" class="text-blue-500 form-checkbox">
+            <label for="medication-admin" class="text-sm font-semibold">Medication Administration</label>
+          </div>
+          <!-- Add Product Button -->
           <div class="flex justify-end w-7/12">
             <button v-if="selectedPerson.medicationAdministration" @click="openMedicineModal" class="px-4 text-purple-800 bg-transparent rounded-lg ">Add Product</button>
           </div>
