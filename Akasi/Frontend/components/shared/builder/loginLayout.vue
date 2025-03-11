@@ -12,6 +12,7 @@ const { setToken, isAdmin, isClient } = useAuth(); // Import setToken, isAdmin, 
 
 const handleLogin = async () => {
   try {
+    console.log('Attempting login...');
     const response = await fetch('http://localhost:3001/auth/login', {
       method: 'POST',
       headers: {
@@ -23,15 +24,19 @@ const handleLogin = async () => {
       }),
     });
 
+    console.log('Response:', response);
+    const data = await response.json();
+    console.log('Login data:', data);
+
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Login failed');
+      throw new Error(data.message || 'Login failed');
     }
 
-    const { isAuthenticated, token, role } = await response.json();
+    const { isAuthenticated, token, role } = data;
 
-    if (isAuthenticated) {
-      setToken(token); // Use setToken from useAuth
+    if (isAuthenticated && token) {
+      console.log('Setting token...');
+      setToken(token);
 
       loginError.value = undefined;
       if (role === 'admin') {
@@ -43,6 +48,7 @@ const handleLogin = async () => {
       }
     }
   } catch (error) {
+    console.error('Login error:', error);
     loginError.value = error instanceof Error ? error.message : 'An unexpected error occurred';
     password.value = '';
   }
@@ -78,6 +84,7 @@ const handleLogin = async () => {
         </div>
         <div class="flex flex-col items-center justify-center">
           <LoginButton @click="handleLogin" />
+          
         </div>
         <Footer />
       </div>

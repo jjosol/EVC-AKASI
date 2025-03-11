@@ -5,7 +5,8 @@ import moment from 'moment-timezone';
 import { useProfile } from '~/composables/useProfile';
 
 const { profile, loading, error, fetchProfile } = useProfile()
-
+await fetchProfile();
+   
 //prop
 const props = defineProps({
   currentDay: {
@@ -55,22 +56,16 @@ const complaint = ref('');
  * @returns {Promise<Object>} Newly created consultation record
  */
 const createAppointment = async (person) => {
-    fetchProfile();
-    console.log(selectedTime.value);
+    console.log(selectedDate.value);
     console.log(selectedHour.value); 
     console.log(selectedMinute.value);
     console.log(complaint.value);
-    console.log(profile.client_id);
+    console.log(person.id);
   try {
     // Validate required fields()
-    if (selectedHour === null || selectedMinute === null) {
-      throw new Error('Please select a valid time');
+    if (selectedHour.value === null || selectedMinute.value === null || complaint.value === null) {
+      throw new Error('Please fill missing requirements');
     }
-
-    const selectedDateTime = new Date(props.currentDay.date);
-    const now = new Date();
-    selectedDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
-    const formattedDateTime = selectedDateTime.toISOString();
     
     const response = await fetch('http://localhost:3001/add-appointment', {
       method: 'POST',
@@ -78,8 +73,8 @@ const createAppointment = async (person) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        client_id: person.client_id,
-        date: selectedDateTime,
+        client_id: person.id,
+        date: selectedDate.value.monthYear,
         hour: selectedHour.value,
         minute: selectedMinute.value,
         complaint: complaint.value,

@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class ProfileService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async getProfile(userId: number, role: string) {
     if (role === 'admin') {
@@ -21,6 +21,7 @@ export class ProfileService {
       where: { client_id: userId },
     });
     return {
+      id: client?.client_id,
       name: client?.name || 'N/A',
       email: client?.gmail || 'N/A',
       role: 'Client',

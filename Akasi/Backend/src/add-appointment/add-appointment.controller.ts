@@ -15,7 +15,7 @@ export class AddAppointmentController {
             console.log('Received POST request body:', body); // Debug log
 
             // Validate required fields
-            if (!body.hour || !body.minute || !body.complaint) {
+            if (!body.hour || !body.minute) {
                 throw new BadRequestException('Missing required fields');
             }
 

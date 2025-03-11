@@ -141,7 +141,6 @@ const createConsultationRecord = async (person) => {
     if (!person.clientId) {
       throw new Error('Client ID is required');
     }
-
     const selectedDateTime = new Date(props.currentDay.date);
     const now = new Date();
     selectedDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
