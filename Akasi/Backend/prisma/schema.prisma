@@ -99,6 +99,7 @@ model consultation_records {
   doctor            String   @db.VarChar(225)
   complaint         String   @db.VarChar(225)
   remarks           String   @db.VarChar(500)
+  intern            Boolean  
   confined          Boolean
   medAdministration Boolean
   admin             admin    @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_admin_TO_consultation_records")

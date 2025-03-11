@@ -82,6 +82,8 @@ const updateConsultationRecord = async (consultation_id, person) => {
       remarks: person.remarks || '',
       confined: person.confined || false,
       medAdministration: person.medicationAdministration || false,
+      // Convert intern to a proper boolean even if it's a string
+      intern: person.intern === true || person.intern === 'true'
     });
 
     return response;
@@ -132,6 +134,7 @@ const createConsultationRecord = async (person) => {
       complaint: selectedConsultationRecord.value?.complaint || '',
       remarks: selectedConsultationRecord.value?.remarks || '',
       confined: selectedConsultationRecord.value?.confined || false,
+      intern: selectedConsultationRecord.value?.intern || false,
       medAdministration: true,
       doctor: 'John Doe'
     };
@@ -189,6 +192,7 @@ const fetchPatients = async () => {
         remarks: record.remarks,
         confined: record.confined,
         medAdministration: record.medAdministration,
+        intern: record.intern
       }));
 
       // Append the new patients to the existing array
@@ -241,6 +245,20 @@ const savePerson = async () => {
       throw new Error('Client ID is required');
     }
 
+    // Ensure complaints is defined as an array and not empty
+    if (
+      !Array.isArray(selectedPerson.value.complaints) ||
+      !selectedPerson.value.complaints.length ||
+      selectedPerson.value.complaints.every(complaint => typeof complaint !== 'object' || !complaint.text || !complaint.text.trim())
+    ) {
+      throw new Error('At least one complaint with content is required');
+    }
+
+    // Ensure complaints is defined as an array
+    if (!Array.isArray(selectedPerson.value.complaints)) {
+      selectedPerson.value.complaints = [];
+    }
+
     // Prepare consultation data
     const selectedDateTime = new Date(props.currentDay.date);
     const now = new Date();
@@ -255,12 +273,13 @@ const savePerson = async () => {
         selectedPerson.value.occupation ||
         `${selectedPerson.value.grade}-${selectedPerson.value.section}`,
       doctor: 'John Doe',
-      complaint: selectedPerson.value.generalComplaint || '',
+      complaint: selectedPerson.value.complaints.length > 0 ? selectedPerson.value.complaints.map(c => c.text).join(', ') : null,
       remarks: selectedPerson.value.remarks || '',
       confined: Boolean(selectedPerson.value.confined),
       medAdministration: Boolean(selectedPerson.value.medicationAdministration),
+      intern: Boolean(selectedPerson.value.intern),
     };
-
+    console.log(selectedPerson.value.intern)
     let consultationId;
 
     // Check if updating an existing consultation record
@@ -458,10 +477,10 @@ const openEditModal = async (patient) => {
   try {
     const consultationRecord = await fetchConsultationRecord(patient.consultation_id);
     selectedConsultationRecord.value = consultationRecord;
-    
+
     // Fetch medication administration records
     const medAdminRecords = await consultationRecordService.fetchMedAdministrationRecords(patient.consultation_id);
-    
+
     // Map the med admin records to match the expected format
     const mappedMedicines = medAdminRecords.map(record => ({
       med_id: record.med_id,
@@ -477,11 +496,13 @@ const openEditModal = async (patient) => {
     selectedPerson.value = {
       ...patient,
       clientId: patient.id,
-      generalComplaint: consultationRecord.complaint,
+      complaints: consultationRecord.complaint ? consultationRecord.complaint.split(', ').map(text => ({ id: generateId(), text: text })) : [], // Split the complaints string into an array of objects
       remarks: consultationRecord.remarks,
       confined: consultationRecord.confined,
+      intern: consultationRecord.intern,
       medicationAdministration: consultationRecord.medAdministration,
-      medicines: mappedMedicines // Add the medicines array
+      medicines: mappedMedicines, // Add the medicines array
+
     };
 
     showEditModal.value = true;
@@ -514,7 +535,12 @@ const deleteConsultationRecord = async (consultation_id) => {
 const addPerson = (person) => {
   const now = new Date();
   if (person.name && person.section) {
-    selectedPerson.value = { ...person, addedAt: now, medicines: [] };
+    selectedPerson.value = {
+      ...person,
+      addedAt: now,
+      medicines: [],
+      complaints: [{ id: generateId(), text: '' }],
+    };
     selectedTime.value = formatAMPM(now);
     showEditModal.value = true;
   }
@@ -724,6 +750,35 @@ const openViewMedicineModal = (medicine) => {
   isViewOnly.value = true; // Set the modal to view-only mode
   showMedicineDetailModal.value = true;
 };
+
+function generateId() {
+  return Math.random().toString(36).substring(2, 11);
+}
+
+const addComplaint = () => {
+  if (!selectedPerson.value.complaints) {
+    selectedPerson.value.complaints = [];
+  }
+  selectedPerson.value.complaints.push({
+    id: generateId(),
+    text: '' // or any initial text
+  });
+};
+
+const removeComplaint = (complaintId) => {
+  const index = selectedPerson.value.complaints.findIndex(c => c.id === complaintId);
+  if (index !== -1) {
+    const complaintElements = document.querySelectorAll('.delete-transition');
+    if (complaintElements[index]) {
+      complaintElements[index].classList.add('deleting');
+      setTimeout(() => {
+        selectedPerson.value.complaints.splice(index, 1);
+      }, 300);
+    } else {
+      selectedPerson.value.complaints.splice(index, 1);
+    }
+  }
+};
 </script>
 
 <template>
@@ -796,7 +851,7 @@ const openViewMedicineModal = (medicine) => {
               <!-- Name -->
               <div class="mb-4">
                 <label for="name" class="block text-sm font-semibold text-gray-600">Name</label>
-                <input type="text" value="Fiona Nadine Macalalag" id="name" disabled
+                <input type="text" :value="selectedPerson.name" id="name" disabled
                   class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
               </div>
 
@@ -807,7 +862,7 @@ const openViewMedicineModal = (medicine) => {
               <!-- Date -->
               <div class="mb-4">
                 <label for="date" class="block text-sm font-semibold text-gray-600">Date</label>
-                <input type="text" :value="selectedDate.monthyear" id="date" disabled
+                <input type="text" :value="selectedDate.monthYear" id="date" disabled
                   class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
               </div>
 
@@ -832,10 +887,32 @@ const openViewMedicineModal = (medicine) => {
         </div>
         <!-- Complaint -->
         <div class="mb-4">
-                <label for="complaint" class="block text-sm font-semibold text-gray-600">Complaint</label>
-                <textarea v-model="selectedPerson.generalComplaint" placeholder="General Complaint"
-                  class="w-full h-32 px-4 py-2 mt-1 border border-gray-300 rounded-lg"></textarea>
-              </div>
+  <label for="complaint" class="block text-sm font-semibold text-gray-600">Complaint</label>
+  <div class="flex flex-wrap gap-2">
+    <div v-for="(complaint, index) in selectedPerson.complaints" :key="complaint.id" class="flex items-center delete-transition">
+      <!-- Move delete button to left side -->
+      <button
+        v-if="selectedPerson.complaints.length > 1"
+        @click="removeComplaint(complaint.id)"
+        class="mr-2 text-red-500 hover:text-red-700 delete-button"
+      >
+        <Icon icon="mdi:delete" />
+      </button>
+      <input
+        type="text"
+        v-model="complaint.text"
+        placeholder="Enter illness"
+        class="w-48 px-2 py-1 border border-gray-300 rounded"
+      />
+    </div>
+  </div>
+  <button
+    @click="addComplaint"
+    class="px-4 py-2 mt-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600"
+  >
+    Add Complaint
+  </button>
+</div>
             <div class="mb-4">
                 <label for="remarks" class="block text-sm font-semibold text-gray-600">Remarks</label>
               <textarea v-model="selectedPerson.remarks" placeholder="Remarks"
@@ -852,6 +929,12 @@ const openViewMedicineModal = (medicine) => {
             <input type="checkbox" id="medication-admin" v-model="selectedPerson.medicationAdministration" class="text-blue-500 form-checkbox">
             <label for="medication-admin" class="text-sm font-semibold">Medication Administration</label>
           </div>
+          
+          <div class="flex items-center space-x-2">
+            <input type="checkbox" id="intern" v-model="selectedPerson.intern" class="text-blue-500 form-checkbox">
+            <label for="intern" class="text-sm font-semibold">Intern</label>
+          </div>
+          
           <div class="flex justify-end w-7/12">
             <button v-if="selectedPerson.medicationAdministration" @click="openMedicineModal" class="px-4 text-purple-800 bg-transparent rounded-lg ">Add Product</button>
           </div>
@@ -1077,4 +1160,16 @@ textarea {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Add these style rules to your existing styles */
+.delete-transition {
+  transition: all 0.3s ease;
+  opacity: 1;
+}
+
+.delete-transition.deleting {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+/* Update the removeComplaint function to use this animation */
 </style>

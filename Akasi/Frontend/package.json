@@ -21,7 +21,8 @@
     "moment-timezone": "^0.5.45",
     "nuxt": "^3.13.2",
     "vue": "latest",
-    "vue-router": "latest"
+    "vue-router": "latest",
+    "vue3-pdfjs": "^0.0.1"
   },
   "devDependencies": {
     "@iconify/vue": "^4.1.2",

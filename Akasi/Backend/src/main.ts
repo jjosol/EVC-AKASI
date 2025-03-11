@@ -9,10 +9,10 @@ async function bootstrap() {
   server.setTimeout(60000); // 60 seconds timeout
   
   app.enableCors({
-    origin: 'http://localhost:3000',
+    origin: 'http://localhost:3000', // Allow only localhost:3000
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
-    // Add proper headers for connection handling
+    allowedHeaders: 'Content-Type, Authorization',
+    credentials: true, // Needed if you're sending cookies or authentication headers
     exposedHeaders: ['Content-Length', 'Content-Type'],
   });
   
@@ -28,7 +28,7 @@ async function bootstrap() {
   await app.listen(process.env.PORT || 3001);
 }
 bootstrap();
- // app.enableCors({
+// app.enableCors({
   //   origin: ['http://localhost:3000', 'http://10.35.115.250:3000'], // Allow both local and network IP
   //   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   //   allowedHeaders: 'Content-Type, Authorization',

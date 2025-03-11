@@ -26,6 +26,7 @@ export class ConsultationRecordsController {
         doctor: String(body.doctor),
         complaint: String(body.complaint || ''),
         remarks: String(body.remarks || ''),
+        intern: Boolean(body.intern),
         confined: Boolean(body.confined),
         medAdministration: Boolean(body.medAdministration),
       });
@@ -61,6 +62,7 @@ export class ConsultationRecordsController {
         occupation: String(body.patient_occupation),
         generalComplaint: String(body.complaint || ''),
         remarks: String(body.remarks || ''),
+        intern: Boolean(body.intern),
         confined: Boolean(body.confined),
         medicationAdministration: Boolean(body.medAdministration),
       };

@@ -16,6 +16,7 @@ export class ConsultationRecordsService {
     doctor: string;
     complaint: string;
     remarks: string;
+    intern: boolean;
     confined: boolean;
     medAdministration: boolean;
   }) {
@@ -42,6 +43,7 @@ export class ConsultationRecordsService {
       remarks?: string;
       confined?: boolean;
       medicationAdministration?: boolean;
+      intern?: boolean;
     },
   ) {
     try {
@@ -59,7 +61,8 @@ export class ConsultationRecordsService {
         complaint: person.generalComplaint || '',
         remarks: person.remarks || '',
         confined: Boolean(person.confined),
-        medAdministration: Boolean(person.medicationAdministration)
+        medAdministration: Boolean(person.medicationAdministration),
+        intern: Boolean(person.intern),
       };
 
       const consultationRecord = await this.prisma.consultation_records.update({
