@@ -77,24 +77,42 @@ export const createPost = async (postData: PostData, files: File[]): Promise<Pos
   if (files && files.length) {
     files.forEach((file: File) => {
       if (file) {
+        // Check file size before upload
+        const fileSizeMB = file.size / (1024 * 1024);
+        if (fileSizeMB > 50) { // 50MB limit
+          console.warn(`File ${file.name} is ${fileSizeMB.toFixed(2)}MB which is large and may cause timeouts`);
+        }
         formData.append('files', file);
       }
     });
   }
 
   try {
-    // Use fetch directly since we need FormData for file uploads
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}${BASE_URL}`, {
-      method: 'POST',
-      body: formData
-    });
+    // Use fetch directly with longer timeout for large uploads
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 minute timeout
+    
+    const response = await fetch(
+      `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}${BASE_URL}`, 
+      {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal
+      }
+    );
+    
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error(`Upload failed with status: ${response.status}`);
     }
 
     return await response.json();
-  } catch (error) {
+  } catch (error: unknown) {
+    if ((error as Error).name === 'AbortError') {
+      console.error('Upload timed out after 5 minutes');
+      throw new Error('Upload timed out. Please try with smaller files or fewer files.');
+    }
     console.error('Error creating post:', error);
     throw error;
   }

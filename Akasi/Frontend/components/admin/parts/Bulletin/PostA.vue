@@ -15,6 +15,34 @@ const EXCEL_MIME_TYPES = [
 
 const isExcelFile = (mimeType) => EXCEL_MIME_TYPES.includes(mimeType);
 
+// Add this function to your <script setup> in PostA.vue
+const handleVideoError = (event, file) => {
+  console.error(`Video error for ${file.file_name}:`, event);
+  fileLoadErrors.value[file.file_id] = true;
+  
+  // Check the video URL accessibility
+  fetch(getFileUrl(file.file_id))
+    .then(response => {
+      console.log(`Video ${file.file_id} response:`, 
+        response.status, 
+        response.headers.get('Content-Type'),
+        response.headers.get('Content-Length')
+      );
+      
+      // Check if the content length is reasonable
+      const contentLength = response.headers.get('Content-Length');
+      if (contentLength) {
+        const sizeMB = parseInt(contentLength) / (1024 * 1024);
+        console.log(`Video size: ${sizeMB.toFixed(2)} MB`);
+        
+        if (sizeMB > 50) {
+          console.warn(`Large video detected (${sizeMB.toFixed(2)} MB). This may cause playback issues.`);
+        }
+      }
+    })
+    .catch(err => console.error(`Fetch error for video ${file.file_id}:`, err));
+};
+
 // Define props with default values
 const props = defineProps({
   post: {
@@ -37,7 +65,6 @@ const isLoading = ref(true);
 const postDetails = ref(props.post);
 const fileLoadErrors = ref({});
 const deleteTimeout = ref(null);
-const pdfLoadError = ref(false);
 const isDeleted = ref(false);
 
 async function loadPostDetails() {
@@ -88,7 +115,18 @@ function editPost() {
 }
 
 const handleImageError = (file) => {
+  console.error(`Failed to load image: ${file.file_name} (ID: ${file.file_id})`);
   fileLoadErrors.value[file.file_id] = true;
+  
+  // For debugging - check if the URL is accessible
+  fetch(getFileUrl(file.file_id))
+    .then(response => {
+      console.log(`File ${file.file_id} response:`, 
+        response.status, 
+        response.headers.get('Content-Type')
+      );
+    })
+    .catch(err => console.error(`Fetch error for ${file.file_id}:`, err));
 };
 
 const handleIframeLoad = (fileId) => {
@@ -166,7 +204,6 @@ onMounted(loadPostDetails);
       <div v-if="isLoading" class="text-center">Loading files...</div>
       <div v-else-if="postDetails?.files?.length" class="grid gap-4">
         <div v-for="file in postDetails.files" :key="file.file_id">
-          <!-- Files content here (kept as is) -->
           <!-- Images -->
           <div v-if="file.file_type === 'image'" class="relative">
             <img 
@@ -175,17 +212,58 @@ onMounted(loadPostDetails);
               class="h-auto max-w-full rounded-lg shadow-md"
               @error="handleImageError(file)"
             />
+            <div v-if="fileLoadErrors[file.file_id]" class="p-4 text-center text-red-500">
+              Failed to load image: {{ file.file_name }}
+              <div class="mt-2">
+                <a 
+                  :href="getFileUrl(file.file_id)"
+                  class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
+                  download
+                >
+                  Download Instead
+                </a>
+              </div>
+            </div>
           </div>
 
           <!-- Videos -->
           <div v-else-if="file.file_type === 'video'" class="relative">
-            <video 
-              :src="getFileUrl(file.file_id)" 
-              controls
-              class="w-full rounded-lg shadow-md"
-            >
-              Your browser does not support video playback.
-            </video>
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center space-x-2">
+                <Icon icon="mdi:video" class="w-6 h-6 text-blue-500" />
+                <span>{{ file.file_name }}</span>
+              </div>
+              <a 
+                :href="getFileUrl(file.file_id)"
+                class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
+                download
+              >
+                Download Video
+              </a>
+            </div>
+            <div class="relative">
+              <video 
+                :src="getFileUrl(file.file_id)" 
+                controls
+                preload="metadata"
+                class="w-full rounded-lg shadow-md"
+                @error="(e) => handleVideoError(e, file)"
+              >
+                Your browser does not support video playback.
+              </video>
+              <div v-if="fileLoadErrors[file.file_id]" class="p-4 text-center text-red-500">
+                Failed to load video: {{ file.file_name }}
+                <div class="mt-2">
+                  <a 
+                    :href="getFileUrl(file.file_id)"
+                    class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
+                    download
+                  >
+                    Download Video
+                  </a>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- PDFs -->
@@ -207,39 +285,14 @@ onMounted(loadPostDetails);
               :data="getFileUrl(file.file_id)"
               type="application/pdf"
               class="w-full h-[600px]"
+              @error="handleIframeError(file.file_id)"
             >
               <p>
-                It appears you don't have a PDF plugin for this browser.
+                It appears you don't have a PDF plugin for this browser or the PDF couldn't be loaded.
                 You can <a :href="getFileUrl(file.file_id)" download>download the PDF file</a>
                 to view it.
               </p>
             </object>
-          </div>
-
-          <!-- PDF Files using PDFvuer -->
-          <div v-else-if="getFileViewerComponent(file) === 'pdfAlt'" class="p-4 border rounded-lg shadow-md">
-            <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center space-x-2">
-                <Icon icon="mdi:file-pdf" class="w-6 h-6 text-red-500" />
-                <span>{{ file.file_name }}</span>
-              </div>
-              <a 
-                :href="getFileUrl(file.file_id)"
-                class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
-                target="_blank"
-              >
-                Open PDF in New Tab
-              </a>
-            </div>
-            <PDFvuer 
-              :src="getFileUrl(file.file_id)" 
-              width="100%" 
-              height="600px"
-              @error="pdfLoadError = true"
-            />
-            <div v-if="pdfLoadError" class="mt-2 text-red-500">
-              Failed to load PDF. <a :href="getFileUrl(file.file_id)" download>Download PDF</a>
-            </div>
           </div>
 
           <!-- Office Files -->

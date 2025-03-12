@@ -15,6 +15,9 @@ const emit = defineEmits(['add-post', 'close']);
 const isLoading = ref(false);
 const error = ref(null);
 
+const MAX_FILE_SIZE_MB = 50;  // 50MB max file size
+const MAX_TOTAL_UPLOAD_MB = 100;  // 100MB max total upload
+
 // Watch for changes in post prop
 watch(() => props.post, (newPost) => {
   if (newPost) {
@@ -48,19 +51,57 @@ watch(() => props.post, (newPost) => {
 
 function handleFileUpload(event) {
   const files = Array.from(event.target.files);
-  
-  files.forEach(file => {
+  let totalSize = localMediaFiles.value.reduce((sum, media) => 
+    sum + (media.file?.size || 0), 0) / (1024 * 1024);
+    
+  for (const file of files) {
+    const fileSizeMB = file.size / (1024 * 1024);
+    
+    // Skip files that are too large
+    if (fileSizeMB > MAX_FILE_SIZE_MB) {
+      error.value = `File ${file.name} exceeds the maximum size of ${MAX_FILE_SIZE_MB}MB`;
+      continue;
+    }
+    
+    // Check the accumulated total size
+    totalSize += fileSizeMB;
+    if (totalSize > MAX_TOTAL_UPLOAD_MB) {
+      error.value = `Total upload size exceeds the limit of ${MAX_TOTAL_UPLOAD_MB}MB`;
+      break;
+    }
+    
     const reader = new FileReader();
     reader.onload = (e) => {
+      const fileType = file.type.split('/')[0];
+      
+      // For videos, we'll just use a generic preview rather than the actual data
+      const preview = fileType === 'video' 
+        ? null  // Don't set preview for videos to save memory
+        : e.target.result;
+        
       localMediaFiles.value.push({
-        file: file, // Store the actual file object
-        preview: e.target.result,
-        type: file.type.split('/')[0],
-        name: file.name
+        file: file,
+        preview: preview,
+        type: fileType,
+        name: file.name,
+        size: fileSizeMB.toFixed(2) + ' MB'
       });
     };
-    reader.readAsDataURL(file);
-  });
+    
+    // For images and smaller files, read as data URL
+    // For videos, just add them without preview
+    if (file.type.startsWith('video/')) {
+      localMediaFiles.value.push({
+        file: file,
+        preview: null,
+        type: 'video',
+        name: file.name,
+        size: fileSizeMB.toFixed(2) + ' MB'
+      });
+    } else {
+      reader.readAsDataURL(file);
+    }
+  }
 }
 
 function handleImageError() {
@@ -175,14 +216,12 @@ function resetPost() {
         </div>
 
         <!-- Video Preview -->
-        <div v-else-if="file.type === 'video'" class="relative aspect-w-16 aspect-h-9">
-          <video 
-            :src="file.preview" 
-            controls
-            class="w-full h-full rounded-lg shadow-md"
-          >
-            Your browser does not support video playback.
-          </video>
+        <div v-else-if="file.type === 'video'" class="p-4 border rounded-lg shadow-md">
+          <div class="flex items-center space-x-2">
+            <Icon icon="mdi:video" class="w-6 h-6 text-blue-500" />
+            <span class="truncate">{{ file.name }}</span>
+          </div>
+          <div class="mt-1 text-xs text-gray-500">Video - {{ file.size }}</div>
         </div>
 
         <!-- Document Preview -->
