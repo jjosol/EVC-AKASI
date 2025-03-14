@@ -2,6 +2,10 @@ generator client {
   provider = "prisma-client-js"
 }
 
+generator erd {
+  provider = "prisma-erd-generator"
+}
+
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
@@ -14,6 +18,8 @@ model admin {
   gmail              String              @db.VarChar(225)
   medAdministrations medAdministration[]
   hsu_bulletin       hsu_bulletin[]
+
+  consultation_records consultation_records[]
 }
 
 model appointment {
@@ -24,21 +30,29 @@ model appointment {
   minute         Int
   complaint      String   @db.VarChar(225)
 
+  client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
+
   @@index([client_id], map: "FK_client_TO_appointmant")
 }
 
 model client {
-  client_id          Int                 @unique(map: "client_id") @default(autoincrement())
-  username           String              @db.VarChar(225)
-  password           String              @db.VarChar(225)
-  name               String              @db.VarChar(225)
-  gmail              String              @db.VarChar(225)
-  age                Int
-  gender             String              @db.VarChar(225)
-  category           String              @db.VarChar(225)
-  grade              Int?
-  section            String              @db.VarChar(225)
-  medAdministrations medAdministration[]
+  client_id            Int                    @unique(map: "client_id") @default(autoincrement())
+  username             String                 @db.VarChar(225)
+  password             String                 @db.VarChar(225)
+  name                 String                 @db.VarChar(225)
+  gmail                String                 @db.VarChar(225)
+  age                  Int
+  gender               String                 @db.VarChar(225)
+  category             String                 @db.VarChar(225)
+  grade                Int?
+  section              String                 @db.VarChar(225)
+  medAdministrations   medAdministration[]
+  physical_exam        physical_exam[]
+  opthal_certificates  opthal_certificates[]
+  medical_certificates medical_certificates[]
+  dental_certificates  dental_certificates[]
+  consultation_records consultation_records[]
+  appointment          appointment[]
 
   @@id([client_id, username])
 }
@@ -56,15 +70,21 @@ model consultation_records {
   confined           Boolean
   medAdministration  Boolean
 
+  client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
+  admin  admin  @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction)
+
   @@index([admin_id], map: "FK_admin_TO_consultation_records")
   @@index([client_id], map: "FK_client_TO_consultation_records")
 }
 
 model dental_certificates {
   client_id Int
+  grade     Int
   date      DateTime @db.Date
   dental    Bytes    @db.Blob
   dental_id Int      @id @default(autoincrement())
+
+  client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([client_id], map: "FK_client_TO_dental_certificates")
 }
@@ -81,27 +101,36 @@ model inventory {
 
 model medical_certificates {
   client_id  Int
+  grade      Int
   date       DateTime @db.Date
   medical    Bytes    @db.Blob
   medical_id Int      @id @default(autoincrement())
+
+  client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([client_id], map: "FK_client_TO_medical_certificates")
 }
 
 model opthal_certificates {
   client_id Int
+  grade     Int
   date      DateTime @db.Date
   opthal    Bytes    @db.Blob
   opthal_id Int      @id @default(autoincrement())
+
+  client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([client_id], map: "FK_client_TO_opthal_certificates")
 }
 
 model physical_exam {
   client_id   Int
+  grade       Int
   date        DateTime @db.Date
   physical    Bytes    @db.Blob
   physical_id Int      @id @default(autoincrement())
+
+  client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([client_id], map: "FK_client_TO_physical_exam")
 }

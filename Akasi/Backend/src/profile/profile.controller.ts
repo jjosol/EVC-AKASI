@@ -4,7 +4,7 @@ import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
 @Controller('profile')
 export class ProfileController {
-  constructor(private profileService: ProfileService) {}
+  constructor(private profileService: ProfileService) { }
 
   @UseGuards(JwtAuthGuard)
   @Get()

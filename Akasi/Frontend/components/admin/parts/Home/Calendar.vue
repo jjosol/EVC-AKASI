@@ -149,10 +149,10 @@ defineExpose({
 </script>
 
 <template>
-  <div class="w-7/12 p-8 ml-72 rounded-3xl">
-    <h1 class="text-5xl text-[#2f4a71] border-[#2f4a71] border-b-2">Confinement Calendar</h1>
+  <div class= "w-7/12 p-20 rounded-3xl bg-white">
+    <h1 class="text-5xl text-[#2f4a71] m-0 font-bold">Confinement Calendar</h1>
     <br>
-    <div class="flex items-center gap-16 mb-8 justify-left text-[#2f4a71] font-bold">
+    <div class="flex items-center border-t gap-16 justify-left text-[#2f4a71]">
       <div class="flex">
         <select id="month" v-model="selectedMonth" @change="updateCalendar" class="p-2 text-3xl rounded">
           <option v-for="(month, index) in months" :key="index" :value="index" class="text-xl">{{ month }}</option>
@@ -193,7 +193,7 @@ defineExpose({
         </tr>
       </tbody>
     </table>
-    <div class="text-[#2f4a71] text-xl">
+    <div class="text-[#2f4a71] text-xl mt-4">
       <h1 class="font-bold">Total Confined in {{ months[selectedMonth] }} {{ selectedYear }}: {{ confinedCount }}</h1>
       <h1 class="font-bold">Total Consultations in {{ months[selectedMonth] }} {{ selectedYear }}: {{ monthlyConsultationCount }}</h1>
       <h1 class="font-bold">Total Consultations in {{ selectedYear }}: {{ yearlyConsultationCount }}</h1>

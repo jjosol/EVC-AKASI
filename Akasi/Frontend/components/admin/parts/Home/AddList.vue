@@ -1,10 +1,23 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { formatAMPM } from '~/composables/useTimeFormatter';
 import moment from 'moment-timezone';
 import { useProfile } from '~/composables/useProfile'
+import { useAppointmentsByDate } from '~/composables/useAppointmentsByDate';
 
 const { profile, fetchProfile } = useProfile()
+
+// Appointments
+const { 
+  appointments, 
+  loadingAppointments, 
+  appointmentsError, 
+  formatTime, 
+  fetchAppointmentsByDate 
+} = useAppointmentsByDate();
+
+// Tab state
+const activeTab = ref('tab1');
 
 //prop
 const props = defineProps({
@@ -431,6 +444,27 @@ const fetchInventory = async () => {
   }
 };
 
+//Appointments
+// Add new function to fetch appointments for selected date
+const fetchAppointmentsForSelectedDate = async () => {
+  if (props.currentDay && props.currentDay.date) {
+    await fetchAppointmentsByDate(props.currentDay.date);
+  }
+};
+
+// Watch for date changes when on appointments tab
+watch(() => props.currentDay, () => {
+  if (activeTab.value === 'tab2') {
+    fetchAppointmentsForSelectedDate();
+  }
+}, { deep: true });
+
+// Watch for tab changes
+watch(() => activeTab.value, (newTab) => {
+  if (newTab === 'tab2') {
+    fetchAppointmentsForSelectedDate();
+  }
+});
 
 // fetch data when mounted
 onMounted(() => {
@@ -438,7 +472,11 @@ onMounted(() => {
   fetchPatients();
   fetchRecordCount();
   fetchInventory(); 
-  fetchProfile()
+  fetchProfile();
+
+  if (activeTab.value === 'tab2') {
+    fetchAppointmentsForSelectedDate();
+  }
 });
 console.log(patients)
 // Initialize values for meds list
@@ -795,31 +833,64 @@ const openViewMedicineModal = (medicine) => {
   isViewOnly.value = true; // Set the modal to view-only mode
   showMedicineDetailModal.value = true;
 };
+
 </script>
 
 <template>
   <div class="fixed w-4/6">
-    <div class="fixed top-0 right-0 w-1/4 h-screen p-5 bg-white border-[#2f4a71] border-l-2">
+    <div class="fixed top-0 right-0 w-1/4 h-screen p-5 bg-gray-100">
     <div class="h-full p-5 overflow-y-auto l">
-      <h2 class="text-2xl text-[#2f4a71]">{{ selectedDate.day }}</h2>
-      <h2 class="mb-4 text-3xl font-bold text-[#2f4a71] border-b-2 border-[#2f4a71]">{{ selectedDate.monthYear }}</h2>
-      <!-- <p class="text-2xl text-[#d3cae7]">CONFINEMENTS:</p> -->
-      <button @click="showAddModal = true" v-if="!showAddModal" class="block p-2 mt-4 ml-auto text-3xl active:bg-blue-700 text-white rounded-full  bg-[#745dab] "><Icon icon="subway:add-1" /></button>
-      <button @click="cancelAdd" v-if="showAddModal" class="block p-2  ml-auto text-3xl active:bg-blue-700 text-white rounded-full  bg-[#745dab] "><Icon icon="maki:cross" /></button>
+      <!-- Tabs navigation -->
+      <div class="flex border-b border-[#a6a6a6] mb-4">
+          <button 
+            @click="activeTab = 'tab1'" 
+            :class="[
+              'text-2xl font-semibold',
+              activeTab === 'tab1' 
+                ? 'text-[#2f4a71] border-b-2 border-[#2f4a71]' 
+                : 'text-gray-500 hover:text-[#2f4a71]'
+            ]"
+          >
+            Consultations
+          </button>
+          <button 
+            @click="activeTab = 'tab2'" 
+            :class="[
+              'text-2xl font-semibold ml-5',
+              activeTab === 'tab2' 
+                ? 'text-[#2f4a71] border-b-2 border-[#2f4a71]' 
+                : 'text-gray-500 hover:text-[#2f4a71]'
+            ]"
+          >
+            Appointments
+          </button>
+      </div>
+      
+      <!--Confinements-->
+      <div v-if="activeTab === 'tab1'">
+
+      <div class="mb-5 mt-5">
+        <span class="text-2xl font-bold text-[#2f4a71]">{{ selectedDate.monthYear }}</span>
+        <span class="text-2xl text-[#2f4a71] float-right">{{ selectedDate.day }}</span>
+      </div>
+      <button @click="showAddModal = true" v-if="!showAddModal"class="w-full p-2 font-bold text-white bg-[#2f4a71] rounded hover:bg-[#8b67db]">Add Consultation Record</button>
+
+      
+      <button @click="cancelAdd" v-if="showAddModal" class="block pl-3 pr-3 pt-1 pb-1 float-right ml-5 text-1xl active:bg-blue-700 text-white rounded-sm  bg-[#745dab] ">Cancel</button>
       <div v-if="showAddModal">
         <div class="flex items-center mt-1 mb-4">
           <div class="relative w-full">
             <input
               v-model="searchQuery"
               placeholder="Search"
-              class="w-full p-2 pl-10 border border-[#2f4a71] rounded-full focus:outline-none"
+              class="w-full p-1 pl-10 border border-[#2f4a71] rounded-full focus:outline-none"
             />
             <Icon icon="fluent:search-12-regular" class="absolute top-2 left-3 text-[#2f4a71]" />
           </div>
           <!-- <button @click="cancelAdd" class="ml-4 text-[#2f4a71] hover:underline">Cancel</button> -->
         </div>
         <!-- People List -->
-        <ul class="overflow-y-auto max-h-60 text-[#2f4a71]">
+        <ul class="overflow-y-auto max-h-60 text-[#2f4a71] border-b-2 border-[#2f4a71]">
           <li
             v-for="person in filteredPeople"
             :key="person.name"
@@ -845,10 +916,67 @@ const openViewMedicineModal = (medicine) => {
         </li>
       </ul>
     </div>
+
+    <!-- Appointments -->
+    <div v-if="activeTab === 'tab2'">
+        <div class="mb-5 mt-5">
+          <span class="text-2xl font-bold text-[#2f4a71]">{{ selectedDate.monthYear }}</span>
+          <span class="text-2xl text-[#2f4a71] float-right">{{ selectedDate.day }}</span>
+        </div>
+
+        <!--Display all fetched appointments here-->
+<!-- Loading state -->
+<div v-if="loadingAppointments" class="text-center py-6">
+            <p class="text-gray-600">Loading appointments...</p>
+          </div>
+          
+          <!-- Error state -->
+          <div v-else-if="appointmentsError" class="bg-red-100 text-red-700 p-3 rounded my-4">
+            <p>{{ appointmentsError }}</p>
+            <button @click="fetchAppointmentsForSelectedDate" class="text-sm underline mt-1">
+              Try again
+            </button>
+          </div>
+          
+          <!-- No appointments -->
+          <div v-else-if="appointments.length === 0" class="text-center py-6">
+            <p class="text-gray-600">No appointments scheduled for this date</p>
+          </div>
+          
+          <!-- Appointments list -->
+          <div v-else class="mt-6 space-y-4 appointment-list">
+            <div 
+              v-for="appointment in appointments" 
+              :key="appointment.appointment_id" 
+              class="p-3 border border-gray-200 rounded-lg bg-white hover:shadow-md transition-shadow"
+            >
+              <div class="flex justify-between items-start"> 
+                <div>
+                  <h4 class="font-bold">
+                    {{ appointment.client?.name || 'Client #' + appointment.client_id }}
+                  </h4>
+                  <p class="text-xs text-gray-500">
+                    {{ appointment.client?.category || 'Unknown' }} 
+                    <span v-if="appointment.client?.grade">
+                      Grade {{ appointment.client.grade }}-{{ appointment.client.section }}
+                    </span>
+                  </p>
+                </div>
+                <div class="text-right">
+                  <span class="block text-[#2f4a71] font-semibold">
+                    {{ formatTime(appointment.hour, appointment.minute) }}
+                  </span>
+                </div>
+              </div>
+              
+              <div class="mt-2 p-2 bg-gray-50 rounded text-sm">
+                <p class="text-gray-700">{{ appointment.complaint }}</p>
+              </div>
+            </div>
+          </div>
+    </div>
   </div>
     <!-- Add Modal -->
-  
-
     <!-- Edit Modal -->
     <div v-if="showEditModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
         <div class="flex flex-col justify-center w-3/6 h-screen p-8 bg-white rounded-2xl">
@@ -970,154 +1098,245 @@ const openViewMedicineModal = (medicine) => {
 
     <!-- Medicine Modal -->
     <div v-if="showMedicineModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
-  <div class="w-2/3 p-6 bg-white rounded-2xl">
-    <h2 class="mb-4 text-2xl font-semibold">Add Product</h2>
-    <div class="flex items-center mb-4">
-      <input
-        v-model="medicineSearchQuery"
-        placeholder="Search Product"
-        class="w-full p-2 border border-gray-300 rounded-l-md"
-      />
-      <button class="p-2 bg-gray-100 border-t border-b border-r rounded-r-md">
-        <Icon icon="mdi:magnify" />
-      </button>
-      <button class="p-2 ml-2 bg-gray-100 border rounded-md">
-        <Icon icon="mdi:filter-variant" />
-      </button>
-      <button class="p-2 ml-2 bg-gray-100 border rounded-md">
-        <Icon icon="mdi:sort-ascending" />
-      </button>
-    </div>
-    <table class="w-full table-auto">
-      <thead class="border-b-2 border-gray-300">
-        <tr class="text-left text-gray-600">
-          <th class="pb-2">Medicine Name</th>
-          <th class="pb-2">Total Count</th>
-          <th class="pb-2">Actions</th>
-        </tr>
-      </thead>
-      <tbody class="text-gray-700">
-        <template v-for="(medicines, name) in groupedMedicines" :key="name">
-          <tr class="border-b border-gray-200">
-            <td class="py-2">
-              <div class="flex items-center">
-                <button @click="toggleMedicineExpand(name)" class="flex items-center">
-                  <Icon 
-                    :icon="expandedMedicines.has(name) ? 'mdi:chevron-down' : 'mdi:chevron-right'" 
-                    class="mr-2"
-                  />
-                  {{ name }}
-                </button>
-              </div>
-            </td>
-            <td class="py-2">
-              {{ medicines.reduce((sum, med) => sum + med.count, 0) }}
-            </td>
-            <td></td>
+    <div class="w-2/3 p-6 bg-white rounded-2xl">
+      <h2 class="mb-4 text-2xl font-semibold">Add Product</h2>
+      <div class="flex items-center mb-4">
+        <input
+          v-model="medicineSearchQuery"
+          placeholder="Search Product"
+          class="w-full p-2 border border-gray-300 rounded-l-md"
+        />
+        <button class="p-2 bg-gray-100 border-t border-b border-r rounded-r-md">
+          <Icon icon="mdi:magnify" />
+        </button>
+        <button class="p-2 ml-2 bg-gray-100 border rounded-md">
+          <Icon icon="mdi:filter-variant" />
+        </button>
+        <button class="p-2 ml-2 bg-gray-100 border rounded-md">
+          <Icon icon="mdi:sort-ascending" />
+        </button>
+      </div>
+      <table class="w-full table-auto">
+        <thead class="border-b-2 border-gray-300">
+          <tr class="text-left text-gray-600">
+            <th class="pb-2">Medicine Name</th>
+            <th class="pb-2">Total Count</th>
+            <th class="pb-2">Actions</th>
           </tr>
-          <tr v-if="expandedMedicines.has(name)" v-for="medicine in medicines" :key="medicine.med_id">
-            <td colspan="3" class="py-2 pl-6 bg-gray-50">
-              <div class="flex items-center justify-between">
-                <div>
-                  <span class="mr-4">Exp: {{ medicine.expirationDate || 'None' }}</span>
-                  <span>Count: {{ medicine.count }}</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                  <input 
-                    type="number"
-                    v-model.number="medicine.requestedQuantity"
-                    class="w-20 p-1 text-center border rounded"
-                    min="1"
-                    :max="medicine.count"
-                    placeholder="Qty"
-                  >
-                  <button 
-                    @click="addMedicine(medicine)"
-                    class="text-[#2f4a71] hover:text-white hover:bg-[#2f4a71] rounded-md p-2"
-                    :disabled="!canAddMedicine(medicine)"
-                    :class="{ 'opacity-50 cursor-not-allowed': !canAddMedicine(medicine) }"
-                  >
-                    <Icon icon="subway:add-1" />
+        </thead>
+        <tbody class="text-gray-700">
+          <template v-for="(medicines, name) in groupedMedicines" :key="name">
+            <tr class="border-b border-gray-200">
+              <td class="py-2">
+                <div class="flex items-center">
+                  <button @click="toggleMedicineExpand(name)" class="flex items-center">
+                    <Icon 
+                      :icon="expandedMedicines.has(name) ? 'mdi:chevron-down' : 'mdi:chevron-right'" 
+                      class="mr-2"
+                    />
+                    {{ name }}
                   </button>
                 </div>
-              </div>
-            </td>
-          </tr>
-        </template>
-      </tbody>
-    </table>
-    <div class="flex justify-end mt-6">
-      <button @click="cancelMedicine" class="p-2 ml-2 text-white bg-gray-500 rounded-md">Cancel</button>
+              </td>
+              <td class="py-2">
+                {{ medicines.reduce((sum, med) => sum + med.count, 0) }}
+              </td>
+              <td></td>
+            </tr>
+            <tr v-if="expandedMedicines.has(name)" v-for="medicine in medicines" :key="medicine.med_id">
+              <td colspan="3" class="py-2 pl-6 bg-gray-50">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <span class="mr-4">Exp: {{ medicine.expirationDate || 'None' }}</span>
+                    <span>Count: {{ medicine.count }}</span>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <input 
+                      type="number"
+                      v-model.number="medicine.requestedQuantity"
+                      class="w-20 p-1 text-center border rounded"
+                      min="1"
+                      :max="medicine.count"
+                      placeholder="Qty"
+                    >
+                    <button 
+                      @click="addMedicine(medicine)"
+                      class="text-[#2f4a71] hover:text-white hover:bg-[#2f4a71] rounded-md p-2"
+                      :disabled="!canAddMedicine(medicine)"
+                      :class="{ 'opacity-50 cursor-not-allowed': !canAddMedicine(medicine) }"
+                    >
+                      <Icon icon="subway:add-1" />
+                    </button>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+      <div class="flex justify-end mt-6">
+        <button @click="cancelMedicine" class="p-2 ml-2 text-white bg-gray-500 rounded-md">Cancel</button>
+      </div>
     </div>
   </div>
-</div>
 
-    <!-- Medicine Detail Modal -->
-    <div v-if="showMedicineDetailModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
-  <div class="w-1/3 p-6 bg-white rounded-2xl">
-    <h2 class="mb-4 text-2xl font-semibold">Medicine Details</h2>
-    
-    <div class="space-y-4">
-      <!-- Medicine Name -->
-      <div>
-        <label class="block text-gray-700">Medicine Name</label>
-        <input type="text" v-model="selectedMedicine.name" :disabled="isViewOnly"
-          class="w-full p-2 bg-gray-100 border rounded-md">
-      </div>
+      <!-- Medicine Detail Modal -->
+      <div v-if="showMedicineDetailModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
+    <div class="w-1/3 p-6 bg-white rounded-2xl">
+      <h2 class="mb-4 text-2xl font-semibold">Medicine Details</h2>
       
-      <!-- Quantity -->
-      <div>
-        <label class="block text-gray-700">Quantity</label>
-        <input type="number" v-model="selectedMedicine.quantity" :disabled="isViewOnly"
-          class="w-full p-2 border rounded-md">
-      </div>
-      
-      <!-- Schedule -->
-      <div>
-        <label class="block text-gray-700">Schedule</label>
-        <input type="text" v-model="selectedMedicine.schedule" :disabled="isViewOnly"
-          placeholder="e.g., 3 times a day after meals"
-          class="w-full p-2 border rounded-md">
-      </div>
-      
-      <!-- Dates -->
-      <div class="grid grid-cols-2 gap-4">
+      <div class="space-y-4">
+        <!-- Medicine Name -->
         <div>
-          <label class="block text-gray-700">Start Date</label>
-          <input type="date" v-model="selectedMedicine.startDate" :disabled="isViewOnly"
-            class="w-full p-2 border rounded-md">
-        </div> 
+          <label class="block text-gray-700">Medicine Name</label>
+          <input type="text" v-model="selectedMedicine.name" :disabled="isViewOnly"
+            class="w-full p-2 bg-gray-100 border rounded-md">
+        </div>
+        
+        <!-- Quantity -->
         <div>
-          <label class="block text-gray-700">End Date</label>
-          <input type="date" v-model="selectedMedicine.endDate" :disabled="isViewOnly"
+          <label class="block text-gray-700">Quantity</label>
+          <input type="number" v-model="selectedMedicine.quantity" :disabled="isViewOnly"
             class="w-full p-2 border rounded-md">
         </div>
+        
+        <!-- Schedule -->
+        <div>
+          <label class="block text-gray-700">Schedule</label>
+          <input type="text" v-model="selectedMedicine.schedule" :disabled="isViewOnly"
+            placeholder="e.g., 3 times a day after meals"
+            class="w-full p-2 border rounded-md">
+        </div>
+        
+        <!-- Dates -->
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-gray-700">Start Date</label>
+            <input type="date" v-model="selectedMedicine.startDate" :disabled="isViewOnly"
+              class="w-full p-2 border rounded-md">
+          </div> 
+          <div>
+            <label class="block text-gray-700">End Date</label>
+            <input type="date" v-model="selectedMedicine.endDate" :disabled="isViewOnly"
+              class="w-full p-2 border rounded-md">
+          </div>
+        </div>
+        
+        <!-- Remarks -->
+        <div>
+          <label class="block text-gray-700">Remarks</label>
+          <textarea v-model="selectedMedicine.remarks" :disabled="isViewOnly"
+            class="w-full p-2 border rounded-md"
+            rows="3"></textarea>
+        </div>
       </div>
-      
-      <!-- Remarks -->
-      <div>
-        <label class="block text-gray-700">Remarks</label>
-        <textarea v-model="selectedMedicine.remarks" :disabled="isViewOnly"
-          class="w-full p-2 border rounded-md"
-          rows="3"></textarea>
-      </div>
-    </div>
 
-   <div class="flex justify-end mt-6 space-x-4">
-      <button @click="cancelMedicineDetails"
-        class="px-4 py-2 text-gray-600 bg-gray-200 rounded-md">Cancel</button>
-      <button v-if="!isViewOnly" @click="saveMedicineDetails"
-        class="px-4 py-2 text-white bg-blue-600 rounded-md">Save</button>
+      <div class="flex justify-end mt-6 space-x-4">
+          <button @click="cancelMedicineDetails"
+            class="px-4 py-2 text-gray-600 bg-gray-200 rounded-md">Cancel</button>
+          <button v-if="!isViewOnly" @click="saveMedicineDetails"
+            class="px-4 py-2 text-white bg-blue-600 rounded-md">Save</button>
+        </div>
+        
+      </div>
     </div>
   </div>
 </div>
-
-  </div>
 </template>
 <style scoped>
 textarea {
   resize: none;
 }
+
+.time-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 15px 0;
+}
+
+.time-picker-select {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.modal-container {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.33);
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  color: #999;
+  height: 30px;
+  width: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.modal-close:hover {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.modal-body {
+  margin-bottom: 20px;
+}
+
+.modal-footer {
+  margin-top: 15px;
+}
+
+/* Animation */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.appointments-list {
+  max-height: calc(100vh - 350px);
+  overflow-y: auto;
+}
+
+/* Existing AddList styles */
 .marquee {
   white-space: nowrap;
   overflow: hidden;
