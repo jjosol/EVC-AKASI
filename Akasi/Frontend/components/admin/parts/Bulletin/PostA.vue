@@ -267,7 +267,6 @@ onMounted(loadPostDetails);
           </div>
 
           <!-- PDFs -->
-          <!-- filepath: c:\Users\Acer\Documents\Github\EVC-CMS\Akasi\Frontend\components\admin\parts\Bulletin\PostA.vue -->
           <div v-else-if="getFileViewerComponent(file) === 'pdf'" class="p-4 border rounded-lg shadow-md">
             <div class="flex items-center justify-between mb-4">
               <div class="flex items-center space-x-2">
@@ -282,19 +281,18 @@ onMounted(loadPostDetails);
                 Open PDF in New Tab
               </a>
             </div>
-            
-            <!-- PDF viewer with container class -->
-            <div class="pdf-container">
-              <PdfViewer
-                :source="getFileUrl(file.file_id)"
-                class="w-full"
-                @error="handleIframeError(file.file_id)"
-              />
-            </div>
-            
-            <div v-if="fileLoadErrors[file.file_id]" class="mt-2 text-red-500">
-              Failed to load PDF. <a :href="getFileUrl(file.file_id)" download>Download PDF</a>
-            </div>
+            <object
+              :data="getFileUrl(file.file_id)"
+              type="application/pdf"
+              class="w-full h-[600px]"
+              @error="handleIframeError(file.file_id)"
+            >
+              <p>
+                It appears you don't have a PDF plugin for this browser or the PDF couldn't be loaded.
+                You can <a :href="getFileUrl(file.file_id)" download>download the PDF file</a>
+                to view it.
+              </p>
+            </object>
           </div>
 
           <!-- Office Files -->
@@ -362,28 +360,4 @@ img, video {
   align-items: center;
   justify-content: center;
 }
-
-/* Add these PDF container styles */
-.pdf-container {
-  position: relative;
-  height: 600px;
-  overflow: hidden; /* Hide overflow initially */
-}
-
-/* Only enable scrolling when actively focused/clicked */
-.pdf-container:hover,
-.pdf-container:focus-within {
-  overflow-y: auto; /* Enable scrolling on hover/focus */
-}
-
-/* Make the PDF fit within the container */
-:deep(.vue-pdf-embed) {
-  height: 100%;
-}
-
-:deep(.vue-pdf-embed canvas) {
-  max-width: 100% !important;
-  height: auto !important;
-}
-
 </style>

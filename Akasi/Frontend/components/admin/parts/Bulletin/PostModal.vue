@@ -114,7 +114,7 @@ function removeFile(index) {
 }
 
 const submitPost = async () => {
-  // Check if we have valid content
+  // Changed: Allow empty text if files are present
   if (!localText.value.trim() && localMediaFiles.value.length === 0) {
     error.value = "Please enter some text or upload files for your post";
     return;
@@ -125,22 +125,22 @@ const submitPost = async () => {
   
   try {
     const postData = {
-      admin_id: 1, // Ensure this is a NUMBER not a string
+      admin_id: '1', // This should come from user context in a real app
       username: 'admin',
       caption: localText.value
     };
     
-    console.log('Sending post data, admin_id type:', typeof postData.admin_id);
-    
     const files = localMediaFiles.value
-      .filter(media => media.file)
+      .filter(media => media.file) // Only include files that have a file object
       .map(media => media.file);
     
     let data;
     
     if (props.post?.post_id) {
+      // Update existing post
       data = await updatePost(props.post.post_id, postData, files);
     } else {
+      // Create new post
       data = await createPost(postData, files);
     }
     
@@ -148,7 +148,7 @@ const submitPost = async () => {
     emit('close');
   } catch (err) {
     console.error('Upload error:', err);
-    error.value = err.message || 'Failed to upload post';
+    error.value = 'Failed to upload post: ' + err.message;
   } finally {
     isLoading.value = false;
   }
