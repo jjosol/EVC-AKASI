@@ -1,0 +1,50 @@
+<style>
+.left {
+    height: 100%;
+    width: 15%;
+    position: fixed;
+    z-index: 1;
+    top: 0;
+    overflow-x: hidden;
+    left: 0;
+    
+}
+
+.right {
+    height: 100%;
+    width: 85%;
+    position: fixed;
+    z-index: 1;
+    top: 0;
+    overflow-x: hidden;
+    right: 0;
+
+}
+
+.centered {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+</style>
+<template>
+    <div class="split left">
+        <div class="center">
+            <SideBarA v-if="isAdmin"/>
+            <SideBarC v-else-if="isClient"/>
+        </div>
+    </div>
+
+    <div class="split right">
+        <div class="center">
+            <slot/>
+        </div>
+    </div>
+</template>
+<script setup>
+import { useAuth } from '~/composables/useAuth';
+const { isAdmin, isClient } = useAuth();
+
+</script>

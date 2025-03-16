@@ -1,0 +1,93 @@
+<script setup lang="ts">
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { useAuth } from '~/composables/useAuth';
+
+const router = useRouter();
+const username = ref<string>('');
+const password = ref<string>('');
+const loginError = ref<string>();
+
+const { setToken, isAdmin, isClient } = useAuth(); // Import setToken, isAdmin, and isClient
+
+const handleLogin = async () => {
+  try {
+    console.log('Attempting login...');
+    const response = await fetch('http://localhost:3001/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        username: username.value,
+        password: password.value,
+      }),
+    });
+
+    console.log('Response:', response);
+    const data = await response.json();
+    console.log('Login data:', data);
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Login failed');
+    }
+
+    const { isAuthenticated, token, role } = data;
+
+    if (isAuthenticated && token) {
+      console.log('Setting token...');
+      setToken(token);
+
+      loginError.value = undefined;
+      if (role === 'admin') {
+        router.push('/home');
+      } else if (role === 'client') {
+        router.push('/bulletin');
+      } else {
+        router.push('/login');
+      }
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    loginError.value = error instanceof Error ? error.message : 'An unexpected error occurred';
+    password.value = '';
+  }
+};
+</script>
+
+<template>
+  <div class="font-inter bg-[url('~/assets/EVC.png')] h-screen min-h-screen w-full bg-[length:125rem_60rem]">
+    <div class="flex justify-end">
+      <div class="bg-[#f8f4ff] w-5/12 h-screen">
+        <Header class="mt-10 mb-36" />
+        <MidTitle class="my-6 text-7xl" />
+        <div class="my-6 text-center">
+          <div class="p-6 text-[#2f4a71] rounded-full text-center flex flex-col items-center">
+            <div class="text-red-900 ">
+              <input
+                type="text"
+                placeholder="Username"
+                v-model="username"
+                class="w-full py-3 px-2 bg-[#FFFFFF] rounded-full input-field placeholder:text-[#2f4a71] outline outline-1 outline-gray-500"
+              />
+            </div>
+            <br>
+            <div>
+              <input
+                type="password"
+                placeholder="Password"
+                v-model="password"
+                class="w-full py-3 px-2 rounded-full input-field placeholder:text-[#2f4a71] outline outline-1 outline-gray-500"
+              />
+            </div>
+          </div>
+        </div>
+        <div class="flex flex-col items-center justify-center">
+          <LoginButton @click="handleLogin" />
+          
+        </div>
+        <Footer />
+      </div>
+    </div>
+  </div>
+</template>

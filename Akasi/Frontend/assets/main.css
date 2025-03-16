@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@font-face {
+    font-family: 'nimbus';
+    src: url('~/assets/fonts/TAN-NIMBUS.otf') format('opentype'),
+         url('/assets/fonts/TAN-NIMBUS.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+  }
+  
