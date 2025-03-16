@@ -1,57 +1,30 @@
-import { PrismaClient } from '@prisma/client';
+import { $fetch } from 'ohmyfetch';
 import { defineEventHandler, readBody } from 'h3';
-
-const prisma = new PrismaClient();
 
 export default defineEventHandler(async (event) => {
   if (event.node.req.method === 'POST') {
     const body = await readBody(event);
 
-    // Define types for the incoming request body
-    const {
-      client_id,
-      admin_id,
-      date,
-      patient_name,
-      patient_occupation,
-      doctor,
-      complaint,
-      remarks,
-      confined,
-      medAdministration,
-    }: {
-      client_id: number;
-      admin_id: number;
-      date: string; // Can be adjusted based on your date format
-      patient_name: string;
-      patient_occupation: string;
-      doctor: string;
-      complaint: string;
-      remarks: string;
-      confined: boolean;
-      medAdministration: boolean;
-    } = body;
-
     try {
-      const consultationRecord = await prisma.consultation_records.create({
-        data: {
-          client_id,
-          admin_id,
-          date: new Date(date), // Ensure date is a Date object
-          patient_name,
-          patient_occupation,
-          doctor,
-          complaint,
-          remarks,
-          confined,
-          medAdministration,
-        },
+      const backendUrl = 'http://localhost:3001/consultation-records'; // Adjust if your backend is running elsewhere
+
+      const consultationRecord = await $fetch(backendUrl, {
+        method: 'POST',
+        body: body,
       });
 
-      return { status: 'success', data: consultationRecord };
-    } catch (error) {
-      const err = error as Error;
-      return { status: 'error', message: err.message };
+      return consultationRecord; // Forward the response from the backend
+    } catch (error: any) {
+      console.error('Error creating consultation record:', error.message);
+      throw createError({
+        statusCode: 500,
+        message: 'Failed to create consultation record',
+      });
     }
+  } else {
+    throw createError({
+      statusCode: 405,
+      message: 'Method Not Allowed',
+    });
   }
 });

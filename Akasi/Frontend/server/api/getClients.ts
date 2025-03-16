@@ -1,21 +1,15 @@
-// server/api/getClient.ts
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { $fetch } from 'ohmyfetch';
+import { defineEventHandler } from 'h3';
 
 export default defineEventHandler(async (event) => {
   try {
-    // Fetch data from the "client" table
-    const clients = await prisma.client.findMany();
-
-    // Return the list of clients
+    const clients = await $fetch('http://localhost:3001/clients');
     return clients;
   } catch (error) {
-    console.error(error);
-    return {
+    console.error('Failed to fetch clients:', error);
+    throw createError({
       statusCode: 500,
-      body: 'Error fetching clients',
-    };
+      message: 'Error fetching clients'
+    });
   }
 });
-

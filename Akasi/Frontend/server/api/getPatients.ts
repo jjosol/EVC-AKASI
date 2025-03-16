@@ -1,27 +1,15 @@
-// server/api/getClient.ts
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { $fetch } from 'ohmyfetch';
+import { defineEventHandler } from 'h3';
 
 export default defineEventHandler(async (event) => {
   try {
-    // Fetch only specific columns from the consultation_records table
-    const patients = await prisma.consultation_records.findMany({
-      select: {
-        consultation_id: true,         // Include these fields you want
-        patient_name: true, 
-        patient_occupation: true,
-        date: true,        // Replace with your actual  // column names
-      }
-    });
-    
+    const patients = await $fetch('http://localhost:3001/patients');
     return patients;
   } catch (error) {
-    console.error(error);
-    return {
+    console.error('Failed to fetch patients:', error);
+    throw createError({
       statusCode: 500,
-      body: 'Error fetching clients',
-    };
+      message: 'Error fetching patients'
+    });
   }
 });
-
