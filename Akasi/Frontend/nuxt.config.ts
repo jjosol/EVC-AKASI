@@ -44,4 +44,12 @@ export default defineNuxtConfig({
     download: true, // Force download of font files
     prefetch: true, // Adds prefetch hints
   },
+  nitro: {
+    handlers: [
+      {
+        route: '/api/generate-pdf',
+        handler: '~/server/api/generate-pdf.post'
+      }
+    ]
+  },
 })
