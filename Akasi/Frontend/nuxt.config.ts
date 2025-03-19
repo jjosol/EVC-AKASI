@@ -20,6 +20,9 @@ export default defineNuxtConfig({
       autoprefixer: {},
     },
   },
+  vite: {
+    assetsInclude: ['**/*.html'],
+  },
   app: {
     head: {
       title: 'Akasi',

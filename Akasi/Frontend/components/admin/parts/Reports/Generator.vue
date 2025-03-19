@@ -1,137 +1,221 @@
 <template>
-  <div class="w-4/6 p-6 mx-auto text-[#2f4a71]">
-    <h2 class="mt-1 text-3xl font-bold text-left">Report Generator</h2>
-
-    <!-- Tabs for Monthly and Annual -->
-    <div class="flex justify-end mb-6 border-b border-gray-300">
-      <button 
-        @click="selectedPeriod = 'monthly'"
-        :class="{'text-blue-600 border-b-2 border-blue-600': selectedPeriod === 'monthly'}"
-        class="px-4 py-2 font-semibold text-gray-600">
-        Monthly
-      </button>
-      <button 
-        @click="selectedPeriod = 'yearly'"
-        :class="{'text-blue-600 border-b-2 border-blue-600': selectedPeriod === 'yearly'}"
-        class="px-4 py-2 font-semibold text-gray-600">
-        Annual
-      </button>
-    </div>
-    <div class="w-11/12 text-[#2f4a71] ml-auto gap-y-10">
-
-      <!-- Date Selection -->
-      <div class="grid grid-cols-6 gap-4 mb-20">
-        <div v-if="selectedPeriod=='monthly'" class="col-span-2">
-          <label class="block mb-2 font-semibold">Month</label>
-          <div class="flex items-center space-x-2">
-            <select v-model="startMonth" class="w-full p-2">
-              <option v-for="(month, index) in months" :key="index" :value="index">{{ month }}</option>
-            </select>
-            <span class="text-lg">-</span>
-            <select v-model="endMonth" class="w-full p-2">
-              <option v-for="(month, index) in months" :key="index" :value="index">{{ month }}</option>
-            </select>
-          </div>
-        </div>
-        <div>
-          <label class="block mb-2 font-semibold">Year</label>
-          <select v-model="selectedYear" class="w-full p-2">
-            <option v-for="year in years" :key="year" :value="year">{{year}}</option>
-          </select>
-        </div>
+  <div class="bg-gray-50 min-h-screen py-8">
+    <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md overflow-hidden">
+      <!-- Header -->
+      <div class="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4">
+        <h2 class="text-2xl font-bold text-white">PSHS-EVC Health Services Report Generator</h2>
       </div>
 
-      <!-- Category and Disease Type -->
-      <div class="grid grid-cols-2 gap-10 mb-20">
-        <div class="p-4">
-          <h3 class="text-xl font-semibold mb-">Category</h3>
-          <div class="pt-3 space-y-5">
-            <label class="items-center block">
-              <input type="checkbox" class="form-checkbox accent-[#2f4a71]" />
-              <span class="ml-2">Student</span>
-            </label>
-            <label class="items-center block">
-              <input type="checkbox" class="form-checkbox accent-[#2f4a71]" />
-              <span class="ml-2">Faculty</span>
-            </label>
-            <label class="items-center block">
-              <input type="checkbox" class="form-checkbox accent-[#2f4a71]" />
-              <span class="ml-2">Non-Teaching Staff</span>
-            </label>
-          </div>
+      <div class="p-6">
+        <!-- Tabs for Monthly and Annual -->
+        <div class="flex justify-end mb-6 border-b border-gray-200">
+          <button 
+            @click="selectedPeriod = 'monthly'"
+            :class="{'text-blue-600 border-b-2 border-blue-600 font-medium': selectedPeriod === 'monthly'}"
+            class="px-4 py-2 text-gray-600 hover:text-blue-500 transition-colors">
+            Monthly
+          </button>
+          <button 
+            @click="selectedPeriod = 'yearly'"
+            :class="{'text-blue-600 border-b-2 border-blue-600 font-medium': selectedPeriod === 'yearly'}"
+            class="px-4 py-2 text-gray-600 hover:text-blue-500 transition-colors">
+            Yearly
+          </button>
         </div>
 
-        <div class="p-4">
-          <h3 class="mb-2 text-xl font-semibold">Disease Type</h3>
-          <div class="pt-3 space-y-5">
-            <label class="items-center block">
-              <input type="checkbox" class="form-checkbox accent-[#2f4a71]" />
-              <span class="ml-2">Communicable</span>
-            </label>
-            <label class="items-center block">
-              <input type="checkbox" class="form-checkbox accent-[#2f4a71]" />
-              <span class="ml-2">Non-Communicable</span>
-            </label>
+        <div class="space-y-8">
+          <!-- Date Selection -->
+          <div class="grid md:grid-cols-2 gap-6">
+            <div v-if="selectedPeriod === 'monthly'" class="space-y-2">
+              <label class="block text-sm font-medium text-gray-700">Month Range</label>
+              <div class="flex items-center space-x-2">
+                <div class="flex-1">
+                  <select 
+                    v-model="startMonth" 
+                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50">
+                    <option value="" disabled selected>Start Month</option>
+                    <option v-for="(month, index) in months" :key="index" :value="index">{{ month }}</option>
+                  </select>
+                </div>
+                <span class="text-gray-500">to</span>
+                <div class="flex-1">
+                  <select 
+                    v-model="endMonth"
+                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50">
+                    <option value="" disabled selected>End Month</option>
+                    <option value="null">Same as Start Month</option>
+                    <option v-for="(month, index) in months" :key="index" :value="index">{{ month }}</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Year</label>
+              <select 
+                v-model="selectedYear"
+                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50">
+                <option value="" disabled selected>Select Year</option>
+                <option v-for="year in years" :key="year" :value="year">{{ year }}</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Report Forms -->
+          <div class="space-y-4">
+            <h3 class="text-lg font-medium text-gray-900">Report Forms</h3>
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-3">
+              <div class="flex items-start">
+                <input 
+                  type="checkbox" 
+                  id="form1" 
+                  v-model="selectedForms.summary" 
+                  class="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label for="form1" class="ml-3 text-sm text-gray-700">
+                  SUMMARY OF PERCENTAGE OF THE PSHS-EVC COMMUNITY THAT ACQUIRED ILLNESSES Form
+                </label>
+              </div>
+              
+              <div class="flex items-start">
+                <input 
+                  type="checkbox" 
+                  id="form2" 
+                  v-model="selectedForms.illnesses" 
+                  class="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label for="form2" class="ml-3 text-sm text-gray-700">
+                  LIST OF COMMON ILLNESSES/INJURIES Form
+                </label>
+              </div>
+              
+              <div class="flex items-start">
+                <input 
+                  type="checkbox" 
+                  id="form3" 
+                  v-model="selectedForms.monitoring" 
+                  class="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label for="form3" class="ml-3 text-sm text-gray-700">
+                  INFECTIOUS DISEASE MONITORING TOOL Form
+                </label>
+              </div>
+              
+              <div class="flex items-start">
+                <input 
+                  type="checkbox" 
+                  id="form4" 
+                  v-model="selectedForms.percentage" 
+                  class="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label for="form4" class="ml-3 text-sm text-gray-700">
+                  PERCENTAGE OF INFECTIOUS DISEASES IN PSHS-EVC Form
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Preview Box -->
+          <div class="border rounded-lg overflow-hidden bg-gray-50">
+            <div class="px-4 py-3 bg-gray-100 border-b border-gray-200">
+              <h3 class="font-medium text-gray-700">Report Preview</h3>
+            </div>
+            <div class="p-4 text-sm text-gray-600">
+              <p v-if="startMonth !== '' && selectedYear !== ''">
+                Generating report for: 
+                <span class="font-medium">{{ months[startMonth] }}</span>
+                <span v-if="endMonth !== '' && endMonth !== 'null'"> to 
+                  <span class="font-medium">{{ months[endMonth] }}</span>
+                </span>
+                <span class="font-medium"> {{ selectedYear }}</span>
+              </p>
+              <p v-else class="italic text-gray-500">
+                Please select date parameters to preview report details
+              </p>
+              
+              <ul v-if="hasSelectedForms" class="mt-2 space-y-1">
+                <li v-if="selectedForms.summary">• SUMMARY OF PERCENTAGE Form</li>
+                <li v-if="selectedForms.illnesses">• LIST OF COMMON ILLNESSES Form</li>
+                <li v-if="selectedForms.monitoring">• INFECTIOUS DISEASE MONITORING Form</li>
+                <li v-if="selectedForms.percentage">• PERCENTAGE OF INFECTIOUS DISEASES Form</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Generate Button -->
+          <div class="flex justify-end pt-4">
+            <button 
+              @click="generateReport" 
+              class="px-6 py-2 bg-blue-600 text-white font-medium rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transform transition-transform duration-200 hover:scale-105 disabled:opacity-50"
+              :disabled="!canGenerate">
+              GENERATE REPORT
+            </button>
           </div>
         </div>
-      </div>
-
-      <!-- Sex and Fatality Count -->
-      <div class="grid grid-cols-2 gap-10 mb-20">
-        <div class="p-4">
-          <h3 class="mb-2 text-xl font-semibold">Sex</h3>
-          <div class="pt-3 space-y-5">
-            <label class="items-center block">
-              <input type="checkbox" class="form-checkbox accent-[#2f4a71]" />
-              <span class="ml-2">Female</span>
-            </label>
-            <label class="items-center block">
-              <input type="checkbox" class="form-checkbox accent-[#2f4a71]" />
-              <span class="ml-2">Male</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="p-4">
-          <h3 class="mb-2 text-xl font-semibold">Fatality Rate</h3>
-          <div class="pt-3 space-y-5">
-            <label class="items-center block">
-              <input type="checkbox" class="form-checkbox accent-[#2f4a71]" />
-              <span class="ml-2">Include fatality count</span>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <!-- Generate Button -->
-      <div class="text-right">
-        <button @click="generateReport" class="px-6 py-2 text-white bg-blue-600 rounded-full">
-          GENERATE
-        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import moment from 'moment-timezone'
+
+// Import HTML template - this will be loaded as a string
+const reportHtmlTemplate = ref('')
 
 const timezone = "Asia/Manila"
 const currentYear = moment().tz(timezone).year()
-const selectedYear = ref(currentYear)
-const startMonth = ref(moment().tz(timezone).month())
-const endMonth = ref(moment().tz(timezone).month())
+const selectedYear = ref("")
+const startMonth = ref("")
+const endMonth = ref("")
 const selectedPeriod = ref("monthly")
+
+// Form selection checkboxes
+const selectedForms = ref({
+  summary: true,
+  illnesses: false,
+  monitoring: false,
+  percentage: false
+})
 
 const years = ref(Array.from(
   { length: 51 }, 
   (_, i) => currentYear - 25 + i
 ))
+
 const months = ref([
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
 ])
+
+// Computed properties
+const hasSelectedForms = computed(() => {
+  return selectedForms.value.summary || 
+         selectedForms.value.illnesses || 
+         selectedForms.value.monitoring || 
+         selectedForms.value.percentage
+})
+
+const canGenerate = computed(() => {
+  return startMonth.value !== "" && 
+         selectedYear.value !== "" && 
+         hasSelectedForms.value
+})
+
+// Load the HTML template on component mount
+onMounted(async () => {
+  try {
+    const response = await fetch('/templates/report-template.html')
+    if (!response.ok) {
+      throw new Error('Failed to load HTML template')
+    }
+    reportHtmlTemplate.value = await response.text()
+  } catch (error) {
+    console.error("Error loading HTML template:", error)
+    alert("Failed to load report template. Please refresh the page.")
+  }
+})
 
 const generatePdf = async (htmlContent) => {
   try {
@@ -152,7 +236,16 @@ const generatePdf = async (htmlContent) => {
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `report-${months.value[startMonth.value]}-${months.value[endMonth.value]}-${selectedYear.value}.pdf`
+    
+    // Set filename based on whether there's an end month
+    let filename
+    if (endMonth.value === "null" || endMonth.value === "") {
+      filename = `report-${months.value[startMonth.value]}-${selectedYear.value}.pdf`
+    } else {
+      filename = `report-${months.value[startMonth.value]}-${months.value[endMonth.value]}-${selectedYear.value}.pdf`
+    }
+    
+    a.download = filename
     document.body.appendChild(a)
     a.click()
     window.URL.revokeObjectURL(url)
@@ -161,402 +254,59 @@ const generatePdf = async (htmlContent) => {
     console.log("PDF has been generated successfully!")
   } catch (error) {
     console.error("Error generating PDF:", error)
+    alert("Failed to generate PDF. Please try again.")
   }
 }
 
 const generateReport = () => {
+  // Validate selections before generating
+  if (startMonth.value === "" || selectedYear.value === "") {
+    alert("Please select both start month and year")
+    return
+  }
+  
+  if (!hasSelectedForms.value) {
+    alert("Please select at least one report form")
+    return
+  }
+  
+  // Make sure the HTML template is loaded
+  if (!reportHtmlTemplate.value) {
+    alert("Report template is not loaded. Please refresh and try again.")
+    return
+  }
+  
   const startMonthName = months.value[startMonth.value]
-  const endMonthName = months.value[endMonth.value]
+  let endMonthName = ""
   const year = selectedYear.value
-  const period = selectedPeriod.value
+  
+  // Format date range for the report heading
+  let dateRange
+  if (endMonth.value === "" || endMonth.value === "null") {
+    dateRange = `${startMonthName} ${year}`
+  } else {
+    endMonthName = months.value[endMonth.value]
+    dateRange = `${startMonthName} - ${endMonthName} ${year}`
+  }
 
-  const finalHtml = html
+  // Process the HTML template: Replace placeholders with actual values
+  let finalHtml = reportHtmlTemplate.value
+    .replace(/{{dateRange}}/g, dateRange)
     .replace(/{{startMonth}}/g, startMonthName)
-    .replace(/{{endMonth}}/g, endMonthName)
     .replace(/{{selectedYear}}/g, year)
+  
+  // Handle conditional end month display using Handlebars-like syntax
+  if (endMonth.value !== "" && endMonth.value !== "null") {
+    // Replace the conditional block with actual content including endMonth
+    finalHtml = finalHtml.replace(
+      /{{#if endMonth}}(.*?){{\/if}}/g, 
+      (match, content) => content.replace(/{{endMonth}}/g, endMonthName)
+    )
+  } else {
+    // Remove the conditional blocks entirely
+    finalHtml = finalHtml.replace(/{{#if endMonth}}.*?{{\/if}}/g, '')
+  }
 
   generatePdf(finalHtml)
 }
-
-// HTML template string
-const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PSHS-EVC Health Services Report</title>` + `
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        /* Body setup */
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 21cm;
-            margin: 0 auto;
-            background: white;
-            position: relative;
-            color: #333;
-            line-height: 1.4;
-        }
-        
-        /* Header & Footer */
-        .header, .footer {
-            position: fixed;
-            width: 21cm;
-            left: 50%;
-            transform: translateX(-50%);
-            background: white;
-            z-index: 1000;
-        }
-        
-        /* Header styles */
-        .header {
-            top: 0;
-            border-bottom: 1px solid #ccc;
-            height: 3cm;
-        }
-        
-        /* Footer styles */
-        .footer {
-            bottom: 0;
-            border-top: 1px solid #ccc;
-            height: 2cm;
-        }
-        
-        /* Images in header & footer */
-        .header img, .footer img {
-            width: 100%;
-            max-width: 100%;
-            height: auto;
-        }
-        
-        /* Content area - critical fix for overflow */
-        .content {
-            margin: 0 auto;
-            width: 100%;
-            max-width: 17cm;
-            padding: 0 1cm;
-            /* Ensure content does not go behind header/footer */
-            padding-top: 3.5cm;
-            padding-bottom: 2.5cm;
-            background: white;
-        }
-        
-        /* Heading styles */
-        h2 {
-            font-size: 14px;
-            margin-bottom: 5px;
-            text-align: center;
-            color: #003366;
-        }
-        
-        h3 {
-            font-size: 12px;
-            margin: 10px 0 5px 0;
-            color: #003366;
-        }
-        
-        /* Table styles - COMPACTED */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 15px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-        }
-        
-        th, td {
-            border: 1px solid #ccc;
-            padding: 4px 6px; /* Reduced padding for more compact cells */
-            text-align: center;
-            font-size: 10px; /* Reduced font size */
-        }
-        
-        th {
-            background-color: #f0f5fa;
-            color: #003366;
-            font-weight: bold;
-        }
-        
-        tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        
-        tr:hover {
-            background-color: #f0f7ff;
-        }
-        
-        /* Total row styling */
-        tr:last-child {
-            font-weight: bold;
-            background-color: #eef4fa;
-        }
-        
-        /* Color styles */
-        .blue {
-            color: #0066cc;
-        }
-        
-        .highlight {
-            color: #cc0000;
-            font-weight: bold;
-        }
-        
-        /* Paragraphs */
-        p {
-            margin-bottom: 10px;
-            text-align: justify;
-            font-size: 11px;
-        }
-        
-        /* Reduce spaces between sections */
-        .section, .conclusion {
-            margin-bottom: 10px;
-        }
-
-        .conclusion {
-            page-break-inside: avoid;
-            margin-bottom: 0; /* Remove bottom margin */
-        }
-        
-        /* Page settings */
-        @page {
-            size: A4;
-            margin: 0;
-        }
-        
-        @media print {
-            .header {
-                position: fixed;
-                top: 0;
-            }
-            
-            .footer {
-                position: fixed;
-                bottom: 0;
-            }
-            
-            .content {
-                margin-top: 3cm;
-                margin-bottom: 2cm;
-            }
-            
-            h3 {
-                page-break-after: avoid;
-            }
-            
-            table {
-                page-break-inside: avoid;
-            }
-        }
-    </style>` + `
-</head>
-<body>
-    <div class="header">
-        <img src="/images/header.png" alt="Header Image">
-    </div>
-    
-    ` + `
-    <div class="content">
-        <h2>SUMMARY OF PERCENTAGE OF THE PSHS-EVC COMMUNITY THAT ACQUIRED ILLNESSES</h2>
-        <h2>({{startMonth}} - {{endMonth}} {{selectedYear}})</h2>
-
-        <div class="section">
-            <h3>Students</h3>
-            <table>
-                <tr>
-                    <th rowspan="2">Month</th>
-                    <th colspan="3">Male</th>
-                    <th colspan="3">Female</th>
-                    <th rowspan="2">Grand Total</th>
-                </tr>
-                <tr>
-                    <th>Dormers</th>
-                    <th>Externs</th>
-                    <th>Total</th>
-                    <th>Dormers</th>
-                    <th>Externs</th>
-                    <th>Total</th>
-                </tr>
-                <tr>
-                    <td>July</td>
-                    <td>0</td>
-                    <td>0</td>
-                    <td class="blue">0</td>
-                    <td>0</td>
-                    <td>0</td>
-                    <td class="blue">0</td>
-                    <td>0</td>
-                </tr>
-                <tr>
-                    <td>August</td>
-                    <td>1</td>
-                    <td>1</td>
-                    <td class="blue">2</td>
-                    <td>0</td>
-                    <td>7</td>
-                    <td class="blue">9</td>
-                    <td>9</td>
-                </tr>
-                <tr>
-                    <td>September</td>
-                    <td>1</td>
-                    <td>1</td>
-                    <td class="blue">2</td>
-                    <td>2</td>
-                    <td>7</td>
-                    <td class="blue">11</td>
-                    <td>11</td>
-                </tr>
-                <tr>
-                    <td>October</td>
-                    <td>3</td>
-                    <td>0</td>
-                    <td class="blue">3</td>
-                    <td>0</td>
-                    <td>1</td>
-                    <td class="blue">4</td>
-                    <td>4</td>
-                </tr>
-                <tr>
-                    <td>November</td>
-                    <td>7</td>
-                    <td>0</td>
-                    <td class="blue">7</td>
-                    <td>2</td>
-                    <td>5</td>
-                    <td class="blue">14</td>
-                    <td>14</td>
-                </tr>
-                <tr>
-                    <td>December</td>
-                    <td>3</td>
-                    <td>2</td>
-                    <td class="blue">9</td>
-                    <td>9</td>
-                    <td>4</td>
-                    <td class="blue">22</td>
-                    <td>22</td>
-                </tr>
-                <tr>
-                    <td><b>Total</b></td>
-                    <td>14</td>
-                    <td>3</td>
-                    <td class="highlight">17</td>
-                    <td>21</td>
-                    <td>24</td>
-                    <td class="blue">59</td>
-                    <td class="highlight">59</td>
-                </tr>
-            </table>
-        </div>
-        
-        <div class="section">
-            <h3>Fatality Rate - Students</h3>
-            <table>
-                <tr>
-                    <th rowspan="2">Month</th>
-                    <th colspan="3">Male</th>
-                    <th colspan="3">Female</th>
-                    <th rowspan="2">Grand Total</th>
-                </tr>
-                <tr>
-                    <th>Dormers</th>
-                    <th>Externs</th>
-                    <th>Total</th>
-                    <th>Dormers</th>
-                    <th>Externs</th>
-                    <th>Total</th>
-                </tr>
-                <tr>
-                    <td>July</td>
-                    <td>0</td>
-                    <td>0</td>
-                    <td class="blue">0</td>
-                    <td>0</td>
-                    <td>0</td>
-                    <td class="blue">0</td>
-                    <td>0</td>
-                </tr>
-                <tr>
-                    <td>August</td>
-                    <td>1</td>
-                    <td>1</td>
-                    <td class="blue">2</td>
-                    <td>0</td>
-                    <td>7</td>
-                    <td class="blue">9</td>
-                    <td>9</td>
-                </tr>
-                <tr>
-                    <td>September</td>
-                    <td>1</td>
-                    <td>1</td>
-                    <td class="blue">2</td>
-                    <td>2</td>
-                    <td>7</td>
-                    <td class="blue">11</td>
-                    <td>11</td>
-                </tr>
-                <tr>
-                    <td>October</td>
-                    <td>3</td>
-                    <td>0</td>
-                    <td class="blue">3</td>
-                    <td>0</td>
-                    <td>1</td>
-                    <td class="blue">4</td>
-                    <td>4</td>
-                </tr>
-                <tr>
-                    <td>November</td>
-                    <td>7</td>
-                    <td>0</td>
-                    <td class="blue">7</td>
-                    <td>2</td>
-                    <td>5</td>
-                    <td class="blue">14</td>
-                    <td>14</td>
-                </tr>
-                <tr>
-                    <td>December</td>
-                    <td>3</td>
-                    <td>2</td>
-                    <td class="blue">9</td>
-                    <td>9</td>
-                    <td>4</td>
-                    <td class="blue">22</td>
-                    <td>22</td>
-                </tr>
-                <tr>
-                    <td><b>Total</b></td>
-                    <td>14</td>
-                    <td>3</td>
-                    <td class="highlight">17</td>
-                    <td>21</td>
-                    <td>24</td>
-                    <td class="blue">59</td>
-                    <td class="highlight">59</td>
-                </tr>
-            </table>
-        </div>` + `
-
-        <div class="conclusion">
-            <h3>Conclusion</h3>
-            <p>Out of the n_total scholars of PSHS-EVC, n_gross referred to the HSU from {{startMonth}} to {{endMonth}} {{selectedYear}}. 
-              Moreover, the diagram shows that from {{startMonth}} to {{endMonth}}, female students are more likely to be vulnerable 
-              to illness than males; it also showed that in December, the number of cases significantly increased as 
-              reported, followed by September and October, and the least number was November. One of the contributing 
-              factors to this number of cases is the high humidity during that month.</p>
-        </div>
-    </div>
-    
-    <div class="footer">
-        <img src="/images/footer.png" alt="Footer Image">
-    </div>
-</body>
-</html>`
 </script>

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Non-Teaching Staff Report</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 21cm;
+            margin: 0 auto;
+            background: white;
+            position: relative;
+            color: #333;
+            line-height: 1.4;
+            padding: 2cm;
+        }
+        
+        h2 {
+            font-size: 14px;
+            margin-bottom: 15px;
+            color: #003366;
+        }
+        
+        h3 {
+            font-size: 12px;
+            margin: 20px 0 10px 0;
+            color: #003366;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+        
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+            font-size: 11px;
+        }
+        
+        th {
+            background-color: #f0f5fa;
+            color: #003366;
+            font-weight: bold;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        tr:hover {
+            background-color: #f0f7ff;
+        }
+        
+        tr:last-child {
+            font-weight: bold;
+            background-color: #eef4fa;
+        }
+        
+        .blue {
+            color: #0066cc;
+        }
+        
+        .highlight {
+            color: #cc0000;
+            font-weight: bold;
+        }
+        
+        p {
+            margin-bottom: 20px;
+            text-align: justify;
+            font-size: 11px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+        }
+        
+        .conclusion {
+            margin-bottom: 30px;
+        }
+        
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        
+        @media print {
+            body {
+                padding: 2cm;
+            }
+            
+            h3 {
+                page-break-after: avoid;
+            }
+            
+            table {
+                page-break-inside: avoid;
+            }
+            
+            .section, .conclusion {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="content">
+        <div class="section">
+            <h2>Non-Teaching Staff</h2>
+            <table>
+                <tr>
+                    <th>Month</th>
+                    <th>Male</th>
+                    <th>Female</th>
+                    <th>Grand Total</th>
+                </tr>
+                <tr>
+                    <td>July</td>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>August</td>
+                    <td>1</td>
+                    <td>1</td>
+                    <td>2</td>
+                </tr>
+                <tr>
+                    <td>September</td>
+                    <td>1</td>
+                    <td>1</td>
+                    <td>2</td>
+                </tr>
+                <tr>
+                    <td>October</td>
+                    <td>3</td>
+                    <td>0</td>
+                    <td>3</td>
+                </tr>
+                <tr>
+                    <td>November</td>
+                    <td>7</td>
+                    <td>0</td>
+                    <td>7</td>
+                </tr>
+                <tr>
+                    <td>December</td>
+                    <td>3</td>
+                    <td>2</td>
+                    <td>5</td>
+                </tr>
+                <tr>
+                    <td>Total</td>
+                    <td class="blue">14</td>
+                    <td class="blue">3</td>
+                    <td class="highlight">17</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>Fatality Rate – Non-Teaching Staff</h2>
+            <table>
+                <tr>
+                    <th>Month</th>
+                    <th>Male</th>
+                    <th>Female</th>
+                    <th>Grand Total</th>
+                </tr>
+                <tr>
+                    <td>July</td>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>August</td>
+                    <td>1</td>
+                    <td>1</td>
+                    <td>2</td>
+                </tr>
+                <tr>
+                    <td>September</td>
+                    <td>1</td>
+                    <td>1</td>
+                    <td>2</td>
+                </tr>
+                <tr>
+                    <td>October</td>
+                    <td>3</td>
+                    <td>0</td>
+                    <td>3</td>
+                </tr>
+                <tr>
+                    <td>November</td>
+                    <td>7</td>
+                    <td>0</td>
+                    <td>7</td>
+                </tr>
+                <tr>
+                    <td>December</td>
+                    <td>3</td>
+                    <td>2</td>
+                    <td>5</td>
+                </tr>
+                <tr>
+                    <td>Total</td>
+                    <td class="blue">14</td>
+                    <td class="blue">3</td>
+                    <td class="highlight">17</td>
+                </tr>
+            </table>
+        </div>
+          
+        <div class="conclusion">
+            <p>Conclusion: The quick brown fox jumps over the lazy dog.</p>
+        </div>
+    </div>
+    
+    <script>
+        window.onload = function() {
+            // Calculate Grand Total values
+            const tables = document.querySelectorAll('table');
+            tables.forEach(table => {
+                const rows = table.querySelectorAll('tr');
+                
+                // Skip header row
+                for (let i = 1; i < rows.length; i++) {
+                    const cells = rows[i].querySelectorAll('td');
+                    if (cells.length >= 4) {
+                        // Calculate Grand Total (Male + Female)
+                        const male = parseInt(cells[1].textContent) || 0;
+                        const female = parseInt(cells[2].textContent) || 0;
+                        cells[3].textContent = male + female;
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

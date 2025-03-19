@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSHS-EVC Health Services Report</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        /* Body setup */
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 21cm;
+            margin: 0 auto;
+            background: white;
+            color: #333;
+            line-height: 1.4;
+            position: relative;
+            min-height: 29.7cm; /* A4 height */
+            margin-bottom: 100px; /* Adjust according to footer height */
+        }
+        
+        /* Header & Footer */
+        .header, .footer {
+            width: 100%;
+            max-width: 21cm;
+            background: white;
+            z-index: 1000;
+            position: fixed;
+            left: 0;
+            right: 0;
+            margin: 0 auto;
+        }
+        
+        /* Header styles */
+        .header {
+            top: 0;
+            border-bottom: 1px solid #ccc;
+            height: 3cm;
+        }
+        
+        /* Footer styles */
+        .footer {
+            bottom: 0;
+            height: 2cm;
+        }
+        
+        /* Images in header & footer */
+        .header img, .footer img {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+        }
+        
+        /* Content area - critical fix for overflow */
+        .content {
+            margin: 0 auto;
+            width: 100%;
+            max-width: 17cm;
+            padding: 0 1cm;
+            /* Increase spacing to avoid overlap */
+            padding-top: 3.5cm;
+            padding-bottom: 2.5cm;
+            background: white;
+            page-break-before: auto;
+            page-break-after: auto;
+            page-break-inside: avoid;
+        }
+        
+        /* Heading styles */
+        h2 {
+            font-size: 14px;
+            margin-bottom: 5px;
+            text-align: center;
+            color: #003366;
+        }
+        
+        h3 {
+            font-size: 12px;
+            margin: 10px 0 5px 0;
+            color: #003366;
+        }
+        
+        /* Table styles - COMPACTED */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+        
+        th, td {
+            border: 1px solid #ccc;
+            padding: 4px 6px; /* Reduced padding for more compact cells */
+            text-align: center;
+            font-size: 10px; /* Reduced font size */
+        }
+        
+        th {
+            background-color: #f0f5fa;
+            color: #003366;
+            font-weight: bold;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        tr:hover {
+            background-color: #f0f7ff;
+        }
+        
+        /* Total row styling */
+        tr:last-child {
+            font-weight: bold;
+            background-color: #eef4fa;
+        }
+        
+        /* Color styles */
+        .blue {
+            color: #0066cc;
+        }
+        
+        .highlight {
+            color: #cc0000;
+            font-weight: bold;
+        }
+        
+        /* Paragraphs */
+        p {
+            margin-bottom: 10px;
+            text-align: justify;
+            font-size: 11px;
+        }
+        
+        /* Reduce spaces between sections */
+        .section, .conclusion {
+            margin-bottom: 10px;
+        }
+
+        .conclusion {
+            page-break-inside: avoid;
+            margin-bottom: 0; /* Remove bottom margin */
+        }
+        
+        /* Page settings */
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        
+        /* Page break class */
+        .pagebreak { 
+            page-break-before: always; 
+            clear: both;
+        }
+        
+        /* Fix for page content */
+        .page {
+            position: relative;
+            height: 29.7cm; /* A4 height */
+            overflow: hidden;
+            page-break-after: always;
+        }
+        
+        /* Last page doesn't need a page break after */
+        .page:last-child {
+            page-break-after: auto;
+        }
+        
+        @media print {
+            .header {
+                position: fixed;
+                top: 0;
+            }
+            
+            .footer {
+                position: fixed;
+                bottom: 0;
+                width: 100%;
+                background: white; /* Adjust if needed */
+                page-break-inside: avoid; /* Prevents splitting */
+                height: auto; /* Adjust height dynamically */
+                padding: 10px 0; /* Ensure proper spacing */
+            }
+            
+            .content {
+                margin-top: 3cm;
+                margin-bottom: 2.5cm;
+            }
+            
+            h3 {
+                page-break-after: avoid;
+            }
+            
+            table {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="/images/header.png" alt="Header Image">
+    </div>
+    
+    <div class="content">
+        <h2>SUMMARY OF PERCENTAGE OF THE PSHS-EVC COMMUNITY THAT ACQUIRED ILLNESSES</h2>
+        <h2>({{dateRange}})</h2>
+
+        <div class="section">
+            <h3>Students</h3>
+            <table>
+                <tr>
+                    <th rowspan="2">Month</th>
+                    <th colspan="3">Male</th>
+                    <th colspan="3">Female</th>
+                    <th rowspan="2">Grand Total</th>
+                </tr>
+                <tr>
+                    <th>Dormers</th>
+                    <th>Externs</th>
+                    <th>Total</th>
+                    <th>Dormers</th>
+                    <th>Externs</th>
+                    <th>Total</th>
+                </tr>
+                <tr>
+                    <td>July</td>
+                    <td>0</td>
+                    <td>0</td>
+                    <td class="blue">0</td>
+                    <td>0</td>
+                    <td>0</td>
+                    <td class="blue">0</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>August</td>
+                    <td>1</td>
+                    <td>1</td>
+                    <td class="blue">2</td>
+                    <td>0</td>
+                    <td>7</td>
+                    <td class="blue">9</td>
+                    <td>9</td>
+                </tr>
+                <tr>
+                    <td>September</td>
+                    <td>1</td>
+                    <td>1</td>
+                    <td class="blue">2</td>
+                    <td>2</td>
+                    <td>7</td>
+                    <td class="blue">11</td>
+                    <td>11</td>
+                </tr>
+                <tr>
+                    <td>October</td>
+                    <td>3</td>
+                    <td>0</td>
+                    <td class="blue">3</td>
+                    <td>0</td>
+                    <td>1</td>
+                    <td class="blue">4</td>
+                    <td>4</td>
+                </tr>
+                <tr>
+                    <td>November</td>
+                    <td>7</td>
+                    <td>0</td>
+                    <td class="blue">7</td>
+                    <td>2</td>
+                    <td>5</td>
+                    <td class="blue">14</td>
+                    <td>14</td>
+                </tr>
+                <tr>
+                    <td>December</td>
+                    <td>3</td>
+                    <td>2</td>
+                    <td class="blue">9</td>
+                    <td>9</td>
+                    <td>4</td>
+                    <td class="blue">22</td>
+                    <td>22</td>
+                </tr>
+                <tr>
+                    <td><b>Total</b></td>
+                    <td>14</td>
+                    <td>3</td>
+                    <td class="highlight">17</td>
+                    <td>21</td>
+                    <td>24</td>
+                    <td class="blue">59</td>
+                    <td class="highlight">59</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h3>Fatality Rate - Students</h3>
+            <table>
+                <tr>
+                    <th rowspan="2">Month</th>
+                    <th colspan="3">Male</th>
+                    <th colspan="3">Female</th>
+                    <th rowspan="2">Grand Total</th>
+                </tr>
+                <tr>
+                    <th>Dormers</th>
+                    <th>Externs</th>
+                    <th>Total</th>
+                    <th>Dormers</th>
+                    <th>Externs</th>
+                    <th>Total</th>
+                </tr>
+                <tr>
+                    <td>July</td>
+                    <td>0</td>
+                    <td>0</td>
+                    <td class="blue">0</td>
+                    <td>0</td>
+                    <td>0</td>
+                    <td class="blue">0</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>August</td>
+                    <td>1</td>
+                    <td>1</td>
+                    <td class="blue">2</td>
+                    <td>0</td>
+                    <td>7</td>
+                    <td class="blue">9</td>
+                    <td>9</td>
+                </tr>
+                <tr>
+                    <td>September</td>
+                    <td>1</td>
+                    <td>1</td>
+                    <td class="blue">2</td>
+                    <td>2</td>
+                    <td>7</td>
+                    <td class="blue">11</td>
+                    <td>11</td>
+                </tr>
+                <tr>
+                    <td>October</td>
+                    <td>3</td>
+                    <td>0</td>
+                    <td class="blue">3</td>
+                    <td>0</td>
+                    <td>1</td>
+                    <td class="blue">4</td>
+                    <td>4</td>
+                </tr>
+                <tr>
+                    <td>November</td>
+                    <td>7</td>
+                    <td>0</td>
+                    <td class="blue">7</td>
+                    <td>2</td>
+                    <td>5</td>
+                    <td class="blue">14</td>
+                    <td>14</td>
+                </tr>
+                <tr>
+                    <td>December</td>
+                    <td>3</td>
+                    <td>2</td>
+                    <td class="blue">9</td>
+                    <td>9</td>
+                    <td>4</td>
+                    <td class="blue">22</td>
+                    <td>22</td>
+                </tr>
+                <tr>
+                    <td><b>Total</b></td>
+                    <td>14</td>
+                    <td>3</td>
+                    <td class="highlight">17</td>
+                    <td>21</td>
+                    <td>24</td>
+                    <td class="blue">59</td>
+                    <td class="highlight">59</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="conclusion">
+            <h3>Conclusion</h3>
+            <p>Out of the n_total scholars of PSHS-EVC, n_gross referred to the HSU from {{startMonth}}{{#if endMonth}} to {{endMonth}}{{/if}} {{selectedYear}}. 
+              Moreover, the diagram shows that from {{startMonth}}{{#if endMonth}} to {{endMonth}}{{/if}}, female students are more likely to be vulnerable 
+              to illness than males; it also showed that in December, the number of cases significantly increased as 
+              reported, followed by September and October, and the least number was November. One of the contributing 
+              factors to this number of cases is the high humidity during that month.</p>
+        </div>
+    </div>
+    
+    <div class="pagebreak"></div>
+    
+    <div class="content">
+        <!-- Second page content here -->
+        <h2>INFECTIOUS DISEASE MONITORING TOOL</h2>
+        <h2>({{dateRange}})</h2>
+        
+        <!-- Add your second page content here -->
+        <p>Second page content goes here...</p>
+    </div>
+    
+    <div class="footer">
+        <img src="/images/footer.png" alt="Footer Image">
+    </div>
+</body>
+</html>
