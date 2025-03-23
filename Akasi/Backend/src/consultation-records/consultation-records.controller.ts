@@ -4,7 +4,7 @@ import { ConsultationRecordsService } from './consultation-records.service';
 
 @Controller('consultation-records')
 export class ConsultationRecordsController {
-  constructor(private readonly service: ConsultationRecordsService) {}
+  constructor(private readonly service: ConsultationRecordsService) { }
 
   // POST request to create a consultation record
   @Post()

@@ -44,4 +44,14 @@ export default defineNuxtConfig({
     download: true, // Force download of font files
     prefetch: true, // Adds prefetch hints
   },
+
+  // Add API proxy configuration to route /api requests to your NestJS backend
+  nitro: {
+    devProxy: {
+      '/api': {
+        target: 'http://localhost:3001', // Adjust to your NestJS backend port
+        changeOrigin: true,
+      }
+    }
+  }
 })

@@ -81,7 +81,7 @@ model dental_certificates {
   client_id Int
   grade     Int
   date      DateTime @db.Date
-  dental    Bytes    @db.Blob
+  dental    Bytes    @db.LongBlob
   dental_id Int      @id @default(autoincrement())
 
   client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
@@ -103,7 +103,7 @@ model medical_certificates {
   client_id  Int
   grade      Int
   date       DateTime @db.Date
-  medical    Bytes    @db.Blob
+  medical    Bytes    @db.LongBlob
   medical_id Int      @id @default(autoincrement())
 
   client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
@@ -115,7 +115,7 @@ model opthal_certificates {
   client_id Int
   grade     Int
   date      DateTime @db.Date
-  opthal    Bytes    @db.Blob
+  opthal    Bytes    @db.LongBlob
   opthal_id Int      @id @default(autoincrement())
 
   client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
@@ -127,7 +127,7 @@ model physical_exam {
   client_id   Int
   grade       Int
   date        DateTime @db.Date
-  physical    Bytes    @db.Blob
+  physical    Bytes    @db.LongBlob
   physical_id Int      @id @default(autoincrement())
 
   client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)

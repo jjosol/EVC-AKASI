@@ -33,11 +33,21 @@ import { AdminFetchAppointmentsModule } from './admin-fetch-appointments/admin-f
 import { EnrollmentDocumentsController } from './enrollment-documents/enrollment-documents.controller';
 import { EnrollmentDocumentsService } from './enrollment-documents/enrollment-documents.service';
 import { EnrollmentDocumentsModule } from './enrollment-documents/enrollment-documents.module';
-
+import { ClientFilesModule } from './client-files/client-files.module';
+import { FetchClientFilesService } from './fetch-client-files/fetch-client-files.service';
+import { FetchClientFilesModule } from './fetch-client-files/fetch-client-files.module';
+import { GetClientsService } from './get-clients/get-clients.service';
+import { GetClientsModule } from './get-clients/get-clients.module';
+import { FetchClientFilesAdminService } from './fetch-client-files-admin/fetch-client-files-admin.service';
+import { FetchClientFilesAdminController } from './fetch-client-files-admin/fetch-client-files-admin.controller';
+import { FetchClientFilesAdminModule } from './fetch-client-files-admin/fetch-client-files-admin.module';
+import { FetchStaffFilesAdminService } from './fetch-staff-files-admin/fetch-staff-files-admin.service';
+import { FetchStaffFilesAdminController } from './fetch-staff-files-admin/fetch-staff-files-admin.controller';
+import { FetchStaffFilesAdminModule } from './fetch-staff-files-admin/fetch-staff-files-admin.module';
 
 @Module({
-  imports: [PrismaModule, AdminsModule, AuthModule, ClientsModule, ConsultationRecordsModule, PostsModule, InventoryModule, MedAdministrationModule, StorageModule, FileModule, ProfileModule, AddAppointmentModule, FetchAppointmentsClientModule, AdminFetchAppointmentsModule, EnrollmentDocumentsModule],
-  providers: [AppService, PostsService, MedAdministrationService, StorageService, FileService, ProfileService, AddAppointmentService, AdminFetchAppointmentsService, EnrollmentDocumentsService],
-  controllers: [AppController, PostsController, MedAdministrationController, FileController, ProfileController, AddAppointmentController, AdminFetchAppointmentsController, EnrollmentDocumentsController],
+  imports: [PrismaModule, AdminsModule, AuthModule, ClientsModule, ConsultationRecordsModule, PostsModule, InventoryModule, MedAdministrationModule, StorageModule, FileModule, ProfileModule, AddAppointmentModule, FetchAppointmentsClientModule, AdminFetchAppointmentsModule, EnrollmentDocumentsModule, ClientFilesModule, FetchClientFilesModule, GetClientsModule, FetchClientFilesAdminModule, FetchStaffFilesAdminModule],
+  providers: [AppService, PostsService, MedAdministrationService, StorageService, FileService, ProfileService, AddAppointmentService, AdminFetchAppointmentsService, EnrollmentDocumentsService, FetchClientFilesService, GetClientsService, FetchClientFilesAdminService, FetchStaffFilesAdminService],
+  controllers: [AppController, PostsController, MedAdministrationController, FileController, ProfileController, AddAppointmentController, AdminFetchAppointmentsController, EnrollmentDocumentsController, FetchClientFilesAdminController, FetchStaffFilesAdminController],
 })
 export class AppModule { }

@@ -9,7 +9,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService
-  ) {}
+  ) { }
 
   async login(loginDto: { username: string; password: string }) {
     const { username, password } = loginDto;
@@ -29,17 +29,25 @@ export class AuthService {
       throw new UnauthorizedException('Invalid username or password');
     }
 
-    const payload = {
-      id: admin ? admin.admin_id : client.client_id,
-      role: admin ? 'admin' : 'client',
-    };
+    // In AuthService, change your payload creation:
+    const payload = admin
+      ? {
+        sub: admin.admin_id,
+        username: admin.username,
+        role: 'admin'
+      }
+      : {
+        sub: client.client_id, // Use 'sub' for client_id as per JWT standards
+        username: client.username,
+        role: 'client'
+      };
 
     const token = this.jwtService.sign(payload);
 
-    return { 
-      isAuthenticated: true, 
+    return {
+      isAuthenticated: true,
       token,
-      role: payload.role 
+      role: payload.role
     };
   }
 
