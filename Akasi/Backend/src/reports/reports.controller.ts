@@ -11,6 +11,13 @@ export class ReportsController {
     @Query('endMonth') endMonth: string,
     @Query('year') year: string,
   ) {
-    return this.reportsService.getIllnessSummary(startMonth, endMonth, year);
+    if (!startMonth || !year) {
+      return { error: 'Start month and year are required' };
+    }
+
+    // If endMonth is not provided, use startMonth
+    const actualEndMonth = endMonth || startMonth;
+
+    return this.reportsService.getIllnessSummary(startMonth, actualEndMonth, year);
   }
 }

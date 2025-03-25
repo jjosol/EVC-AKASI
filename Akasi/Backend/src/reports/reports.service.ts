@@ -3,250 +3,381 @@ import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class ReportsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async getIllnessSummary(startMonth: string, endMonth: string, year: string) {
-    // Parse the academic year (e.g., "2023-2024")
-    const [startYear, endYear] = year.split('-').map(y => parseInt(y));
-    
-    // Map month names to month numbers (adjusted for academic year July-June)
-    const monthMap = {
-      'July': 1, 'August': 2, 'September': 3, 'October': 4, 'November': 5, 'December': 6,
-      'January': 7, 'February': 8, 'March': 9, 'April': 10, 'May': 11, 'June': 12
+    // Convert month names to month numbers
+    const monthNameToNumber = {
+      'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+      'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
     };
-    
-    // Generate date ranges for the query
-    let startDate: Date, endDate: Date;
-    const startMonthNum = monthMap[startMonth];
-    const endMonthNum = monthMap[endMonth || startMonth];
-    
-    // For academic year calculation where months are numbered from July (1) to June (12)
-    // Determine the actual calendar year for each month
-    const actualStartYear = startMonthNum <= 6 ? endYear : startYear;
-    const actualEndYear = endMonthNum <= 6 ? endYear : startYear;
-    
-    // Convert academic month numbers to calendar month numbers (0-11 for Date constructor)
-    const calendarStartMonth = startMonthNum <= 6 ? startMonthNum + 6 : startMonthNum - 7;
-    const calendarEndMonth = endMonthNum <= 6 ? endMonthNum + 6 : endMonthNum - 7;
-    
-    // Set start date to the first day of the start month
-    startDate = new Date(actualStartYear, calendarStartMonth, 1);
-    
-    // Set end date to the last day of the end month
-    const lastDay = new Date(actualEndYear, calendarEndMonth + 1, 0).getDate();
-    endDate = new Date(actualEndYear, calendarEndMonth, lastDay, 23, 59, 59);
 
-    // Fetch total counts of clients by category and gender
-    const totalStudents = await this.prisma.client.groupBy({
-      by: ['gender'],
-      where: { category: 'Student' },
-      _count: { client_id: true },
+    console.log(`Processing request for ${startMonth} to ${endMonth}, ${year}`);
+  
+    // Add a diagnostic query to check actual data in the table
+    const diagnosticQuery = await this.prisma.consultation_records.findMany({
+      include: {
+        client: true
+      },
+      orderBy: {
+        date: 'desc'
+      },
+      take: 10 // Get just the latest 10 records to check
     });
     
-    const totalTeachingStaff = await this.prisma.client.groupBy({
-      by: ['gender'],
-      where: { category: 'Faculty' },
-      _count: { client_id: true },
-    });
-    
-    const totalNonTeachingStaff = await this.prisma.client.groupBy({
-      by: ['gender'],
-      where: { category: 'Staff' },
-      _count: { client_id: true },
-    });
+    console.log('Sample records from consultation_records:', 
+      diagnosticQuery.map(r => ({
+        id: r.consultation_id,
+        client_id: r.client_id,
+        date: r.date,
+        category: r.client?.category,
+        gender: r.client?.gender,
+        type: r.client?.type
+      }))
+    );
 
-    // Fetch consultation counts for each month in the range
-    const months = [];
-    let currentDate = new Date(startDate);
-    
-    while (currentDate <= endDate) {
-      const month = {
-        name: new Intl.DateTimeFormat('en-US', { month: 'long' }).format(currentDate),
-        year: currentDate.getFullYear(),
-        firstDay: new Date(currentDate.getFullYear(), currentDate.getMonth(), 1),
-        lastDay: new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59),
-      };
-      months.push(month);
-      // Move to next month
-      currentDate.setMonth(currentDate.getMonth() + 1);
+    const startMonthNum = monthNameToNumber[startMonth] || parseInt(startMonth);
+    const endMonthNum = monthNameToNumber[endMonth] || parseInt(endMonth);
+    const yearNum = parseInt(year);
+
+    // Create date range for query
+    const startDate = new Date(yearNum, startMonthNum - 1, 1); // Month is 0-indexed in JS Date
+    const endDate = new Date(yearNum, endMonthNum, 0); // Last day of end month
+
+    // Prepare the result array with all months in range
+    const monthsInRange = [];
+    for (let i = startMonthNum; i <= endMonthNum; i++) {
+      const date = new Date(yearNum, i - 1, 1);
+      const monthName = date.toLocaleString('default', { month: 'long' });
+      monthsInRange.push({
+        month: monthName,
+        students: {
+          maleDormers: 0,
+          maleExterns: 0,
+          femaleDormers: 0,
+          femaleExterns: 0,
+          total: 0
+        },
+        faculty: {
+          male: 0,
+          female: 0,
+          total: 0
+        },
+        staff: {
+          male: 0,
+          female: 0,
+          total: 0
+        }
+      });
     }
 
-    // For each month, get the consultation data
-    const summaryData = await Promise.all(months.map(async (month) => {
-      // Student consultations by gender
-      const studentConsultations = await this.prisma.consultation_records.groupBy({
-        by: ['client_id'],
-        where: {
-          date: {
-            gte: month.firstDay,
-            lte: month.lastDay,
-          },
-          client: {
-            category: 'Student',
-          },
-        },
-        _count: { consultation_id: true },
-      });
+    // Check if we need to use mock data (if database is empty or for testing)
+    const useMockData = false;
+    
+    if (useMockData) {
+      console.log('Using mock data for testing');
+      return this.generateMockData(startMonthNum, endMonthNum, monthsInRange);
+    }
 
-      const studentMaleConsultations = await this.prisma.consultation_records.groupBy({
-        by: ['client_id'],
-        where: {
-          date: {
-            gte: month.firstDay,
-            lte: month.lastDay,
-          },
-          client: {
-            category: 'Student',
-            gender: 'Male',
-          },
+    // Run queries for each category and count
+    // 1. Student Male Dormers
+    const studentMaleDormers = await this.prisma.consultation_records.groupBy({
+      by: ['date'],
+      where: {
+        date: {
+          gte: startDate,
+          lte: endDate,
         },
-        _count: { consultation_id: true },
-      });
-
-      const studentFemaleConsultations = await this.prisma.consultation_records.groupBy({
-        by: ['client_id'],
-        where: {
-          date: {
-            gte: month.firstDay,
-            lte: month.lastDay,
-          },
-          client: {
-            category: 'Student',
-            gender: 'Female',
-          },
+        client: {
+          category: 'Student',
+          gender: 'Male',
+          type: 'Dormer',
         },
-        _count: { consultation_id: true },
-      });
+      },
+      _count: {
+        consultation_id: true,
+      },
+    });
 
-      // Teaching staff consultations
-      const teachingConsultations = await this.prisma.consultation_records.groupBy({
-        by: ['client_id'],
-        where: {
-          date: {
-            gte: month.firstDay,
-            lte: month.lastDay,
-          },
-          client: {
-            category: 'Faculty',
-          },
+    const maleDormerCount = studentMaleDormers.length;
+    console.log(`Found ${maleDormerCount} male dormer students`);
+
+    // 2. Student Male Externs
+    const studentMaleExterns = await this.prisma.consultation_records.groupBy({
+      by: ['date'],
+      where: {
+        date: {
+          gte: startDate,
+          lte: endDate,
         },
-        _count: { consultation_id: true },
-      });
-
-      const teachingMaleConsultations = await this.prisma.consultation_records.groupBy({
-        by: ['client_id'],
-        where: {
-          date: {
-            gte: month.firstDay,
-            lte: month.lastDay,
-          },
-          client: {
-            category: 'Faculty',
-            gender: 'Male',
-          },
+        client: {
+          category: 'Student',
+          gender: 'Male',
+          type: 'Extern',
         },
-        _count: { consultation_id: true },
-      });
+      },
+      _count: {
+        consultation_id: true,
+      },
+    });
 
-      const teachingFemaleConsultations = await this.prisma.consultation_records.groupBy({
-        by: ['client_id'],
-        where: {
-          date: {
-            gte: month.firstDay,
-            lte: month.lastDay,
-          },
-          client: {
-            category: 'Faculty',
-            gender: 'Female',
-          },
+    // 3. Student Female Dormers
+    const studentFemaleDormers = await this.prisma.consultation_records.groupBy({
+      by: ['date'],
+      where: {
+        date: {
+          gte: startDate,
+          lte: endDate,
         },
-        _count: { consultation_id: true },
-      });
-
-      // Non-teaching staff consultations
-      const nonTeachingConsultations = await this.prisma.consultation_records.groupBy({
-        by: ['client_id'],
-        where: {
-          date: {
-            gte: month.firstDay,
-            lte: month.lastDay,
-          },
-          client: {
-            category: 'Staff',
-          },
+        client: {
+          category: 'Student',
+          gender: 'Female',
+          type: 'Dormer',
         },
-        _count: { consultation_id: true },
-      });
+      },
+      _count: {
+        consultation_id: true,
+      },
+    });
 
-      const nonTeachingMaleConsultations = await this.prisma.consultation_records.groupBy({
-        by: ['client_id'],
-        where: {
-          date: {
-            gte: month.firstDay,
-            lte: month.lastDay,
-          },
-          client: {
-            category: 'Staff',
-            gender: 'Male',
-          },
+    // 4. Student Female Externs
+    const studentFemaleExterns = await this.prisma.consultation_records.groupBy({
+      by: ['date'],
+      where: {
+        date: {
+          gte: startDate,
+          lte: endDate,
         },
-        _count: { consultation_id: true },
-      });
-
-      const nonTeachingFemaleConsultations = await this.prisma.consultation_records.groupBy({
-        by: ['client_id'],
-        where: {
-          date: {
-            gte: month.firstDay,
-            lte: month.lastDay,
-          },
-          client: {
-            category: 'Staff',
-            gender: 'Female',
-          },
+        client: {
+          category: 'Student',
+          gender: 'Female',
+          type: 'Extern',
         },
-        _count: { consultation_id: true },
-      });
+      },
+      _count: {
+        consultation_id: true,
+      },
+    });
 
-      // Calculate totals
-      const totalMaleStudents = totalStudents.find(g => g.gender === 'Male')?._count?.client_id || 0;
-      const totalFemaleStudents = totalStudents.find(g => g.gender === 'Female')?._count?.client_id || 0;
-      const totalStudentCount = totalMaleStudents + totalFemaleStudents;
+    // 5. Male Faculty
+    const maleFaculty = await this.prisma.consultation_records.groupBy({
+      by: ['date'],
+      where: {
+        date: {
+          gte: startDate,
+          lte: endDate,
+        },
+        client: {
+          category: 'Faculty',
+          gender: 'Male',
+        },
+      },
+      _count: {
+        consultation_id: true,
+      },
+    });
+
+    // 6. Female Faculty
+    const femaleFaculty = await this.prisma.consultation_records.groupBy({
+      by: ['date'],
+      where: {
+        date: {
+          gte: startDate,
+          lte: endDate,
+        },
+        client: {
+          category: 'Faculty',
+          gender: 'Female',
+        },
+      },
+      _count: {
+        consultation_id: true,
+      },
+    });
+
+    // 7. Male Staff
+    const maleStaff = await this.prisma.consultation_records.groupBy({
+      by: ['date'],
+      where: {
+        date: {
+          gte: startDate,
+          lte: endDate,
+        },
+        client: {
+          category: 'Staff',
+          gender: 'Male',
+        },
+      },
+      _count: {
+        consultation_id: true,
+      },
+    });
+
+    // 8. Female Staff
+    const femaleStaff = await this.prisma.consultation_records.groupBy({
+      by: ['date'],
+      where: {
+        date: {
+          gte: startDate,
+          lte: endDate,
+        },
+        client: {
+          category: 'Staff',
+          gender: 'Female',
+        },
+      },
+      _count: {
+        consultation_id: true,
+      },
+    });
+
+    // Process results and update counts by month
+    [
+      { data: studentMaleDormers, category: 'students', field: 'maleDormers', isGrouped: true },
+      { data: studentMaleExterns, category: 'students', field: 'maleExterns', isGrouped: true },
+      { data: studentFemaleDormers, category: 'students', field: 'femaleDormers', isGrouped: true },
+      { data: studentFemaleExterns, category: 'students', field: 'femaleExterns', isGrouped: true },
+      { data: maleFaculty, category: 'faculty', field: 'male', isGrouped: true },
+      { data: femaleFaculty, category: 'faculty', field: 'female', isGrouped: true },
+      { data: maleStaff, category: 'staff', field: 'male', isGrouped: true },
+      { data: femaleStaff, category: 'staff', field: 'female', isGrouped: true },
+    ].forEach(({ data, category, field, isGrouped }) => {
+      if (data.length === 0) {
+        console.log(`No data found for ${category} ${field}`);
+        return;
+      }
       
-      const totalMaleTeaching = totalTeachingStaff.find(g => g.gender === 'Male')?._count?.client_id || 0;
-      const totalFemaleTeaching = totalTeachingStaff.find(g => g.gender === 'Female')?._count?.client_id || 0;
-      const totalTeachingCount = totalMaleTeaching + totalFemaleTeaching;
+      console.log(`Processing ${data.length} records for ${category} ${field}`);
       
-      const totalMaleNonTeaching = totalNonTeachingStaff.find(g => g.gender === 'Male')?._count?.client_id || 0;
-      const totalFemaleNonTeaching = totalNonTeachingStaff.find(g => g.gender === 'Female')?._count?.client_id || 0;
-      const totalNonTeachingCount = totalMaleNonTeaching + totalFemaleNonTeaching;
-
-      return {
-        month: month.name,
-        students: {
-          male: studentMaleConsultations.length,
-          female: studentFemaleConsultations.length,
-          total: studentConsultations.length,
-          malePct: totalMaleStudents ? Math.round((studentMaleConsultations.length / totalMaleStudents) * 100) : 0,
-          femalePct: totalFemaleStudents ? Math.round((studentFemaleConsultations.length / totalFemaleStudents) * 100) : 0,
-          totalPct: totalStudentCount ? Math.round((studentConsultations.length / totalStudentCount) * 100) : 0,
-          grandTotal: totalStudentCount
-        },
-        teachingStaff: {
-          male: teachingMaleConsultations.length,
-          female: teachingFemaleConsultations.length,
-          total: teachingConsultations.length,
-          totalCount: totalTeachingCount
-        },
-        nonTeachingStaff: {
-          male: nonTeachingMaleConsultations.length,
-          female: nonTeachingFemaleConsultations.length,
-          total: nonTeachingConsultations.length,
-          totalCount: totalNonTeachingCount
+      data.forEach(item => {
+        try {
+          const date = new Date(item.date);
+          const month = date.getMonth() + 1; // 1-based month
+          const monthIndex = month - startMonthNum;
+          
+          console.log(`Record date: ${date}, month: ${month}, index: ${monthIndex}`);
+          
+          if (monthIndex >= 0 && monthIndex < monthsInRange.length) {
+            // Different handling based on query type
+            if (isGrouped) {
+              monthsInRange[monthIndex][category][field] += item._count.consultation_id;
+            } else {
+              // For findMany results, we just count each record as 1
+              monthsInRange[monthIndex][category][field] += 1;
+            }
+          } else {
+            console.log(`Skipping record with monthIndex ${monthIndex} (out of bounds)`);
+          }
+        } catch (error) {
+          console.error(`Error processing record:`, item, error);
         }
-      };
-    }));
+      });
+    });
 
-    return summaryData;
+    // Calculate totals
+    monthsInRange.forEach(month => {
+      const students = month.students;
+      const faculty = month.faculty;
+      const staff = month.staff;
+
+      students.total = students.maleDormers + students.maleExterns + 
+                      students.femaleDormers + students.femaleExterns;
+      
+      faculty.total = faculty.male + faculty.female;
+      staff.total = staff.male + staff.female;
+    });
+
+    return {
+      months: monthsInRange,
+      totals: this.calculateTotals(monthsInRange)
+    };
+  }
+
+  /**
+   * Generates mock data for testing the report
+   */
+  private generateMockData(startMonth: number, endMonth: number, monthsInRange: any[]) {
+    // Fill in mock data for each month
+    for (let i = 0; i < monthsInRange.length; i++) {
+      const month = monthsInRange[i];
+      
+      // Generate random numbers for each category
+      // Students
+      month.students.maleDormers = this.getRandomNumber(5, 15);
+      month.students.maleExterns = this.getRandomNumber(8, 20);
+      month.students.femaleDormers = this.getRandomNumber(6, 18);
+      month.students.femaleExterns = this.getRandomNumber(10, 25);
+      month.students.total = month.students.maleDormers + month.students.maleExterns + 
+                           month.students.femaleDormers + month.students.femaleExterns;
+      
+      // Faculty
+      month.faculty.male = this.getRandomNumber(2, 8);
+      month.faculty.female = this.getRandomNumber(3, 10);
+      month.faculty.total = month.faculty.male + month.faculty.female;
+      
+      // Staff
+      month.staff.male = this.getRandomNumber(1, 6);
+      month.staff.female = this.getRandomNumber(2, 7);
+      month.staff.total = month.staff.male + month.staff.female;
+    }
+
+    return {
+      months: monthsInRange,
+      totals: this.calculateTotals(monthsInRange)
+    };
+  }
+  
+  /**
+   * Generate a random integer between min and max (inclusive)
+   */
+  private getRandomNumber(min: number, max: number): number {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  private calculateTotals(months) {
+    const totals = {
+      students: {
+        maleDormers: 0,
+        maleExterns: 0,
+        femaleDormers: 0,
+        femaleExterns: 0,
+        total: 0
+      },
+      faculty: {
+        male: 0,
+        female: 0,
+        total: 0
+      },
+      staff: {
+        male: 0,
+        female: 0,
+        total: 0
+      }
+    };
+
+    months.forEach(month => {
+      // Students
+      totals.students.maleDormers += month.students.maleDormers;
+      totals.students.maleExterns += month.students.maleExterns;
+      totals.students.femaleDormers += month.students.femaleDormers;
+      totals.students.femaleExterns += month.students.femaleExterns;
+      
+      // Faculty
+      totals.faculty.male += month.faculty.male;
+      totals.faculty.female += month.faculty.female;
+      
+      // Staff
+      totals.staff.male += month.staff.male;
+      totals.staff.female += month.staff.female;
+    });
+
+    // Calculate grand totals
+    totals.students.total = totals.students.maleDormers + totals.students.maleExterns +
+                           totals.students.femaleDormers + totals.students.femaleExterns;
+    
+    totals.faculty.total = totals.faculty.male + totals.faculty.female;
+    totals.staff.total = totals.staff.male + totals.staff.female;
+
+    return totals;
   }
 }

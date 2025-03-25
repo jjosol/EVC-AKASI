@@ -1065,10 +1065,6 @@ const openViewMedicineModal = (medicine) => {
             <input type="checkbox" id="medication-admin" v-model="selectedPerson.medicationAdministration" class="text-blue-500 form-checkbox">
             <label for="medication-admin" class="text-sm font-semibold">Medication Administration</label>
           </div>
-          <div class="flex items-center">
-            <input type="checkbox" id="fatality" v-model="selectedPerson.fatality" class="text-blue-500 form-checkbox">
-            <label for="fatality" class="text-sm font-semibold">Fatality</label>
-          </div>
           <div class="flex justify-end w-7/12">
             <button v-if="selectedPerson.medicationAdministration" @click="openMedicineModal" class="px-4 text-purple-800 bg-transparent rounded-lg ">Add Product</button>
           </div>

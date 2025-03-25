@@ -104,20 +104,35 @@
 
     <!-- Modal for PDF Preview -->
     <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-  <div class="bg-white rounded-lg shadow-lg overflow-hidden w-11/12 max-w-4xl h-5/6 flex flex-col">
-    <div class="flex justify-between items-center p-4 border-b border-gray-200">
-      <h3 class="text-lg font-medium text-gray-700">PDF Preview</h3>
-      <button @click="closeModal" class="text-gray-400 hover:text-gray-600">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
+      <div class="bg-white rounded-lg shadow-lg overflow-hidden w-11/12 max-w-4xl h-5/6 flex flex-col">
+        <div class="px-4 py-2 flex justify-between items-center border-b">
+          <h3 class="text-lg font-medium">Report Preview</h3>
+          <button @click="showModal = false" class="text-gray-500 hover:text-gray-700">
+            <span class="sr-only">Close</span>
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="flex-1 overflow-auto">
+          <iframe 
+            :src="pdfPreviewUrl" 
+            class="w-full h-full" 
+            frameborder="0"
+            @load="onIframeLoad"
+          ></iframe>
+        </div>
+        <div class="px-4 py-2 border-t flex justify-end">
+          <button 
+            @click="generateReport" 
+            :disabled="fetchingData"
+            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          >
+            {{ fetchingData ? 'Loading...' : 'Generate PDF' }}
+          </button>
+        </div>
+      </div>
     </div>
-    <div class="flex-1 overflow-auto">
-      <iframe :src="pdfPreviewUrl" class="w-full h-full" frameborder="0"></iframe>
-    </div>
-  </div>
-</div>
   </div>
 </template>
 
@@ -133,6 +148,10 @@ const startMonth = ref("")
 const endMonth = ref("")
 const selectedPeriod = ref("monthly")
 const endMonthError = ref("")
+const conclusionText = ref("")
+const reportData = ref(null);
+const fetchingData = ref(false);
+const fetchError = ref(null);
 
 // School years from 2014-2015 to 2024-2025
 const schoolYears = ref([
@@ -155,17 +174,29 @@ watch([startMonth, endMonth], ([newStartMonth, newEndMonth]) => {
   endMonthError.value = ""
   
   if (newEndMonth !== "" && newEndMonth !== "null") {
-    // Academic year wraps around (July to June)
-    // For months 0-5 (July-December), valid end months are >= startMonth and <= 11
-    // For months 6-11 (January-June), valid end months are >= startMonth or <= 5
-    
     const startMonthIndex = parseInt(newStartMonth)
     const endMonthIndex = parseInt(newEndMonth)
     
     if (startMonthIndex === endMonthIndex) {
       endMonthError.value = "End month cannot be the same as start month. Use 'Same as Start Month' for single month reports."
-    } else if (startMonthIndex > endMonthIndex) {
-        endMonthError.value = "Invalid month range. End month must be after start month or within the same academic year."
+    } else {
+      // Handle academic year wrap-around (July-June)
+      const isFirstHalf = startMonthIndex <= 5 // July-December
+      const isSecondHalf = startMonthIndex >= 6 // January-June
+      const isEndInFirstHalf = endMonthIndex <= 5 // July-December
+      const isEndInSecondHalf = endMonthIndex >= 6 // January-June
+      
+      // Valid range scenarios:
+      // 1. Start and end in first half (July-Dec): endMonth > startMonth
+      // 2. Start and end in second half (Jan-June): endMonth > startMonth
+      // 3. Start in first half, end in second half: Always valid (wraps correctly)
+      // 4. Start in second half, end in first half: Invalid (crosses school year boundary)
+      
+      if ((isFirstHalf && isEndInFirstHalf && endMonthIndex < startMonthIndex) ||
+          (isSecondHalf && isEndInSecondHalf && endMonthIndex < startMonthIndex) ||
+          (isSecondHalf && isEndInFirstHalf)) {
+        endMonthError.value = "Invalid month range. End month must be after start month within the same academic year."
+      }
     }
   }
 })
@@ -193,12 +224,21 @@ onMounted(async () => {
 
 const generatePdf = async (htmlContent) => {
   try {
+    // Ensure conclusion text is in the HTML before generating
+    htmlContent = htmlContent.replace(
+      /<textarea[^>]*id="conclusion"[^>]*>.*?<\/textarea>/g,
+      `<textarea id="conclusion" name="conclusion" rows="4">${conclusionText.value}</textarea>`
+    );
+    
     const response = await fetch('/api/generate-pdf', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ html: htmlContent })
+      body: JSON.stringify({ 
+        html: htmlContent,
+        conclusionText: conclusionText.value 
+      })
     })
 
     if (!response.ok) {
@@ -232,224 +272,82 @@ const generatePdf = async (htmlContent) => {
   }
 }
 
+const fetchReportData = async (startMonthName, endMonthName, year) => {
+  fetchingData.value = true;
+  fetchError.value = null;
+  
+  try {
+    // Add URL encode for month names with spaces and proper handling of year
+    const encodedStartMonth = encodeURIComponent(startMonthName);
+    const encodedEndMonth = encodeURIComponent(endMonthName || startMonthName);
+    
+    console.log(`Fetching data for: ${encodedStartMonth} to ${encodedEndMonth}, ${year}`);
+    
+    const response = await fetch(
+      `http://localhost:3001/reports/illness-summary?startMonth=${encodedStartMonth}&endMonth=${encodedEndMonth}&year=${year}`
+    );
+    
+    if (!response.ok) {
+      console.error(`API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error(`Error details: ${errorText}`);
+      throw new Error(`API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log("API response:", data);
+    reportData.value = data;
+    return data;
+  } catch (error) {
+    console.error('Error fetching report data:', error);
+    fetchError.value = error.message;
+    return null;
+  } finally {
+    fetchingData.value = false;
+  }
+};
+
 const generateReport = async () => {
   // Validate selections before generating
   if (startMonth.value === "" || selectedYear.value === "") {
-    alert("Please select both start month and year")
-    return
+    alert("Please select both start month and year");
+    return;
   }
   
   // Make sure the HTML template is loaded
   if (!reportHtmlTemplate.value) {
-    alert("Report template is not loaded. Please refresh and try again.")
-    return
+    alert("Report template is not loaded. Please refresh and try again.");
+    return;
   }
   
-  const startMonthName = months.value[startMonth.value]
+  const startMonthName = months.value[startMonth.value];
   let endMonthName = endMonth.value === "null" || endMonth.value === "" 
     ? startMonthName 
-    : months.value[endMonth.value]
-  const year = selectedYear.value
+    : months.value[endMonth.value];
+  const year = selectedYear.value;
 
   // Format date range for the report heading
-  let dateRange
+  let dateRange;
   if (endMonth.value === "null" || endMonth.value === "") {
-    dateRange = `${startMonthName}, S.Y. ${year}`
+    dateRange = `${startMonthName}, S.Y. ${year}`;
   } else {
-    dateRange = `${startMonthName} - ${endMonthName}, S.Y. ${year}`
+    dateRange = `${startMonthName} - ${endMonthName}, S.Y. ${year}`;
   }
 
-  // Fetch the illness summary data from the API
-  try {
-    const apiUrl = `http://localhost:3001/reports/illness-summary?startMonth=${startMonthName}&endMonth=${endMonthName}&year=${year}`;;
-    console.log("Fetching from:", apiUrl);
-    
-    const response = await fetch(apiUrl);
-    console.log("Response status:", response.status);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Error response body:", errorText);
-      throw new Error(`Server returned ${response.status}: ${errorText.substring(0, 100)}`);
-    }
-    
-    const responseText = await response.text();
-    console.log("Raw response:", responseText);
-    
-    // Handle empty response
-    if (!responseText.trim()) {
-      console.warn("Empty response from server");
-      throw new Error("Server returned empty response");
-    }
-    
-    // Try to parse JSON
-    try {
-      const summaryData = JSON.parse(responseText);
-      console.log("Parsed data:", summaryData);
-      
-      // Check if data is empty array
-      if (Array.isArray(summaryData) && summaryData.length === 0) {
-        console.warn("Server returned empty data array");
-        throw new Error("No data available for the selected period");
-      }
-      
-      // Continue with your existing code
-      const studentRows = summaryData.map(month => `
-        <tr>
-          <td>${month.month}</td>
-          <td>${month.students.male}</td>
-          <td>${month.students.female}</td>
-          <td class="blue">${month.students.total}</td>
-          <td>${month.students.malePct}%</td>
-          <td>${month.students.femalePct}%</td>
-          <td class="blue">${month.students.totalPct}%</td>
-          <td>${month.students.grandTotal}</td>
-        </tr>
-      `).join('')
-      
-      const teachingRows = summaryData.map(month => `
-        <tr>
-          <td>${month.month}</td>
-          <td>${month.teachingStaff.male}</td>
-          <td>${month.teachingStaff.female}</td>
-          <td>${month.teachingStaff.total}</td>
-        </tr>
-      `).join('')
-      
-      const nonTeachingRows = summaryData.map(month => `
-        <tr>
-          <td>${month.month}</td>
-          <td>${month.nonTeachingStaff.male}</td>
-          <td>${month.nonTeachingStaff.female}</td>
-          <td>${month.nonTeachingStaff.total}</td>
-        </tr>
-      `).join('')
+  // Fetch data from the API
+  const data = await fetchReportData(startMonthName, endMonthName, year);
   
-      // Process the HTML template: Replace placeholders with actual values
-      let finalHtml = reportHtmlTemplate.value
-        .replace(/{{dateRange}}/g, dateRange)
-        .replace(/{{startMonth}}/g, startMonthName)
-        .replace(/{{selectedYear}}/g, year)
-      
-      // Replace student table rows
-      finalHtml = finalHtml.replace(
-        /(Students[\s\S]*?){{#each selectedMonths}}[\s\S]*?{{\/each}}/g, 
-        `$1${studentRows}`
-      )
-      
-      // Replace teaching staff table rows
-      finalHtml = finalHtml.replace(
-        /(Teaching Staff[\s\S]*?){{#each selectedMonths}}[\s\S]*?{{\/each}}/g, 
-        `$1${teachingRows}`
-      )
-      
-      // Replace non-teaching staff table rows
-      finalHtml = finalHtml.replace(
-        /(Non-Teaching Staff[\s\S]*?){{#each selectedMonths}}[\s\S]*?{{\/each}}/g, 
-        `$1${nonTeachingRows}`
-      )
-      
-      // Handle conditional end month display
-      if (endMonth.value !== "" && endMonth.value !== "null") {
-        finalHtml = finalHtml.replace(
-          /{{#if endMonth}}(.*?){{\/if}}/g, 
-          (match, content) => content.replace(/{{endMonth}}/g, endMonthName)
-        )
-      } else {
-        finalHtml = finalHtml.replace(/{{#if endMonth}}.*?{{\/if}}/g, '')
-      }
-  
-      generatePdf(finalHtml)
-      
-    } catch (error) {
-      console.error("Error parsing JSON:", error);
-      alert("Failed to parse report data. Please try again.");
-    }
-  } catch (error) {
-    console.error("Error fetching illness summary data:", error)
-    alert("Failed to fetch report data. Please try again.")
-  }
-}
-
-const processTemplate = (html, selectedMonths) => {
-  let processedHtml = html;
-
-  // Replace Students table rows (8 columns)
-  const studentPattern = selectedMonths.map(month => `
-    <tr>
-      <td>${month}</td>
-      <td>0</td>
-      <td>0</td>
-      <td class="blue">0</td>
-      <td>0</td>
-      <td>0</td>
-      <td class="blue">0</td>
-      <td>0</td>
-    </tr>
-  `).join('');
-
-  // Replace Staff table rows (4 columns)
-  const staffPattern = selectedMonths.map(month => `
-    <tr>
-      <td>${month}</td>
-      <td>0</td>
-      <td>0</td>
-      <td>0</td>
-    </tr>
-  `).join('');
-
-  // Replace each table section with appropriate pattern
-  processedHtml = processedHtml
-    .replace(
-      /(Students[\s\S]*?){{#each selectedMonths}}[\s\S]*?{{\/each}}/g, 
-      `$1${studentPattern}`
-    )
-    .replace(
-      /(Teaching Staff[\s\S]*?){{#each selectedMonths}}[\s\S]*?{{\/each}}/g, 
-      `$1${staffPattern}`
-    )
-    .replace(
-      /(Non-Teaching Staff[\s\S]*?){{#each selectedMonths}}[\s\S]*?{{\/each}}/g, 
-      `$1${staffPattern}`
-    );
-
-  return processedHtml;
-}
-
-const previewReport = async () => {
-  // Validate selections before previewing
-  if (startMonth.value === "" || selectedYear.value === "") {
-    alert("Please select both start month and year")
-    return
-  }
-  
-  // Make sure the HTML template is loaded
-  if (!reportHtmlTemplate.value) {
-    alert("Report template is not loaded. Please refresh and try again.")
-    return
-  }
-  
-  const startMonthName = months.value[startMonth.value]
-  // Fix this line to match generateReport function's approach
-  let endMonthName = endMonth.value === "null" || endMonth.value === "" 
-    ? startMonthName 
-    : months.value[endMonth.value]
-  const year = selectedYear.value
-  
-  // Format date range for the report heading
-  let dateRange
-  if (endMonth.value === "" || endMonth.value === "null") {
-    dateRange = `${startMonthName}, S.Y. ${year}`
-  } else {
-    dateRange = `${startMonthName} - ${endMonthName}, S.Y. ${year}`
+  if (!data) {
+    alert("Failed to fetch report data. Please try again.");
+    return;
   }
 
   // Generate the selectedMonths array
-  const selectedMonths = []
-  const startIndex = parseInt(startMonth.value)
-  const endIndex = endMonth.value === "null" || endMonth.value === "" ? startIndex : parseInt(endMonth.value)
+  const selectedMonths = [];
+  const startIndex = parseInt(startMonth.value);
+  const endIndex = endMonth.value === "null" || endMonth.value === "" ? startIndex : parseInt(endMonth.value);
   for (let i = startIndex; i <= endIndex; i++) {
-    selectedMonths.push(months.value[i])
+    selectedMonths.push(months.value[i]);
   }
 
   // Process the HTML template: Replace placeholders with actual values
@@ -458,95 +356,178 @@ const previewReport = async () => {
     .replace(/{{startMonth}}/g, startMonthName)
     .replace(/{{selectedYear}}/g, year);
 
-  // Process tables with correct column counts
-  finalHtml = processTemplate(finalHtml, selectedMonths);
+  // Process tables with correct column counts and data
+  finalHtml = processTemplate(finalHtml, selectedMonths, data);
 
   try {
-    const response = await fetch(`http://localhost:3001/reports/illness-summary?startMonth=${startMonthName}&endMonth=${endMonthName}&year=${year}`)
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch illness summary data')
-    }
-    
-    const summaryData = await response.json()
-    
-    // Create table content from the data
-    const studentRows = summaryData.map(month => `
-      <tr>
-        <td>${month.month}</td>
-        <td>${month.students.male}</td>
-        <td>${month.students.female}</td>
-        <td class="blue">${month.students.total}</td>
-        <td>${month.students.malePct}%</td>
-        <td>${month.students.femalePct}%</td>
-        <td class="blue">${month.students.totalPct}%</td>
-        <td>${month.students.grandTotal}</td>
-      </tr>
-    `).join('')
-    
-    const teachingRows = summaryData.map(month => `
-      <tr>
-        <td>${month.month}</td>
-        <td>${month.teachingStaff.male}</td>
-        <td>${month.teachingStaff.female}</td>
-        <td>${month.teachingStaff.total}</td>
-      </tr>
-    `).join('')
-    
-    const nonTeachingRows = summaryData.map(month => `
-      <tr>
-        <td>${month.month}</td>
-        <td>${month.nonTeachingStaff.male}</td>
-        <td>${month.nonTeachingStaff.female}</td>
-        <td>${month.nonTeachingStaff.total}</td>
-      </tr>
-    `).join('')
+    // Generate PDF with the final HTML
+    await generatePdf(finalHtml);
+  } catch (error) {
+    console.error("Error generating report:", error);
+    alert("Failed to generate report. Please try again later.");
+  }
+};
 
-    // Process the HTML template: Replace placeholders with actual values
-    finalHtml = finalHtml
-      .replace(/{{dateRange}}/g, dateRange)
-      .replace(/{{startMonth}}/g, startMonthName)
-      .replace(/{{selectedYear}}/g, year)
-    
-    // Replace student table rows
-    finalHtml = finalHtml.replace(
-      /(Students[\s\S]*?){{#each selectedMonths}}[\s\S]*?{{\/each}}/g, 
-      `$1${studentRows}`
-    )
-    
-    // Replace teaching staff table rows
-    finalHtml = finalHtml.replace(
-      /(Teaching Staff[\s\S]*?){{#each selectedMonths}}[\s\S]*?{{\/each}}/g, 
-      `$1${teachingRows}`
-    )
-    
-    // Replace non-teaching staff table rows
-    finalHtml = finalHtml.replace(
-      /(Non-Teaching Staff[\s\S]*?){{#each selectedMonths}}[\s\S]*?{{\/each}}/g, 
-      `$1${nonTeachingRows}`
-    )
-    
-    // Handle conditional end month display
-    if (endMonth.value !== "" && endMonth.value !== "null") {
-      finalHtml = finalHtml.replace(
-        /{{#if endMonth}}(.*?){{\/if}}/g, 
-        (match, content) => content.replace(/{{endMonth}}/g, endMonthName)
-      )
-    } else {
-      finalHtml = finalHtml.replace(/{{#if endMonth}}.*?{{\/if}}/g, '')
+const processTemplate = (html, selectedMonths, data) => {
+  let processedHtml = html;
+  
+  // Extract data from API response
+  const { months, totals } = data;
+  
+  console.log("API Response Data:", data); // Add this to debug
+  console.log("Months data:", months); // Add this to debug
+  console.log("Totals data:", totals); // Add this to debug
+  
+  // Create student rows with actual data
+  const studentRows = months.map(month => `
+    <tr>
+      <td>${month.month}</td>
+      <td>${month.students.maleDormers}</td>
+      <td>${month.students.maleExterns}</td>
+      <td>${month.students.femaleDormers}</td>
+      <td>${month.students.femaleExterns}</td>
+      <td>${month.students.total}</td>
+    </tr>
+  `).join('');
+  
+  // Replace student table
+  processedHtml = processedHtml.replace(
+    /(Students[\s\S]*?<\/tr>\s*<tr>[\s\S]*?<\/tr>\s*){{#each selectedMonths}}[\s\S]*?{{\/each}}/g,
+    `$1${studentRows}`
+  );
+  
+  // Replace totals for students
+  processedHtml = processedHtml.replace(
+    /(<td><b>Total<\/b><\/td>\s*)<td>[^<]*<\/td>\s*<td>[^<]*<\/td>\s*<td>[^<]*<\/td>\s*<td>[^<]*<\/td>\s*<td class="highlight">[^<]*<\/td>/g,
+    `$1<td>${totals.students.maleDormers}</td><td>${totals.students.maleExterns}</td><td>${totals.students.femaleDormers}</td><td>${totals.students.femaleExterns}</td><td class="highlight">${totals.students.total}</td>`
+  );
+  
+  // Create teaching staff (faculty) rows
+  const teachingRows = months.map(month => `
+    <tr>
+      <td>${month.month}</td>
+      <td>${month.faculty.male}</td>
+      <td>${month.faculty.female}</td>
+      <td>${month.faculty.total}</td>
+    </tr>
+  `).join('');
+  
+  // Replace teaching staff table
+  processedHtml = processedHtml.replace(
+    /(Teaching Staff[\s\S]*?<\/tr>)\s*{{#each selectedMonths}}[\s\S]*?{{\/each}}/g,
+    `$1${teachingRows}`
+  );
+  
+  // Create non-teaching staff rows
+  const nonTeachingRows = months.map(month => `
+    <tr>
+      <td>${month.month}</td>
+      <td>${month.staff.male}</td>
+      <td>${month.staff.female}</td>
+      <td>${month.staff.total}</td>
+    </tr>
+  `).join('');
+  
+  // Replace non-teaching staff table
+  processedHtml = processedHtml.replace(
+    /(Non-Teaching Staff[\s\S]*?<\/tr>)\s*{{#each selectedMonths}}[\s\S]*?{{\/each}}/g,
+    `$1${nonTeachingRows}`
+  );
+  
+  // More precise replacement for Teaching Staff totals
+  processedHtml = processedHtml.replace(
+    /<h3>Teaching Staff<\/h3>[\s\S]*?<td>Total<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="highlight">[^<]*<\/td>/g,
+    (match) => {
+      return match.replace(
+        /<td>Total<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="highlight">[^<]*<\/td>/,
+        `<td>Total</td><td class="blue">${totals.faculty.male}</td><td class="blue">${totals.faculty.female}</td><td class="highlight">${totals.faculty.total}</td>`
+      );
     }
+  );
+  
+  // More precise replacement for Non-Teaching Staff totals
+  processedHtml = processedHtml.replace(
+    /<h3>Non-Teaching Staff<\/h3>[\s\S]*?<td>Total<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="highlight">[^<]*<\/td>/g,
+    (match) => {
+      return match.replace(
+        /<td>Total<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="highlight">[^<]*<\/td>/,
+        `<td>Total</td><td class="blue">${totals.staff.male}</td><td class="blue">${totals.staff.female}</td><td class="highlight">${totals.staff.total}</td>`
+      );
+    }
+  );
+  
+  // Replace the conclusion placeholder
+  processedHtml = processedHtml.replace(
+    /<textarea id="conclusion"[^>]*>.*?<\/textarea>/g,
+    `<textarea id="conclusion" name="conclusion" rows="4">${conclusionText.value}</textarea>`
+  );
+  
+  return processedHtml;
+};
 
+const previewReport = async () => {
+  if (startMonth.value === "" || selectedYear.value === "") {
+    alert("Please select both start month and year");
+    return;
+  }
+  
+  // Make sure the HTML template is loaded
+  if (!reportHtmlTemplate.value) {
+    alert("Report template is not loaded. Please refresh and try again.");
+    return;
+  }
+  
+  const startMonthName = months.value[startMonth.value];
+  let endMonthName = endMonth.value === "null" || endMonth.value === "" 
+    ? startMonthName 
+    : months.value[endMonth.value];
+  const year = selectedYear.value;
+  
+  // Format date range for the report heading
+  let dateRange;
+  if (endMonth.value === "" || endMonth.value === "null") {
+    dateRange = `${startMonthName}, S.Y. ${year}`;
+  } else {
+    dateRange = `${startMonthName} - ${endMonthName}, S.Y. ${year}`;
+  }
+
+  // Fetch data from the API
+  const data = await fetchReportData(startMonthName, endMonthName, year);
+  
+  if (!data) {
+    alert("Failed to fetch report data. Please try again.");
+    return;
+  }
+
+  // Generate the selectedMonths array
+  const selectedMonths = [];
+  const startIndex = parseInt(startMonth.value);
+  const endIndex = endMonth.value === "null" || endMonth.value === "" ? startIndex : parseInt(endMonth.value);
+  for (let i = startIndex; i <= endIndex; i++) {
+    selectedMonths.push(months.value[i]);
+  }
+
+  // Process the HTML template: Replace placeholders with actual values
+  let finalHtml = reportHtmlTemplate.value
+    .replace(/{{dateRange}}/g, dateRange)
+    .replace(/{{startMonth}}/g, startMonthName)
+    .replace(/{{selectedYear}}/g, year);
+
+  // Process tables with correct column counts and data
+  finalHtml = processTemplate(finalHtml, selectedMonths, data);
+
+  try {
     // Create a blob URL for the preview
-    const blob = new Blob([finalHtml], { type: 'text/html' })
-    pdfPreviewUrl.value = URL.createObjectURL(blob)
+    const blob = new Blob([finalHtml], { type: 'text/html' });
+    pdfPreviewUrl.value = URL.createObjectURL(blob);
 
     // Show the modal
-    showModal.value = true
+    showModal.value = true;
   } catch (error) {
-    console.error("Error fetching illness summary data:", error)
-    alert("Failed to fetch report data. Please try again.")
+    console.error("Error generating preview:", error);
+    alert("Failed to generate preview. Please try again later.");
   }
-}
+};
 
 const closeModal = () => {
   showModal.value = false
@@ -554,19 +535,20 @@ const closeModal = () => {
   pdfPreviewUrl.value = ""
 }
 
-const illnessSummaryData = ref([]);
-
-const fetchIllnessSummary = async () => {
-  try {
-    const response = await fetch(`http://localhost:3001/reports/illness-summary?startMonth=July&endMonth=December&year=2022`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch illness summary data');
-    }
-    illnessSummaryData.value = await response.json();
-  } catch (error) {
-    console.error('Error fetching illness summary data:', error);
+const onIframeLoad = (event) => {
+  const iframe = event.target;
+  const doc = iframe.contentDocument || iframe.contentWindow.document;
+  if (!doc) return;
+  
+  const textArea = doc.getElementById('conclusion');
+  if (textArea) {
+    // Set the textarea value from our ref
+    textArea.value = conclusionText.value;
+    
+    // Add an event listener to update our ref when the textarea changes
+    textArea.addEventListener('input', () => {
+      conclusionText.value = textArea.value;
+    });
   }
-};
-
-onMounted(fetchIllnessSummary);
+}
 </script>

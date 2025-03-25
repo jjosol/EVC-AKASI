@@ -3,7 +3,8 @@
     "@nestjs/platform-express": "^11.0.7",
     "@nuxt/nitro": "^0.10.0",
     "@prisma/client": "^6.3.1",
-    "concurrently": "^9.1.0"
+    "concurrently": "^9.1.0",
+    "dotenv": "^16.4.7"
   },
   "scripts": {
     "dev": "concurrently -n \"FRONTEND,BACKEND,PRISMA\" \"cd akasi/frontend && npm run dev\" \"cd akasi/backend && npm run start:dev\" \"cd akasi/backend && npx prisma studio\""
