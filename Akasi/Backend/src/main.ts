@@ -4,7 +4,7 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
-    origin: 'http://localhost:3000',  // Allow requests from your Nuxt frontend
+    origin: 'http://localhost:3000', // Allow requests from your Nuxt frontend
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', // Specify allowed HTTP methods
     credentials: true, // Allow sending cookies from the frontend
   });
@@ -18,4 +18,4 @@ async function bootstrap() {
   await app.listen(process.env.PORT || 3001);
   // await app.listen(process.env.PORT || 3001, '0.0.0.0');
 }
-bootstrap();  
+bootstrap();

@@ -175,6 +175,8 @@ const createConsultationRecord = async (person) => {
         remarks: selectedConsultationRecord.value?.remarks || '',
         confined: selectedConsultationRecord.value?.confined || false,
         medAdministration: true,
+        fatality: selectedConsultationRecord.value?.fatality || false,
+        intervention: selectedConsultationRecord.value?.intervention || '',
         doctor: 'John Doe'
       })
     });
@@ -209,6 +211,7 @@ const fetchPeople = async () => {
       grade: client.grade || 'N/A',
       age: client.age || 0,
       sex: client.sex || 'N/A',
+      type: client.type || 'N/A',
     }));
   } catch (error) {
     console.error('Error fetching people:', error.message);
@@ -245,6 +248,8 @@ const fetchPatients = async () => {
         remarks: record.remarks,
         confined: record.confined,
         medAdministration: record.medAdministration,
+        fatality: record.fatality,
+        intervention: record.intervention,
       }));
   } catch (error) {
     console.error('Error fetching patients:', error.message);
@@ -316,6 +321,8 @@ const savePerson = async () => {
       remarks: selectedPerson.value.remarks || '',
       confined: Boolean(selectedPerson.value.confined), // Ensure correct boolean value
       medAdministration: Boolean(selectedPerson.value.medicationAdministration),
+      fatality: Boolean(selectedPerson.value.fatality),
+      intervention: selectedPerson.value.intervention || '',
     };
 
     let consultationId;
@@ -588,6 +595,8 @@ const openEditModal = async (patient) => {
       remarks: consultationRecord.remarks,
       confined: consultationRecord.confined,
       medicationAdministration: consultationRecord.medAdministration,
+      fatality: consultationRecord.fatality,
+      intervention: consultationRecord.intervention,
       medicines: mappedMedicines // Add the medicines array
     };
 
@@ -986,11 +995,11 @@ const openViewMedicineModal = (medicine) => {
             <!-- Left Column -->
             <div>
               <!-- Attending Physician -->
-              <div class="mb-4">
+                <div class="mb-4">
                 <label for="ap" class="block text-sm font-semibold text-gray-600">Attending Physician</label>
                 <input type="text" :value="profile.name" id="ap" disabled
-                  class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
-              </div>
+                  class="w-full px-3 py-1 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
+                </div>
 
               <!-- Name -->
               <div class="mb-4">
@@ -1030,15 +1039,20 @@ const openViewMedicineModal = (medicine) => {
           
         </div>
         <!-- Complaint -->
-        <div class="mb-4">
-                <label for="complaint" class="block text-sm font-semibold text-gray-600">Complaint</label>
-                <textarea v-model="selectedPerson.generalComplaint" placeholder="General Complaint"
-                  class="w-full h-32 px-4 py-2 mt-1 border border-gray-300 rounded-lg"></textarea>
-              </div>
             <div class="mb-4">
-                <label for="remarks" class="block text-sm font-semibold text-gray-600">Remarks</label>
+              <label for="complaint" class="block text-sm font-semibold text-gray-600">Complaint</label>
+              <textarea v-model="selectedPerson.generalComplaint" placeholder="General Complaint"
+                class="w-full h-24 px-4 py-2 mt-1 border border-gray-300 rounded-lg"></textarea>
+            </div>            
+            <div class="mb-4">
+              <label for="intervention" class="block text-sm font-semibold text-gray-600">Intervention</label>
+              <textarea v-model="selectedPerson.intervention" placeholder="Intervention Given"
+                class="w-full h-16 px-4 py-2 mt-1 border border-gray-300 rounded-lg"></textarea>
+            </div>
+            <div class="mb-4">
+              <label for="remarks" class="block text-sm font-semibold text-gray-600">Remarks</label>
               <textarea v-model="selectedPerson.remarks" placeholder="Remarks"
-                class="w-full h-32 px-4 py-2 mt-1 border border-gray-300 rounded-lg"></textarea>
+                class="w-full h-16 px-4 py-2 mt-1 border border-gray-300 rounded-lg"></textarea>
             </div>
 
         <!-- Confined and Medication Administration -->
@@ -1050,6 +1064,10 @@ const openViewMedicineModal = (medicine) => {
           <div class="flex items-center space-x-2">
             <input type="checkbox" id="medication-admin" v-model="selectedPerson.medicationAdministration" class="text-blue-500 form-checkbox">
             <label for="medication-admin" class="text-sm font-semibold">Medication Administration</label>
+          </div>
+          <div class="flex items-center">
+            <input type="checkbox" id="fatality" v-model="selectedPerson.fatality" class="text-blue-500 form-checkbox">
+            <label for="fatality" class="text-sm font-semibold">Fatality</label>
           </div>
           <div class="flex justify-end w-7/12">
             <button v-if="selectedPerson.medicationAdministration" @click="openMedicineModal" class="px-4 text-purple-800 bg-transparent rounded-lg ">Add Product</button>

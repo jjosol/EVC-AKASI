@@ -33,11 +33,13 @@ import { AdminFetchAppointmentsModule } from './admin-fetch-appointments/admin-f
 import { EnrollmentDocumentsController } from './enrollment-documents/enrollment-documents.controller';
 import { EnrollmentDocumentsService } from './enrollment-documents/enrollment-documents.service';
 import { EnrollmentDocumentsModule } from './enrollment-documents/enrollment-documents.module';
-
+import { ReportsController } from './reports/reports.controller';
+import { ReportsService } from './reports/reports.service';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
-  imports: [PrismaModule, AdminsModule, AuthModule, ClientsModule, ConsultationRecordsModule, PostsModule, InventoryModule, MedAdministrationModule, StorageModule, FileModule, ProfileModule, AddAppointmentModule, FetchAppointmentsClientModule, AdminFetchAppointmentsModule, EnrollmentDocumentsModule],
-  providers: [AppService, PostsService, MedAdministrationService, StorageService, FileService, ProfileService, AddAppointmentService, AdminFetchAppointmentsService, EnrollmentDocumentsService],
-  controllers: [AppController, PostsController, MedAdministrationController, FileController, ProfileController, AddAppointmentController, AdminFetchAppointmentsController, EnrollmentDocumentsController],
+  imports: [PrismaModule, AdminsModule, AuthModule, ClientsModule, ConsultationRecordsModule, PostsModule, InventoryModule, MedAdministrationModule, StorageModule, FileModule, ProfileModule, AddAppointmentModule, FetchAppointmentsClientModule, AdminFetchAppointmentsModule, EnrollmentDocumentsModule,ReportsModule,],
+  providers: [AppService, PostsService, MedAdministrationService, StorageService, FileService, ProfileService, AddAppointmentService, AdminFetchAppointmentsService, EnrollmentDocumentsService, ReportsService],
+  controllers: [AppController, PostsController, MedAdministrationController, FileController, ProfileController, AddAppointmentController, AdminFetchAppointmentsController, EnrollmentDocumentsController, ReportsController],
 })
 export class AppModule { }

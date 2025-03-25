@@ -28,6 +28,8 @@ export class ConsultationRecordsController {
         remarks: String(body.remarks || ''),
         confined: Boolean(body.confined),
         medAdministration: Boolean(body.medAdministration),
+        fatality: Boolean(body.fatality),
+        intervention: String(body.intervention || ''),
       });
 
       return consultationRecord;
@@ -54,7 +56,7 @@ export class ConsultationRecordsController {
         throw new NotFoundException(`Consultation record with ID ${consultation_id} not found`);
       }
 
-      // Ensure proper type conversion
+      // Ensure proper type conversion and map to the service's expected parameters
       const updateData = {
         clientId: Number(body.client_id),
         name: String(body.patient_name),
@@ -63,9 +65,14 @@ export class ConsultationRecordsController {
         remarks: String(body.remarks || ''),
         confined: Boolean(body.confined),
         medicationAdministration: Boolean(body.medAdministration),
+        fatality: Boolean(body.fatality || false),
+        intervention: String(body.intervention || ''),
       };
 
-      return await this.service.updateConsultationRecord(consultation_id, updateData);
+      return await this.service.updateConsultationRecord(
+        consultation_id,
+        updateData,
+      );
     } catch (error) {
       console.error('Update consultation error:', error);
       if (error instanceof NotFoundException) {

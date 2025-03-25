@@ -2,10 +2,6 @@ generator client {
   provider = "prisma-client-js"
 }
 
-generator erd {
-  provider = "prisma-erd-generator"
-}
-
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
@@ -43,7 +39,8 @@ model client {
   gmail                String                 @db.VarChar(225)
   age                  Int
   gender               String                 @db.VarChar(225)
-  category             String                 @db.VarChar(225)
+  category             String                 @db.VarChar(225) //Student, Faculty, Staff
+  type                 String                 @db.VarChar(225) @default("N/A") //Extern, Dormer, N/A
   grade                Int?
   section              String                 @db.VarChar(225)
   medAdministrations   medAdministration[]
@@ -67,6 +64,8 @@ model consultation_records {
   doctor             String   @db.VarChar(225)
   complaint          String   @db.VarChar(225)
   remarks            String   @db.VarChar(500)
+  intervention       String   @db.VarChar(500)
+  fatality           Boolean
   confined           Boolean
   medAdministration  Boolean
 

@@ -11,93 +11,83 @@
             box-sizing: border-box;
         }
         
-        /* Body setup */
-        body {
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
             font-family: Arial, sans-serif;
-            max-width: 21cm;
-            margin: 0 auto;
             background: white;
             color: #333;
             line-height: 1.4;
+        }
+
+        /* Critical fix: Make sure header and footer space is reserved */
+        body {
+            padding-top: 1cm;    /* Reserve space for header */
+            padding-bottom: 1cm;  /* Reserve space for footer */
+        }
+
+        .page-container {
+            width: 210mm; /* A4 width in mm */
+            margin: 0 auto;
             position: relative;
-            min-height: 29.7cm; /* A4 height */
-            margin-bottom: 100px; /* Adjust according to footer height */
-        }
-        
-        /* Header & Footer */
-        .header, .footer {
-            width: 100%;
-            max-width: 21cm;
             background: white;
-            z-index: 1000;
-            position: fixed;
-            left: 0;
-            right: 0;
-            margin: 0 auto;
+            page-break-after: always; /* Force page break after each container */
+            padding-bottom: 2cm;
         }
         
-        /* Header styles */
-        .header {
-            top: 0;
-            border-bottom: 1px solid #ccc;
-            height: 3cm;
-        }
-        
-        /* Footer styles */
-        .footer {
-            bottom: 0;
-            height: 2cm;
-        }
-        
-        /* Images in header & footer */
-        .header img, .footer img {
-            width: 100%;
-            max-width: 100%;
-            height: auto;
-        }
-        
-        /* Content area - critical fix for overflow */
+        /* Content area with proper margins and overflow handling */
         .content {
+            width: 180mm; /* Narrower than page width */
             margin: 0 auto;
-            width: 100%;
-            max-width: 17cm;
-            padding: 0 1cm;
-            /* Increase spacing to avoid overlap */
-            padding-top: 3.5cm;
-            padding-bottom: 2.5cm;
             background: white;
-            page-break-before: auto;
-            page-break-after: auto;
-            page-break-inside: avoid;
+            position: relative;
+            z-index: 1;
+            margin-bottom: 2cm; /* Add space to avoid footer overlap */
         }
         
-        /* Heading styles */
+        /* Typography - using pt units for print */
         h2 {
-            font-size: 14px;
-            margin-bottom: 5px;
+            font-size: 14pt;
+            margin-bottom: 8pt;
             text-align: center;
             color: #003366;
         }
         
         h3 {
-            font-size: 12px;
-            margin: 10px 0 5px 0;
+            font-size: 12pt;
+            margin: 12pt 0 6pt 0;
             color: #003366;
         }
         
-        /* Table styles - COMPACTED */
+        p {
+            margin-bottom: 10pt;
+            text-align: justify;
+            font-size: 11pt;
+            word-wrap: break-word; /* Prevent text overflow */
+        }
+        
+        /* Table improvements */
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 15px;
+            margin-bottom: 15pt;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            page-break-inside: avoid; /* Critical: force tables onto next page if needed */
+            table-layout: fixed; /* Prevent column width changes */
         }
         
         th, td {
             border: 1px solid #ccc;
-            padding: 4px 6px; /* Reduced padding for more compact cells */
+            padding: 5pt 6pt;
             text-align: center;
-            font-size: 10px; /* Reduced font size */
+            font-size: 10pt;
+            word-wrap: break-word; /* Handle text overflow */
+            overflow: hidden; /* Prevent content overflow */
         }
         
         th {
@@ -109,18 +99,14 @@
         tr:nth-child(even) {
             background-color: #f9f9f9;
         }
-        
-        tr:hover {
-            background-color: #f0f7ff;
-        }
-        
-        /* Total row styling */
-        tr:last-child {
+
+        /* Reset styling for the common illnesses table */
+        .content h2:contains("SUMMARY OF PERCENTAGE OF THE PSHS-EVC COMMUNITY THAT ACQUIRED ILLNESSES") + table tr:last-child {
             font-weight: bold;
             background-color: #eef4fa;
         }
         
-        /* Color styles */
+        /* Styling elements */
         .blue {
             color: #0066cc;
         }
@@ -130,69 +116,36 @@
             font-weight: bold;
         }
         
-        /* Paragraphs */
-        p {
-            margin-bottom: 10px;
-            text-align: justify;
-            font-size: 11px;
-        }
-        
-        /* Reduce spaces between sections */
         .section, .conclusion {
-            margin-bottom: 10px;
+            margin-bottom: 15pt;
+            page-break-inside: avoid; /* Critical: prevent section break */
         }
 
-        .conclusion {
-            page-break-inside: avoid;
-            margin-bottom: 0; /* Remove bottom margin */
-        }
-        
-        /* Page settings */
-        @page {
-            size: A4;
-            margin: 0;
-        }
-        
-        /* Page break class */
+        /* Improved pagebreak handling */
         .pagebreak { 
             page-break-before: always; 
             clear: both;
+            height: 0;
+            margin-top: 3cm; /* Add space after break for header */
         }
         
-        /* Fix for page content */
-        .page {
-            position: relative;
-            height: 29.7cm; /* A4 height */
-            overflow: hidden;
-            page-break-after: always;
-        }
-        
-        /* Last page doesn't need a page break after */
-        .page:last-child {
-            page-break-after: auto;
-        }
-        
+        /* Print-specific adjustments */
         @media print {
-            .header {
-                position: fixed;
-                top: 0;
+            html, body {
+                width: 210mm;
+                height: 297mm;
+                margin: 0;
+                padding-top: 1cm; 
+                padding-bottom: 1cm;
             }
             
-            .footer {
-                position: fixed;
-                bottom: 0;
-                width: 100%;
-                background: white; /* Adjust if needed */
-                page-break-inside: avoid; /* Prevents splitting */
-                height: auto; /* Adjust height dynamically */
-                padding: 10px 0; /* Ensure proper spacing */
+            .page-container {
+                width: 210mm;
+                margin: 0;
+                box-shadow: none;
             }
             
-            .content {
-                margin-top: 3cm;
-                margin-bottom: 2.5cm;
-            }
-            
+            /* Control page breaks */
             h3 {
                 page-break-after: avoid;
             }
@@ -200,221 +153,317 @@
             table {
                 page-break-inside: avoid;
             }
+            
+            tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+            
+            .section, .conclusion {
+                page-break-inside: avoid;
+            }
+            
+            /* Essential: ensure content doesn't overlap with header/footer */
+            .content {
+                margin-bottom: 2cm;
+            }
+            
+            /* After page break, ensure spacing from header */
+            .pagebreak + .content {
+                padding-top: 1.5cm;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <img src="/images/header.png" alt="Header Image">
-    </div>
-    
-    <div class="content">
-        <h2>SUMMARY OF PERCENTAGE OF THE PSHS-EVC COMMUNITY THAT ACQUIRED ILLNESSES</h2>
-        <h2>({{dateRange}})</h2>
+    <div class="page-container">
+            <!--summary of illnesses-->
+            <div class="content">
+                <h2>SUMMARY OF PERCENTAGE OF THE PSHS-EVC COMMUNITY THAT ACQUIRED ILLNESSES</h2>
+                <h2>{{dateRange}}</h2>
 
-        <div class="section">
-            <h3>Students</h3>
-            <table>
-                <tr>
-                    <th rowspan="2">Month</th>
-                    <th colspan="3">Male</th>
-                    <th colspan="3">Female</th>
-                    <th rowspan="2">Grand Total</th>
-                </tr>
-                <tr>
-                    <th>Dormers</th>
-                    <th>Externs</th>
-                    <th>Total</th>
-                    <th>Dormers</th>
-                    <th>Externs</th>
-                    <th>Total</th>
-                </tr>
-                <tr>
-                    <td>July</td>
-                    <td>0</td>
-                    <td>0</td>
-                    <td class="blue">0</td>
-                    <td>0</td>
-                    <td>0</td>
-                    <td class="blue">0</td>
-                    <td>0</td>
-                </tr>
-                <tr>
-                    <td>August</td>
-                    <td>1</td>
-                    <td>1</td>
-                    <td class="blue">2</td>
-                    <td>0</td>
-                    <td>7</td>
-                    <td class="blue">9</td>
-                    <td>9</td>
-                </tr>
-                <tr>
-                    <td>September</td>
-                    <td>1</td>
-                    <td>1</td>
-                    <td class="blue">2</td>
-                    <td>2</td>
-                    <td>7</td>
-                    <td class="blue">11</td>
-                    <td>11</td>
-                </tr>
-                <tr>
-                    <td>October</td>
-                    <td>3</td>
-                    <td>0</td>
-                    <td class="blue">3</td>
-                    <td>0</td>
-                    <td>1</td>
-                    <td class="blue">4</td>
-                    <td>4</td>
-                </tr>
-                <tr>
-                    <td>November</td>
-                    <td>7</td>
-                    <td>0</td>
-                    <td class="blue">7</td>
-                    <td>2</td>
-                    <td>5</td>
-                    <td class="blue">14</td>
-                    <td>14</td>
-                </tr>
-                <tr>
-                    <td>December</td>
-                    <td>3</td>
-                    <td>2</td>
-                    <td class="blue">9</td>
-                    <td>9</td>
-                    <td>4</td>
-                    <td class="blue">22</td>
-                    <td>22</td>
-                </tr>
-                <tr>
-                    <td><b>Total</b></td>
-                    <td>14</td>
-                    <td>3</td>
-                    <td class="highlight">17</td>
-                    <td>21</td>
-                    <td>24</td>
-                    <td class="blue">59</td>
-                    <td class="highlight">59</td>
-                </tr>
-            </table>
-        </div>
-        
-        <div class="section">
-            <h3>Fatality Rate - Students</h3>
-            <table>
-                <tr>
-                    <th rowspan="2">Month</th>
-                    <th colspan="3">Male</th>
-                    <th colspan="3">Female</th>
-                    <th rowspan="2">Grand Total</th>
-                </tr>
-                <tr>
-                    <th>Dormers</th>
-                    <th>Externs</th>
-                    <th>Total</th>
-                    <th>Dormers</th>
-                    <th>Externs</th>
-                    <th>Total</th>
-                </tr>
-                <tr>
-                    <td>July</td>
-                    <td>0</td>
-                    <td>0</td>
-                    <td class="blue">0</td>
-                    <td>0</td>
-                    <td>0</td>
-                    <td class="blue">0</td>
-                    <td>0</td>
-                </tr>
-                <tr>
-                    <td>August</td>
-                    <td>1</td>
-                    <td>1</td>
-                    <td class="blue">2</td>
-                    <td>0</td>
-                    <td>7</td>
-                    <td class="blue">9</td>
-                    <td>9</td>
-                </tr>
-                <tr>
-                    <td>September</td>
-                    <td>1</td>
-                    <td>1</td>
-                    <td class="blue">2</td>
-                    <td>2</td>
-                    <td>7</td>
-                    <td class="blue">11</td>
-                    <td>11</td>
-                </tr>
-                <tr>
-                    <td>October</td>
-                    <td>3</td>
-                    <td>0</td>
-                    <td class="blue">3</td>
-                    <td>0</td>
-                    <td>1</td>
-                    <td class="blue">4</td>
-                    <td>4</td>
-                </tr>
-                <tr>
-                    <td>November</td>
-                    <td>7</td>
-                    <td>0</td>
-                    <td class="blue">7</td>
-                    <td>2</td>
-                    <td>5</td>
-                    <td class="blue">14</td>
-                    <td>14</td>
-                </tr>
-                <tr>
-                    <td>December</td>
-                    <td>3</td>
-                    <td>2</td>
-                    <td class="blue">9</td>
-                    <td>9</td>
-                    <td>4</td>
-                    <td class="blue">22</td>
-                    <td>22</td>
-                </tr>
-                <tr>
-                    <td><b>Total</b></td>
-                    <td>14</td>
-                    <td>3</td>
-                    <td class="highlight">17</td>
-                    <td>21</td>
-                    <td>24</td>
-                    <td class="blue">59</td>
-                    <td class="highlight">59</td>
-                </tr>
-            </table>
-        </div>
-        
-        <div class="conclusion">
-            <h3>Conclusion</h3>
-            <p>Out of the n_total scholars of PSHS-EVC, n_gross referred to the HSU from {{startMonth}}{{#if endMonth}} to {{endMonth}}{{/if}} {{selectedYear}}. 
-              Moreover, the diagram shows that from {{startMonth}}{{#if endMonth}} to {{endMonth}}{{/if}}, female students are more likely to be vulnerable 
-              to illness than males; it also showed that in December, the number of cases significantly increased as 
-              reported, followed by September and October, and the least number was November. One of the contributing 
-              factors to this number of cases is the high humidity during that month.</p>
-        </div>
-    </div>
-    
-    <div class="pagebreak"></div>
-    
-    <div class="content">
-        <!-- Second page content here -->
-        <h2>INFECTIOUS DISEASE MONITORING TOOL</h2>
-        <h2>({{dateRange}})</h2>
-        
-        <!-- Add your second page content here -->
-        <p>Second page content goes here...</p>
-    </div>
-    
-    <div class="footer">
-        <img src="/images/footer.png" alt="Footer Image">
+                <div class="section">
+                    <h3>Students</h3>
+                    <table>
+                        <tr>
+                            <th rowspan="2">Month</th>
+                            <th colspan="3">Male</th>
+                            <th colspan="3">Female</th>
+                            <th rowspan="2">Grand Total</th>
+                        </tr>
+                        <tr>
+                            <th>Dormers</th>
+                            <th>Externs</th>
+                            <th>Total</th>
+                            <th>Dormers</th>
+                            <th>Externs</th>
+                            <th>Total</th>
+                        </tr>
+                        {{#each selectedMonths}}
+                        <tr>
+                            <td>{{this}}</td>
+                            <td>0</td> <!--Male Dormers-->
+                            <td>1</td> <!--Male Externs-->
+                            <td class="blue">1</td>  <!--Total Male Dormers and Externs-->
+                            <td>0</td> <!--Female Dormers-->
+                            <td></td> <!--Female Externs-->
+                            <td class="blue">0</td>  <!--Total Female Dormers and Externs-->
+                            <td>0</td>   <!--Total Male and Female students that are Dormers and Externs-->
+                        </tr>
+                        {{/each}}   <!--this row is the same above but for a different month-->
+                        <tr>
+                            <td><b>Total</b></td>
+                            <td></td>
+                            <td>1</td>
+                            <td class="highlight">1</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td class="blue">0</td>
+                            <td class="highlight">1</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div class="section">
+                    <h3>Fatality Rate - Students</h3>   <!--fetch fatality-->
+                    <table>
+                        <tr>
+                            <th rowspan="2">Month</th>
+                            <th colspan="3">Male</th>
+                            <th colspan="3">Female</th>
+                            <th rowspan="2">Grand Total</th>
+                        </tr>
+                        <tr>
+                            <th>Dormers</th>
+                            <th>Externs</th>
+                            <th>Total</th>
+                            <th>Dormers</th>
+                            <th>Externs</th>
+                            <th>Total</th>
+                        </tr>
+                        {{#each selectedMonths}}
+                        <tr>
+                            <td>{{this}}</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td class="blue">0</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td class="blue">0</td>
+                            <td>0</td>
+                        </tr>
+                        {{/each}}
+                        <tr>
+                            <td><b>Total</b>0</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td class="highlight">0</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td class="blue">0</td>
+                            <td class="highlight">0</td>
+                        </tr>
+                    </table>
+                </div>
+                    <br><br>
+                    <div class="section">
+                        <h3>Teaching Staff</h3>
+                        <table>
+                            <tr>
+                                <th>Month</th>
+                                <th>Male</th>
+                                <th>Female</th>
+                                <th>Grand Total</th>
+                            </tr>
+                            {{#each selectedMonths}}
+                            <tr>
+                                <td>{{this}}</td>
+                                <td>0</td>
+                                <td>0</td>
+                                <td>0</td>
+                            </tr>
+                            {{/each}}
+                            <tr>
+                                <td>Total</td>
+                                <td class="blue">0</td>
+                                <td class="blue">0</td>
+                                <td class="highlight">0</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="section">
+                        <h3>Fatality Rate – Teaching Staff</h3>
+                        <table>
+                            <tr>
+                                <th>Month</th>
+                                <th>Male</th>
+                                <th>Female</th>
+                                <th>Grand Total</th>
+                            </tr>
+                            {{#each selectedMonths}}
+                            <tr>
+                                <td>{{this}}</td>
+                                <td>0</td>
+                                <td>0</td>
+                                <td>0</td>
+                            </tr>
+                            {{/each}}
+                            <tr>
+                                <td>Total</td>
+                                <td class="blue">0</td>
+                                <td class="blue">0</td>
+                                <td class="highlight">0</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <br><br>
+                <div class="content">
+                    <div class="section">
+                        <h3>Non-Teaching Staff</h3>
+                        <table>
+                            <tr>
+                                <th>Month</th>
+                                <th>Male</th>
+                                <th>Female</th>
+                                <th>Grand Total</th>
+                            </tr>
+                            {{#each selectedMonths}}
+                            <tr>
+                                <td>{{this}}</td>
+                                <td>0</td>
+                                <td>0</td>
+                                <td>0</td>
+                            </tr>
+                            {{/each}}
+                            <tr>
+                                <td>Total</td>
+                                <td class="blue">0</td>
+                                <td class="blue">0</td>
+                                <td class="highlight">0</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="section">
+                        <h3>Fatality Rate – Non-Teaching Staff</h3>
+                        <table>
+                            <tr>
+                                <th>Month</th>
+                                <th>Male</th>
+                                <th>Female</th>
+                                <th>Grand Total</th>
+                            </tr>
+                            {{#each selectedMonths}}
+                            <tr>
+                                <td>{{this}}</td>
+                                <td>0</td>
+                                <td>0</td>
+                                <td>0</td>
+                            </tr>
+                            {{/each}}
+                            <tr>
+                                <td>Total</td>
+                                <td class="blue">0</td>
+                                <td class="blue">0</td>
+                                <td class="highlight">0</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="conclusion"><form>
+                        <label for="conclusion">Conclusion:</label><br>
+                        <input type="text"><br>
+                      </form>
+                    </div>
+                </div>
+            
+            </div>
+            <!--PAGE BREAKKK-->
+            <div class="pagebreak"></div>
+            <!--list of common illnesses-->
+            <div class="content">
+                <h2>LIST OF COMMON ILLNESSES/INJURIES <br> {{dateRange}}</h2>
+                
+                <table>
+                    <tr class="category-row">
+                        <td colspan="3">Students (Externs) = 8</td>
+                    </tr>
+                    <tr>
+                        <th>Gender</th>
+                        <th>Illnesses/Injuries</th>
+                        <th>Intervention</th>
+                    </tr>
+                    <tr>
+                        <td>Male = 1</td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>Female = 1</td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    <tr class="category-row">
+                        <td colspan="3">Students (Dormers) = 8</td>
+                    </tr>
+                    <tr>
+                        <th>Gender</th>
+                        <th>Illnesses/Injuries</th>
+                        <th>Intervention</th>
+                    </tr>
+                    <tr>
+                        <td>Male = 1</td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>Female = 1</td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                </table>
+            </div>
+            <!--PAGE BREAKKK-->
+            <div class="pagebreak"></div>
+            <!--monitoring-->
+            <div class="content">
+                <h2>INFECTIOUS DISEASE MONITORING TOOL<br>{{dateRange}}</h2>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>NAME</th>
+                            <th>GRADE & SECTION/ DIVISION</th>
+                            <th>DATE OF CONFINEMENT</th>
+                            <th>INTERN/EXTERN</th>
+                            <th>REMARKS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>BRENAN LOUIS LAO</td>
+                            <td>10 - Electron</td>
+                            <td>September 2 – 16, 2022</td>
+                            <td>Extern</td>
+                            <td>Recovered</td>
+                        </tr>
+                        <tr>
+                            <td>ELLIZAR JOHN ZABALA</td>
+                            <td>10 - Electron</td>
+                            <td>September 2 – 16, 2022</td>
+                            <td>Extern</td>
+                            <td>Recovered</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <!--PAGE BREAKKK-->
+            <div class="pagebreak"></div>
+            <!--charts/graphs-->
+            <div class="content">
+
+            </div>
     </div>
 </body>
 </html>

@@ -39,7 +39,7 @@ export class AuthService {
     return { 
       isAuthenticated: true, 
       token,
-      role: payload.role 
+      role: payload.role,
     };
   }
 
@@ -47,7 +47,7 @@ export class AuthService {
     // You could implement token blacklisting here if needed
     return {
       success: true,
-      message: 'Logged out successfully'
+      message: 'Logged out successfully',
     };
   }
 }
