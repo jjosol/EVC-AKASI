@@ -553,6 +553,7 @@ const openEditModal = async (patient) => {
       disposition: consultationRecord.disposition || ''
     };
 
+    currentModalPage.value = 1; // Reset to first page when opening
     showEditModal.value = true;
   } catch (error) {
     console.error('Error opening edit modal:', error);
@@ -602,6 +603,7 @@ const addPerson = (person) => {
  */
 const cancelEdit = () => {
   showEditModal.value = false;
+  currentModalPage.value = 1; // Reset to first page
 };
 
 /**
@@ -1258,6 +1260,8 @@ const closeDiagnosisDropdown = () => {
   showDiagnosisDropdown.value = false;
 };
 
+const currentModalPage = ref(1);
+
 </script>
 
 <template>
@@ -1346,14 +1350,30 @@ const closeDiagnosisDropdown = () => {
   
 
     <!-- Edit Modal -->
-    <div v-if="showEditModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
-        <div class="flex flex-col justify-center w-3/6 h-screen p-8 bg-white rounded-2xl">
-          <h2 class="mb-6 text-2xl text-[#2f4a71] font-bold">Consultation Record</h2>
-          
-          <div class="grid grid-cols-2 gap-6">
-            <!-- Left Column -->
-            <div>
-              <!-- Attending Physician -->
+    <!-- Edit Modal with Pagination -->
+<div v-if="showEditModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
+    <div class="flex flex-col justify-center w-3/6 h-screen p-8 bg-white rounded-2xl">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl text-[#2f4a71] font-bold">Consultation Record</h2>
+        <div class="flex items-center">
+          <div class="flex items-center space-x-2">
+            <div class="flex items-center">
+              <div class="flex items-center justify-center w-8 h-8 rounded-full" 
+                :class="currentModalPage === 1 ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'">1</div>
+              <div class="w-8 h-[2px]" :class="currentModalPage === 2 ? 'bg-purple-600' : 'bg-gray-300'"></div>
+              <div class="flex items-center justify-center w-8 h-8 rounded-full"
+                :class="currentModalPage === 2 ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'">2</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Page 1: Patient Details, Diagnosis, Remarks, Medicines -->
+      <div v-if="currentModalPage === 1" class="flex-grow overflow-y-auto">
+        <div class="grid grid-cols-2 gap-6">
+          <!-- Left Column -->
+          <div>
+            <!-- Attending Physician -->
               <div class="mb-4">
                 <label for="ap" class="block text-sm font-semibold text-gray-600">Attending Physician</label>
                 <input type="text" value="John Doe" id="ap" disabled
@@ -1366,12 +1386,11 @@ const closeDiagnosisDropdown = () => {
                 <input type="text" :value="selectedPerson.name" id="name" disabled
                   class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
               </div>
-
-            </div>
-            
-            <!-- Right Column -->
-            <div>
-              <!-- Date -->
+          </div>
+          
+          <!-- Right Column -->
+          <div>
+            <!-- Date -->
               <div class="mb-4">
                 <label for="date" class="block text-sm font-semibold text-gray-600">Date</label>
                 <input type="text" :value="selectedDate.monthYear" id="date" disabled
@@ -1391,98 +1410,96 @@ const closeDiagnosisDropdown = () => {
                     class="w-full px-4 py-2 mt-1 text-center bg-gray-200 border border-gray-300 rounded-full">
                 </div>
               </div>
-
-              <!-- Remarks -->
-              
           </div>
-          
         </div>
+        
         <!-- Complaint -->
         <div class="mb-4">
-  <label for="complaint" class="block text-sm font-semibold text-gray-600">Diagnosis</label>
-  <div class="flex items-center mb-2 space-x-2">
-    <div class="relative flex-grow">
-      <input 
-        v-model="diagnosisSearchQuery"
-        type="text"
-        placeholder="Search or select diagnoses..."
-        class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md"
-        @focus="showDiagnosisDropdown = true"
-        @blur="setTimeout(() => closeDiagnosisDropdown(), 200)"
-      />
-      <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-        <Icon icon="mdi:magnify" class="w-5 h-5 text-gray-400" />
-      </div>
-      <div class="absolute inset-y-0 right-0 flex items-center pr-3">
-        <button 
-          @click="toggleDiagnosisDropdown" 
-          type="button"
-          class="text-gray-400 focus:outline-none"
-        >
-          <Icon :icon="showDiagnosisDropdown ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="w-5 h-5" />
-        </button>
-      </div>
-      
-      <!-- Show dropdown when input is focused or dropdown toggle is clicked -->
-      <div v-if="showDiagnosisDropdown || diagnosisSearchQuery" 
-           class="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg">
-        <div v-if="filteredDiseases.length === 0" class="p-3 text-sm text-gray-500">
-          No matching diagnoses
-        </div>
-        <div v-else class="overflow-y-auto max-h-60">
-          <!-- Group diagnoses by category for better organization -->
-          <div v-for="(categoryId, index) in Object.keys(diseasesByCategory)" :key="categoryId" class="border-b last:border-b-0">
-            <div class="px-3 py-1 text-xs font-semibold text-gray-500 bg-gray-50">
-              {{ getCategoryName(categoryId) }}
-            </div>
-            <div 
-              v-for="disease in filteredDiagnosesByCategory(categoryId, diagnosisSearchQuery)"
-              :key="disease.diagnosis_id"
-              @click="selectDisease(disease)"
-              class="flex items-center justify-between p-2 cursor-pointer hover:bg-gray-100"
-            >
-              <div>
-                <div class="font-medium">{{ disease.name }}</div>
+          <label for="complaint" class="block text-sm font-semibold text-gray-600">Diagnosis</label>
+          <div class="flex items-center mb-2 space-x-2">
+            <div class="relative flex-grow">
+              <input 
+                v-model="diagnosisSearchQuery"
+                type="text"
+                placeholder="Search or select diagnoses..."
+                class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md"
+                @focus="showDiagnosisDropdown = true"
+                @blur="setTimeout(() => closeDiagnosisDropdown(), 200)"
+              />
+              <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <Icon icon="mdi:magnify" class="w-5 h-5 text-gray-400" />
               </div>
-              <Icon icon="mdi:plus" class="text-green-500" />
+              <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+                <button 
+                  @click="toggleDiagnosisDropdown" 
+                  type="button"
+                  class="text-gray-400 focus:outline-none"
+                >
+                  <Icon :icon="showDiagnosisDropdown ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="w-5 h-5" />
+                </button>
+              </div>
+              
+              <!-- Diagnosis dropdown -->
+              <div v-if="showDiagnosisDropdown || diagnosisSearchQuery" 
+                  class="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg">
+                <div v-if="filteredDiseases.length === 0" class="p-3 text-sm text-gray-500">
+                  No matching diagnoses
+                </div>
+                <div v-else class="overflow-y-auto max-h-60">
+                  <!-- Group diagnoses by category -->
+                  <div v-for="(categoryId, index) in Object.keys(diseasesByCategory)" :key="categoryId" class="border-b last:border-b-0">
+                    <div class="px-3 py-1 text-xs font-semibold text-gray-500 bg-gray-50">
+                      {{ getCategoryName(categoryId) }}
+                    </div>
+                    <div 
+                      v-for="disease in filteredDiagnosesByCategory(categoryId, diagnosisSearchQuery)"
+                      :key="disease.diagnosis_id"
+                      @click="selectDisease(disease)"
+                      class="flex items-center justify-between p-2 cursor-pointer hover:bg-gray-100"
+                    >
+                      <div>
+                        <div class="font-medium">{{ disease.name }}</div>
+                      </div>
+                      <Icon icon="mdi:plus" class="text-green-500" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Buttons for managing diagnoses/categories -->
+            <button 
+              @click="openAddDiagnosisModal" 
+              class="flex items-center px-3 py-2 text-white bg-purple-600 rounded-md hover:bg-purple-700"
+            >
+              <Icon icon="mdi:plus" class="mr-1" />
+              New
+            </button>
+            <button 
+              @click="openManageModal" 
+              class="flex items-center px-3 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700"
+            >
+              <Icon icon="mdi:cog" class="mr-1" />
+              Manage
+            </button>
+          </div>
+          
+          <!-- Selected diagnoses display -->
+          <div class="flex flex-wrap gap-2 mb-2">
+            <div v-for="complaint in selectedPerson.complaints" :key="complaint.id" class="flex items-center px-3 py-1 bg-purple-100 rounded-full">
+              {{ complaint.text }}
+              <button @click="removeComplaint(complaint.id)" class="ml-2 text-red-500 hover:text-red-700">
+                <Icon icon="mdi:delete" />
+              </button>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-    
-    <!-- Buttons for managing diagnoses/categories -->
-    <button 
-      @click="openAddDiagnosisModal" 
-      class="flex items-center px-3 py-2 text-white bg-purple-600 rounded-md hover:bg-purple-700"
-    >
-      <Icon icon="mdi:plus" class="mr-1" />
-      New
-    </button>
-    <button 
-      @click="openManageModal" 
-      class="flex items-center px-3 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700"
-    >
-      <Icon icon="mdi:cog" class="mr-1" />
-      Manage
-    </button>
-  </div>
-  
-  <!-- Selected diagnoses display (keep this from your existing code) -->
-  <div class="flex flex-wrap gap-2 mb-2">
-    <div v-for="complaint in selectedPerson.complaints" :key="complaint.id" class="flex items-center px-3 py-1 bg-purple-100 rounded-full">
-      {{ complaint.text }}
-      <button @click="removeComplaint(complaint.id)" class="ml-2 text-red-500 hover:text-red-700">
-        <Icon icon="mdi:delete" />
-      </button>
-    </div>
-  </div>
-</div>
-            <div class="mb-4">
-                <label for="remarks" class="block text-sm font-semibold text-gray-600">Remarks</label>
-              <textarea v-model="selectedPerson.remarks" placeholder="Remarks"
-                class="w-full h-32 px-4 py-2 mt-1 border border-gray-300 rounded-lg"></textarea>
-            </div>
+
+        <div class="mb-4">
+          <label for="remarks" class="block text-sm font-semibold text-gray-600">Remarks</label>
+          <textarea v-model="selectedPerson.remarks" placeholder="Remarks"
+            class="w-full h-32 px-4 py-2 mt-1 border border-gray-300 rounded-lg"></textarea>
+        </div>
 
         <!-- Confined and Medication Administration -->
         <div class="flex items-center w-full mb-6 space-x-8">
@@ -1536,21 +1553,17 @@ const closeDiagnosisDropdown = () => {
             </tbody>
           </table>
         </div>
-
-        <!-- Action Buttons -->
-        <div class="flex justify-between mt-6">
-          <button @click="cancelEdit" class="text-purple-600 underline">Cancel</button>
-          <button @click="savePerson" class="px-4 py-2 text-white bg-purple-500 rounded-lg">Submit</button>
-        </div>
-
-        <!-- Action and Disposition Fields (moved from tabs) -->
-        <div class="pt-4 mt-6 mb-4 border-t border-gray-200">
-          <div class="mb-4">
+      </div>
+      
+      <!-- Page 2: Action's Taken and Disposition -->
+      <div v-else-if="currentModalPage === 2" class="flex-grow overflow-y-auto">
+        <div class="pt-4 mb-4">
+          <div class="mb-6">
             <label for="action" class="block text-sm font-semibold text-gray-600">Action's Taken</label>
             <textarea
               id="action"
               v-model="selectedPerson.action"
-              rows="4"
+              rows="6"
               class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter actions taken...">
             </textarea>
@@ -1561,14 +1574,42 @@ const closeDiagnosisDropdown = () => {
             <textarea
               id="disposition"
               v-model="selectedPerson.disposition"
-              rows="4"
+              rows="6"
               class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter student disposition...">
             </textarea>
           </div>
         </div>
       </div>
+
+      <!-- Navigation Buttons -->
+      <div class="flex justify-between mt-6">
+        <div>
+          <button @click="cancelEdit" class="text-purple-600 underline">Cancel</button>
+        </div>
+        <div class="flex space-x-3">
+          <button 
+            v-if="currentModalPage === 2" 
+            @click="currentModalPage = 1" 
+            class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">
+            Back
+          </button>
+          <button 
+            v-if="currentModalPage === 1" 
+            @click="currentModalPage = 2" 
+            class="px-4 py-2 text-white bg-purple-500 rounded-lg">
+            Next
+          </button>
+          <button 
+            v-if="currentModalPage === 2" 
+            @click="savePerson" 
+            class="px-4 py-2 text-white bg-purple-500 rounded-lg">
+            Submit
+          </button>
+        </div>
+      </div>
     </div>
+</div>
 
 
 
