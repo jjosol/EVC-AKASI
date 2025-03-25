@@ -19,6 +19,7 @@ type AdminProfile = {
   type: 'admin';
   admin_id: number;
   username: string;
+  name: string;
   gmail: string;
 }
 
@@ -83,6 +84,7 @@ export function useProfile() {
             type: 'admin',
             admin_id: userData.admin_id,
             username: userData.username,
+            name: userData.name,
             gmail: userData.gmail
           }
           isAdmin.value = true
@@ -154,6 +156,7 @@ export function useProfile() {
     return {
       type: 'admin',
       admin_id: 1,
+      name: 'Admin User',
       username: 'admin_user',
       gmail: 'admin@example.com'
     }

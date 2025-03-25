@@ -15,6 +15,7 @@ model admin {
   admin_id           Int                 @id @unique @default(autoincrement())
   username           String              @db.VarChar(225)
   password           String              @db.VarChar(225)
+  name               String              @db.VarChar(225)
   gmail              String              @db.VarChar(225)
   medAdministrations medAdministration[]
   hsu_bulletin       hsu_bulletin[]

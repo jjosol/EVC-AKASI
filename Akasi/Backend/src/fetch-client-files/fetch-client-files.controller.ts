@@ -84,15 +84,49 @@ export class FetchClientFilesController {
                 // Use dynamic import for file-type (ESM module)
                 const { fileTypeFromBuffer } = await import('file-type');
                 detectedType = await fileTypeFromBuffer(fileData);
+
+                // Log the detected type for debugging
+                this.logger.log(`Detected file type: ${JSON.stringify(detectedType)}`);
             } catch (err) {
                 this.logger.error('Error detecting file type:', err);
                 detectedType = null;
             }
 
-            // Set appropriate content type based on detected file type or default to PDF
-            let contentType = 'application/pdf'; // Default
+            // If file-type library couldn't detect the type, try manual detection
+            if (!detectedType) {
+                // Check for PDF signature (%PDF-)
+                if (fileData.length >= 5 &&
+                    fileData[0] === 0x25 && // %
+                    fileData[1] === 0x50 && // P
+                    fileData[2] === 0x44 && // D
+                    fileData[3] === 0x46 && // F
+                    fileData[4] === 0x2D) { // -
+                    detectedType = { mime: 'application/pdf', ext: 'pdf' };
+                }
+                // Check for PNG signature
+                else if (fileData.length >= 8 &&
+                    fileData[0] === 0x89 &&
+                    fileData[1] === 0x50 && // P
+                    fileData[2] === 0x4E && // N
+                    fileData[3] === 0x47 && // G
+                    fileData[4] === 0x0D &&
+                    fileData[5] === 0x0A &&
+                    fileData[6] === 0x1A &&
+                    fileData[7] === 0x0A) {
+                    detectedType = { mime: 'image/png', ext: 'png' };
+                }
+                // Check for JPEG signature (FF D8)
+                else if (fileData.length >= 2 &&
+                    fileData[0] === 0xFF &&
+                    fileData[1] === 0xD8) {
+                    detectedType = { mime: 'image/jpeg', ext: 'jpg' };
+                }
+            }
+
+            // Set appropriate content type based on detected file type or default to octet-stream
+            let contentType = 'application/octet-stream'; // Safer default
             let disposition = 'inline';
-            let fileExtension = 'pdf';
+            let fileExtension = 'bin';
 
             if (detectedType) {
                 contentType = detectedType.mime;
@@ -103,6 +137,9 @@ export class FetchClientFilesController {
                     disposition = 'inline';
                 }
             }
+
+            // Log the content type being set
+            this.logger.log(`Setting Content-Type: ${contentType} for file ${fileType}/${id}`);
 
             // Generate a filename for the download
             const filename = `${fileType}_${id}.${fileExtension}`;

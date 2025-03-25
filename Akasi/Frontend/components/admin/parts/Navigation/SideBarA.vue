@@ -32,16 +32,7 @@ onMounted(() => {
     <!-- Left-side Navbar -->
     <nav class="flex flex-col items-center h-full space-y-16 pt-10 w-64 text-white bg-[#f8f4ff] padding-100">
       <MidTitle class="text-5xl"/>
-      <div class="flex items-center w-full px-4">
-        <input
-          type="text"
-          placeholder="Search..."
-          class="border border-[#2F4A71] rounded-full px-4 py-2 text-black focus:outline-none w-full"
-        />
-        <button class="ml-44 text-[#2F4A71] focus:outline-none absolute">
-          <Icon icon="ion:search-sharp" class="text-[#2F4A71] text-4xl"/>
-        </button>
-      </div>
+      
       <ul v-for="link in links" :key="link.path">
         <router-link
           :to="link.path"

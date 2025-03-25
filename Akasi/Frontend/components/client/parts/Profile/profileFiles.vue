@@ -93,6 +93,26 @@
         }
     }
 
+    function downloadFile(file) {
+        if (!file || !file.url) {
+            showToast({
+            message: 'No file available to download',
+            type: 'error'
+            });
+            return;
+        }
+
+        // Create an anchor element and set the download attribute
+        const a = document.createElement('a');
+        a.href = file.url;
+        a.download = file.fileName || `${file.type}_${file.id}.${getFileExtension(file)}`;
+        document.body.appendChild(a);
+        a.click();
+        
+        // Clean up
+        document.body.removeChild(a);
+    }
+
     // Set up on component mount
     onMounted(async () => {
 
@@ -216,21 +236,21 @@
             const token = localStorage.getItem('token');
             
             if (!token) {
-            throw new Error('Authentication token not found');
+                throw new Error('Authentication token not found');
             }
 
             console.log(`Requesting file: ${file.type}/${file.id}`);
             
             // The backend will verify that this file belongs to the current user
             const response = await fetch(`http://localhost:3001/client-files/file/${file.type}/${file.id}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
             });
 
             if (!response.ok) {
-            // If file is not found or not authorized, backend returns 404
-            throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
+                // If file is not found or not authorized, backend returns 404
+                throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
             }
             
             // Get file content as blob
@@ -239,25 +259,58 @@
 
             // Create URL for the blob
             const url = URL.createObjectURL(blob);
+
+            // Always detect the mime type to ensure accuracy
+            let mimeType = await detectMimeType(blob);
+            
+            console.log('Detected MIME type:', mimeType);
             
             // Update the component state with the URL and detected mime type
             selectedFile.value = {
-            ...file,
-            url: url,
-            mimeType: blob.type,
-            fileName: getFileNameFromType(file.type, file.id, blob.type)
+                ...file,
+                url: url,
+                mimeType: mimeType,
+                fileName: getFileNameFromType(file.type, file.id, mimeType),
+                isImage: mimeType.startsWith('image/')
             };
 
         } catch (error) {
             console.error('Error viewing file:', error);
             showToast({
-            message: 'Failed to load file: ' + error.message,
-            type: 'error'
+                message: 'Failed to load file: ' + error.message,
+                type: 'error'
             });
             closeViewerModal();
         } finally {
             fileLoading.value = false;
         }
+    }
+
+    // Add this function to detect MIME type from file signature
+        async function detectMimeType(blob) {
+        // Only read the first few bytes to check the file signature
+        const firstBytes = await blob.slice(0, 4).arrayBuffer();
+        const signature = new Uint8Array(firstBytes);
+        
+        // Check for PDF signature: %PDF (25 50 44 46)
+        if (signature[0] === 0x25 && signature[1] === 0x50 && 
+            signature[2] === 0x44 && signature[3] === 0x46) {
+            return 'application/pdf';
+        }
+        
+        // Check for PNG signature: PNG (89 50 4E 47)
+        if (signature[0] === 0x89 && signature[1] === 0x50 && 
+            signature[2] === 0x4E && signature[3] === 0x47) {
+            return 'image/png';
+        }
+        
+        // Check for JPEG signature: FFD8 (first 2 bytes)
+        if (signature[0] === 0xFF && signature[1] === 0xD8) {
+            return 'image/jpeg';
+        }
+        
+        // Default to PDF if we can't determine the type
+        return 'application/pdf';
     }
 
 
@@ -822,24 +875,71 @@
     <!-- Modal Header -->
     <div class="flex justify-between items-center p-4 border-b">
         <h3 class="text-lg font-medium text-gray-900">{{ selectedFile?.typeLabel }}</h3>
-        <button 
-        @click="closeViewerModal" 
-        class="text-gray-400 hover:text-gray-500 focus:outline-none"
-        >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-        </button>
+        <div class="flex items-center space-x-2">
+            <!-- Download button -->
+            <button 
+            @click="downloadFile(selectedFile)" 
+            class="text-gray-600 hover:text-gray-700 focus:outline-none"
+            title="Download file"
+            >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            </button>
+            
+            <!-- Close button -->
+            <button 
+            @click="closeViewerModal" 
+            class="text-gray-400 hover:text-gray-500 focus:outline-none"
+            >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            </button>
+        </div>
     </div>
+
     
     <!-- Modal Body - File Viewer -->
     <div class="flex-grow p-2 overflow-hidden">
-        <iframe 
-            v-if="selectedFile && selectedFile.url" 
+        <!-- Loading indicator -->
+        <div v-if="fileLoading" class="flex items-center justify-center h-full">
+            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2f4a71]"></div>
+        </div>
+        
+        <!-- File content -->
+        <template v-else-if="selectedFile && selectedFile.url">
+            <!-- PDF viewer -->
+            <iframe 
+            v-if="selectedFile.mimeType === 'application/pdf'" 
             :src="selectedFile.url" 
             class="w-full h-full border-0"
-            title="File Viewer"
-        ></iframe>
+            title="PDF Viewer"
+            ></iframe>
+            
+            <!-- Image viewer -->
+            <div 
+            v-else-if="selectedFile.isImage" 
+            class="flex items-center justify-center h-full"
+            >
+            <img 
+                :src="selectedFile.url" 
+                :alt="selectedFile.fileName" 
+                class="max-w-full max-h-full object-contain"
+            />
+            </div>
+            
+            <!-- Unsupported file type -->
+            <div 
+            v-else 
+            class="flex flex-col items-center justify-center h-full"
+            >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <p class="mt-3 text-gray-600">Unsupported file type</p>
+            </div>
+        </template>
     </div>
     </div>
 </div>
