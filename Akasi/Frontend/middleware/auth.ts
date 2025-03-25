@@ -22,7 +22,9 @@ export default defineNuxtRouteMiddleware((to) => {
     // Check if userRole is in the array of required roles
     if (userRole.value && !requiredRole.includes(userRole.value)) {
       // User doesn't have any of the required roles
-      if (userRole.value === 'admin') {
+      if (userRole.value === 'manager') {
+        return navigateTo('/dashboard'); // Redirect superuser
+      } else if (userRole.value === 'admin') {
         return navigateTo('/home'); // Redirect admin
       } else if (userRole.value === 'client') {
         return navigateTo('/bulletin'); // Redirect client

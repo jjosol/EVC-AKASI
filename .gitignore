@@ -1,2 +1,6 @@
+# .gitignore
+google-credentials.json
 CMS/NUXT/
 Miscellaneous/
+Backend/backups
+Backend/credentials

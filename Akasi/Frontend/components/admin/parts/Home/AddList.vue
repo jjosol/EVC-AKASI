@@ -1,8 +1,10 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue';
 import { formatAMPM } from '~/composables/useTimeFormatter';
 import moment from 'moment-timezone';
 import * as consultationRecordService from '~/services/consultationRecordService';
+// Add this after your import
+
 
 //prop
 const props = defineProps({
@@ -83,7 +85,9 @@ const updateConsultationRecord = async (consultation_id, person) => {
       confined: person.confined || false,
       medAdministration: person.medicationAdministration || false,
       // Convert intern to a proper boolean even if it's a string
-      intern: person.intern === true || person.intern === 'true'
+      intern: person.intern === true || person.intern === 'true',
+      action: person.action || '',
+      disposition: person.disposition || ''
     });
 
     return response;
@@ -136,7 +140,9 @@ const createConsultationRecord = async (person) => {
       confined: selectedConsultationRecord.value?.confined || false,
       intern: selectedConsultationRecord.value?.intern || false,
       medAdministration: true,
-      doctor: 'John Doe'
+      doctor: 'John Doe',
+      action: person.action || '',
+      disposition: person.disposition || ''
     };
 
     return await consultationRecordService.createConsultationRecord(data);
@@ -245,18 +251,19 @@ const savePerson = async () => {
       throw new Error('Client ID is required');
     }
 
+    // Filter out any empty complaints before saving
+    if (selectedPerson.value.complaints) {
+      selectedPerson.value.complaints = selectedPerson.value.complaints.filter(
+        complaint => complaint.text && complaint.text.trim() !== ''
+      );
+    }
+
     // Ensure complaints is defined as an array and not empty
     if (
       !Array.isArray(selectedPerson.value.complaints) ||
-      !selectedPerson.value.complaints.length ||
-      selectedPerson.value.complaints.every(complaint => typeof complaint !== 'object' || !complaint.text || !complaint.text.trim())
+      !selectedPerson.value.complaints.length
     ) {
-      throw new Error('At least one complaint with content is required');
-    }
-
-    // Ensure complaints is defined as an array
-    if (!Array.isArray(selectedPerson.value.complaints)) {
-      selectedPerson.value.complaints = [];
+      throw new Error('At least one diagnosis is required');
     }
 
     // Prepare consultation data
@@ -278,8 +285,14 @@ const savePerson = async () => {
       confined: Boolean(selectedPerson.value.confined),
       medAdministration: Boolean(selectedPerson.value.medicationAdministration),
       intern: Boolean(selectedPerson.value.intern),
+      // Include diagnosis_ids array if present
+      diagnosis_ids: selectedPerson.value.complaints
+        .filter(c => c.disease_id)
+        .map(c => c.disease_id),
+      action: selectedPerson.value.action || '',
+      disposition: selectedPerson.value.disposition || ''
     };
-    console.log(selectedPerson.value.intern)
+
     let consultationId;
 
     // Check if updating an existing consultation record
@@ -306,6 +319,21 @@ const savePerson = async () => {
     // Ensure consultationId is obtained
     if (!consultationId) {
       throw new Error('Consultation ID is not available');
+    }
+
+    // Handle individual diagnoses via the specialized endpoints if they have disease_id
+    // This step allows us to maintain the proper relationships in the database
+    for (const complaint of selectedPerson.value.complaints) {
+      if (complaint.disease_id) {
+        try {
+          await consultationRecordService.linkDiagnosisToConsultation(
+            consultationId, 
+            complaint.disease_id
+          );
+        } catch (error) {
+          console.warn(`Failed to link diagnosis ${complaint.disease_id} to consultation: ${error.message}`);
+        }
+      }
     }
 
     // Handle medicines if medication administration is enabled
@@ -395,6 +423,8 @@ onMounted(() => {
   fetchPatients();
   fetchRecordCount();
   fetchInventory(); // This should be called
+  fetchDiseases();
+  fetchDiseaseCategories();
 });
 console.log(patients)
 // Initialize values for meds list
@@ -493,16 +523,34 @@ const openEditModal = async (patient) => {
       remarks: record.remarks
     }));
 
+    // Handle existing diagnoses if available in the consultationRecord
+    let diagnosisComplaints = [];
+    if (consultationRecord.diagnoses && consultationRecord.diagnoses.length > 0) {
+      diagnosisComplaints = consultationRecord.diagnoses.map(diag => ({
+        id: generateId(),
+        text: diag.diagnosis.name,
+        disease_id: diag.diagnosis_id,
+        category: diag.diagnosis.category?.name || ''
+      }));
+    } else if (consultationRecord.complaint) {
+      // Fallback to the old way of splitting complaint text
+      diagnosisComplaints = consultationRecord.complaint.split(', ').map(text => ({ 
+        id: generateId(), 
+        text: text.trim() 
+      }));
+    }
+
     selectedPerson.value = {
       ...patient,
       clientId: patient.id,
-      complaints: consultationRecord.complaint ? consultationRecord.complaint.split(', ').map(text => ({ id: generateId(), text: text })) : [], // Split the complaints string into an array of objects
+      complaints: diagnosisComplaints,
       remarks: consultationRecord.remarks,
       confined: consultationRecord.confined,
       intern: consultationRecord.intern,
       medicationAdministration: consultationRecord.medAdministration,
-      medicines: mappedMedicines, // Add the medicines array
-
+      medicines: mappedMedicines,
+      action: consultationRecord.action || '',
+      disposition: consultationRecord.disposition || ''
     };
 
     showEditModal.value = true;
@@ -539,7 +587,9 @@ const addPerson = (person) => {
       ...person,
       addedAt: now,
       medicines: [],
-      complaints: [{ id: generateId(), text: '' }],
+      complaints: selectedPerson.value?.complaints !== undefined ? selectedPerson.value.complaints : [],
+      action: '',
+      disposition: ''
     };
     selectedTime.value = formatAMPM(now);
     showEditModal.value = true;
@@ -768,17 +818,446 @@ const addComplaint = () => {
 const removeComplaint = (complaintId) => {
   const index = selectedPerson.value.complaints.findIndex(c => c.id === complaintId);
   if (index !== -1) {
-    const complaintElements = document.querySelectorAll('.delete-transition');
-    if (complaintElements[index]) {
-      complaintElements[index].classList.add('deleting');
-      setTimeout(() => {
-        selectedPerson.value.complaints.splice(index, 1);
-      }, 300);
-    } else {
-      selectedPerson.value.complaints.splice(index, 1);
-    }
+    // Immediately remove the complaint
+    selectedPerson.value.complaints.splice(index, 1);
   }
 };
+
+// Add new refs for diseases functionality
+const diseases = ref([]);
+const diseaseCategories = ref([]);
+const showAddDiseaseModal = ref(false);
+const showAddCategoryModal = ref(false); // New ref for category modal
+const newDisease = ref({ name: '', category_id: null, created_by: 1 }); // Removed description
+const newCategory = ref({ name: '' }); // New ref for category data
+const diagnosisSearchQuery = ref('');
+
+// Add these to your existing refs
+const showAddNewDiseaseForm = ref(false);
+const showAddNewCategoryForm = ref(false);
+
+// Fetch diseases and categories
+const fetchDiseases = async () => {
+  try {
+    const data = await consultationRecordService.fetchDiseases();
+    diseases.value = data;
+    console.log('Fetched diseases:', diseases.value.length);
+    
+    // Group diseases by category for easier management
+    const groupedByCategory = {};
+    diseases.value.forEach(disease => {
+      const categoryId = disease.category_id;
+      if (!groupedByCategory[categoryId]) {
+        groupedByCategory[categoryId] = [];
+      }
+      groupedByCategory[categoryId].push(disease);
+    });
+    
+  } catch (error) {
+    console.error('Error fetching diseases:', error);
+    alert('Failed to load diagnoses. Please try refreshing the page.');
+  }
+};
+
+const fetchDiseaseCategories = async () => {
+  try {
+    const data = await consultationRecordService.fetchDiseaseCategories();
+    diseaseCategories.value = data;
+    console.log('Fetched categories:', diseaseCategories.value.length);
+  } catch (error) {
+    console.error('Error fetching disease categories:', error);
+    alert('Failed to load diagnosis categories. Please try refreshing the page.');
+  }
+};
+
+// Add disease filtering
+const filteredDiseases = computed(() => {
+  if (!diagnosisSearchQuery.value) {
+    return diseases.value.slice(0, 15); // Return a limited number of most recent diagnoses
+  }
+  
+  const query = diagnosisSearchQuery.value.toLowerCase();
+  return diseases.value.filter(disease => 
+    disease.name.toLowerCase().includes(query) || 
+    (disease.category && disease.category.name.toLowerCase().includes(query))
+  );
+});
+
+// Method to add a new disease
+const addNewDisease = async () => {
+  try {
+    if (!newDisease.value.name || !newDisease.value.category_id) {
+      throw new Error('Disease name and category are required');
+    }
+    
+    // Add the current admin ID to the disease data
+    newDisease.value.created_by = 1; // Replace with actual admin ID from auth
+    
+    const response = await consultationRecordService.createDisease(newDisease.value);
+    
+    // Add the new disease to the local list
+    diseases.value.push(response);
+    
+    // Select the newly created disease
+    selectDisease(response);
+    
+    // Reset the form
+    newDisease.value = { name: '', category_id: null, created_by: 1 }; // Removed description
+    
+    // Close the modal
+    showAddDiseaseModal.value = false;
+    
+    // Show success message
+    alert('Diagnosis added successfully!');
+  } catch (error) {
+    console.error('Error adding disease:', error);
+    alert('Failed to add disease: ' + error.message);
+  }
+};
+
+// Method to select a disease for the complaint
+const selectDisease = (disease) => {
+  if (!selectedPerson.value) {
+    console.error('No patient selected');
+    return;
+  }
+  
+  if (!selectedPerson.value.complaints) {
+    selectedPerson.value.complaints = [];
+  }
+  
+  // Check if this disease is already selected to avoid duplicates
+  const alreadySelected = selectedPerson.value.complaints.some(
+    complaint => complaint.disease_id === disease.diagnosis_id
+  );
+  
+  if (!alreadySelected) {
+    selectedPerson.value.complaints.push({
+      id: generateId(),
+      text: disease.name,
+      disease_id: disease.diagnosis_id,
+      category: disease.category?.name || ''
+    });
+  } else {
+    alert('This diagnosis is already selected.');
+  }
+  
+  diagnosisSearchQuery.value = '';
+};
+
+// Method to add a new category
+const addNewCategory = async () => {
+  try {
+    if (!newCategory.value.name) {
+      throw new Error('Category name is required');
+    }
+    
+    const response = await consultationRecordService.createDiseaseCategory(newCategory.value);
+    
+    // Add the new category to the local list
+    diseaseCategories.value.push(response);
+    
+    // Reset the form
+    newCategory.value = { name: '' };
+    
+    // Close the modal
+    showAddCategoryModal.value = false;
+    
+    // Show success message
+    alert('Category added successfully!');
+  } catch (error) {
+    console.error('Error adding category:', error);
+    alert('Failed to add category: ' + error.message);
+  }
+};
+
+// Add these new refs for improved UI/UX
+const showCategoryInput = ref(false);
+
+// Toggle the category input field
+const toggleCategoryInput = () => {
+  showCategoryInput.value = !showCategoryInput.value;
+  if (!showCategoryInput.value) {
+    newCategory.value = { name: '' }; // Reset when hiding
+  }
+};
+
+// Add a new category inline and select it
+const addNewCategoryInline = async () => {
+  try {
+    if (!newCategory.value.name) {
+      alert('Please enter a category name');
+      return;
+    }
+    
+    const response = await consultationRecordService.createDiseaseCategory(newCategory.value);
+    
+    // Add the new category to the local list
+    diseaseCategories.value.push(response);
+    
+    // Select the newly created category
+    newDisease.value.category_id = response.category_id;
+    
+    // Reset and hide the input
+    newCategory.value = { name: '' };
+    showCategoryInput.value = false;
+    
+    // Show success message
+    alert('Category added successfully!');
+  } catch (error) {
+    console.error('Error adding category:', error);
+    alert('Failed to add category: ' + error.message);
+  }
+};
+
+// Add delete functionality for diagnoses
+const deleteDisease = async (diagnosisId) => {
+  try {
+    if (confirm('Are you sure you want to delete this diagnosis? This cannot be undone.')) {
+      await consultationRecordService.deleteDisease(diagnosisId);
+      
+      // Remove from local list
+      diseases.value = diseases.value.filter(d => d.diagnosis_id !== diagnosisId);
+      
+      alert('Diagnosis deleted successfully!');
+    }
+  } catch (error) {
+    console.error('Error deleting diagnosis:', error);
+    alert('Failed to delete diagnosis: ' + error.message);
+  }
+};
+
+// Make sure to include these in onMounted
+
+
+// Add these refs
+const diagnosisManageSearchQuery = ref('');
+
+// Computed property to organize diseases by category
+const diseasesByCategory = computed(() => {
+  const grouped = {};
+  
+  // Group by category_id
+  diseases.value.forEach(disease => {
+    const categoryId = disease.category_id || 'uncategorized';
+    if (!grouped[categoryId]) {
+      grouped[categoryId] = [];
+    }
+    grouped[categoryId].push(disease);
+  });
+  
+  // Sort categories by name
+  const sortedGrouped = {};
+  Object.keys(grouped).sort((a, b) => {
+    const catA = getCategoryName(a);
+    const catB = getCategoryName(b);
+    return catA.localeCompare(catB);
+  }).forEach(key => {
+    sortedGrouped[key] = grouped[key];
+  });
+  
+  return sortedGrouped;
+});
+
+// Helper to get category name by ID
+const getCategoryName = (categoryId) => {
+  if (categoryId === 'uncategorized') return 'Uncategorized';
+  const category = diseaseCategories.value.find(c => c.category_id == categoryId);
+  return category ? category.name : 'Unknown';
+};
+
+// Filter diagnoses by category with search
+const filteredDiagnosesByCategory = (categoryId, customSearchQuery) => {
+  // Use the provided search query or fall back to the global one
+  const searchToUse = customSearchQuery !== undefined ? customSearchQuery : diagnosisManageSearchQuery.value;
+  
+  if (!searchToUse) {
+    return diseasesByCategory.value[categoryId] || [];
+  }
+  
+  const query = searchToUse.toLowerCase();
+  return (diseasesByCategory.value[categoryId] || []).filter(disease => 
+    disease.name.toLowerCase().includes(query)
+  );
+};
+
+// Add category deletion function
+const deleteCategory = async (categoryId) => {
+  try {
+    if (!confirm('Are you sure you want to delete this category? This will also delete ALL diagnoses under this category. This action cannot be undone.')) {
+      return;
+    }
+    
+    // Delete all diseases in the category first
+    const diseasesToDelete = diseases.value.filter(d => d.category_id === categoryId);
+    for (const disease of diseasesToDelete) {
+      await consultationRecordService.deleteDisease(disease.diagnosis_id);
+    }
+    
+    // Then delete the category itself
+    await consultationRecordService.deleteDiseaseCategory(categoryId);
+    
+    // Update local state
+    diseases.value = diseases.value.filter(d => d.category_id !== categoryId);
+    diseaseCategories.value = diseaseCategories.value.filter(c => c.category_id !== categoryId);
+    
+    // Show success message
+    alert('Category and associated diagnoses deleted successfully!');
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    alert('Failed to delete category: ' + error.message);
+  }
+};
+
+// Add this to your onMounted or in a method that resets the form state
+const resetFormStates = () => {
+  showAddNewDiseaseForm.value = false;
+  showAddNewCategoryForm.value = false;
+  newDisease.value = { name: '', category_id: null, created_by: 1 };
+  newCategory.value = { name: '' };
+};
+
+// Add these new refs for managing the modals
+const showAddDiagnosisModal = ref(false);
+const showManageModal = ref(false);
+const activeManageTab = ref('diagnoses');
+
+/**
+ * Opens the add diagnosis modal
+ */
+const openAddDiagnosisModal = () => {
+  // Reset the form
+  newDisease.value = { name: '', category_id: null, created_by: 1 };
+  showAddDiagnosisModal.value = true;
+};
+
+/**
+ * Cancels adding a diagnosis and closes the modal
+ */
+const cancelAddDiagnosis = () => {
+  showAddDiagnosisModal.value = false;
+};
+
+/**
+ * Opens the add category modal
+ */
+const openAddCategoryModal = () => {
+  // Reset the form
+  newCategory.value = { name: '' };
+  showAddCategoryModal.value = true;
+};
+
+/**
+ * Cancels adding a category and closes the modal
+ */
+const cancelAddCategory = () => {
+  showAddCategoryModal.value = false;
+};
+
+/**
+ * Opens the management modal
+ */
+const openManageModal = () => {
+  showManageModal.value = true;
+  activeManageTab.value = 'diagnoses';
+};
+
+/**
+ * Closes the management modal
+ */
+const closeManageModal = () => {
+  showManageModal.value = false;
+};
+
+/**
+ * Saves a new diagnosis
+ * @returns {Promise<void>}
+ */
+const saveDiagnosis = async () => {
+  try {
+    if (!newDisease.value.name || !newDisease.value.category_id) {
+      throw new Error('Disease name and category are required');
+    }
+    
+    newDisease.value.created_by = 1; // Replace with actual admin ID
+    
+    const response = await consultationRecordService.createDisease(newDisease.value);
+    
+    // Add to local list
+    diseases.value.push(response);
+    
+    // Close the modal
+    showAddDiagnosisModal.value = false;
+    
+    // Show success message
+    alert('Diagnosis added successfully!');
+    
+    // Optionally, select the new diagnosis if we're in the consultation form
+    if (selectedPerson.value) {
+      selectDisease(response);
+    }
+    
+  } catch (error) {
+    console.error('Error adding diagnosis:', error);
+    alert('Failed to add diagnosis: ' + error.message);
+  }
+};
+
+/**
+ * Saves a new category
+ * @returns {Promise<void>}
+ */
+const saveCategory = async () => {
+  try {
+    if (!newCategory.value.name) {
+      throw new Error('Category name is required');
+    }
+    
+    const response = await consultationRecordService.createDiseaseCategory(newCategory.value);
+    
+    // Add to local list
+    diseaseCategories.value.push(response);
+    
+    // If we're adding from the diagnosis modal, select this new category
+    if (showAddDiagnosisModal.value) {
+      newDisease.value.category_id = response.category_id;
+    }
+    
+    // Close the category modal
+    showAddCategoryModal.value = false;
+    
+    // Show success message
+    alert('Category added successfully!');
+    
+  } catch (error) {
+    console.error('Error adding category:', error);
+    alert('Failed to add category: ' + error.message);
+  }
+};
+
+// Add a new ref to track the active tab
+const activeTab = ref('consultation');
+
+// Function to switch tabs
+const switchTab = (tab) => {
+  activeTab.value = tab;
+};
+
+// Add this new ref to control dropdown visibility
+const showDiagnosisDropdown = ref(false);
+
+// Note: We already have filteredDiseases computed property defined earlier in the code
+
+// Function to toggle the diagnosis dropdown
+const toggleDiagnosisDropdown = () => {
+  showDiagnosisDropdown.value = !showDiagnosisDropdown.value;
+};
+
+// Close dropdown when clicking outside
+const closeDiagnosisDropdown = () => {
+  showDiagnosisDropdown.value = false;
+};
+
 </script>
 
 <template>
@@ -787,49 +1266,82 @@ const removeComplaint = (complaintId) => {
     <div class="h-full p-5 overflow-y-auto l">
       <h2 class="text-2xl text-[#2f4a71]">{{ selectedDate.day }}</h2>
       <h2 class="mb-4 text-3xl font-bold text-[#2f4a71] border-b-2 border-[#2f4a71]">{{ selectedDate.monthYear }}</h2>
-      <!-- <p class="text-2xl text-[#d3cae7]">CONFINEMENTS:</p> -->
-      <button @click="showAddModal = true" v-if="!showAddModal" class="block p-2 mt-4 ml-auto text-3xl active:bg-blue-700 text-white rounded-full  bg-[#745dab] "><Icon icon="subway:add-1" /></button>
-      <button @click="cancelAdd" v-if="showAddModal" class="block p-2  ml-auto text-3xl active:bg-blue-700 text-white rounded-full  bg-[#745dab] "><Icon icon="maki:cross" /></button>
-      <div v-if="showAddModal">
-        <div class="flex items-center mt-1 mb-4">
-          <div class="relative w-full">
-            <input
-              v-model="searchQuery"
-              placeholder="Search"
-              class="w-full p-2 pl-10 border border-[#2f4a71] rounded-full focus:outline-none"
-            />
-            <Icon icon="fluent:search-12-regular" class="absolute top-2 left-3 text-[#2f4a71]" />
+      
+      <!-- Tab buttons -->
+      <div class="flex mb-4 border-b border-gray-200">
+        <button 
+          @click="switchTab('consultation')" 
+          class="px-4 py-2 mr-2 font-medium transition-colors rounded-t-lg"
+          :class="activeTab === 'consultation' ? 'bg-[#745dab] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+        >
+          Consultation
+        </button>
+        <button 
+          @click="switchTab('appointment')" 
+          class="px-4 py-2 font-medium transition-colors rounded-t-lg"
+          :class="activeTab === 'appointment' ? 'bg-[#745dab] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+        >
+          Appointment
+        </button>
+      </div>
+      
+      <!-- Consultation Tab Content -->
+      <div v-if="activeTab === 'consultation'">
+        <!-- Existing content for consultation view -->
+        <button @click="showAddModal = true" v-if="!showAddModal" class="block p-2 mt-4 ml-auto text-3xl active:bg-blue-700 text-white rounded-full bg-[#745dab]"><Icon icon="subway:add-1" /></button>
+        <button @click="cancelAdd" v-if="showAddModal" class="block p-2 ml-auto text-3xl active:bg-blue-700 text-white rounded-full bg-[#745dab]"><Icon icon="maki:cross" /></button>
+        
+        <!-- Rest of your existing consultation content -->
+        <div v-if="showAddModal">
+          <div class="flex items-center mt-1 mb-4">
+            <div class="relative w-full">
+              <input
+                v-model="searchQuery"
+                placeholder="Search"
+                class="w-full p-2 pl-10 border border-[#2f4a71] rounded-full focus:outline-none"
+              />
+              <Icon icon="fluent:search-12-regular" class="absolute top-2 left-3 text-[#2f4a71]" />
+            </div>
+            <!-- <button @click="cancelAdd" class="ml-4 text-[#2f4a71] hover:underline">Cancel</button> -->
           </div>
-          <!-- <button @click="cancelAdd" class="ml-4 text-[#2f4a71] hover:underline">Cancel</button> -->
+          <!-- People List -->
+          <ul class="overflow-y-auto max-h-60 text-[#2f4a71]">
+            <li
+              v-for="person in filteredPeople"
+              :key="person.name"
+              class="flex items-center justify-between p-2 mb-2 text-lg rounded-lg hover:bg-indigo-100"
+            >
+              <span>{{ person.name }}</span>
+              <button @click="addPerson(person)" class="p-2 text-[#2f4a71] hover:text-white bg-transparent hover:bg-[#2f4a71] rounded-full">
+                <Icon icon="subway:add-1" />
+              </button>
+            </li>
+          </ul>
         </div>
-        <!-- People List -->
-        <ul class="overflow-y-auto max-h-60 text-[#2f4a71]">
-          <li
-            v-for="person in filteredPeople"
-            :key="person.name"
-            class="flex items-center justify-between p-2 mb-2 text-lg rounded-lg hover:bg-indigo-100"
-          >
-            <span>{{ person.name }}</span>
-            <button @click="addPerson(person)" class="p-2 text-[#2f4a71] hover:text-white bg-transparent hover:bg-[#2f4a71] rounded-full">
-              <Icon icon="subway:add-1" />
+
+        <ul class="mt-4 overflow-y-auto max-h-60">
+          <li v-for="(patient, index) in patients" :key="patient.consultationId" class="flex items-center justify-between mb-2 text-lg confinement-item text-[#2f4a71]">
+            <span @click="openEditModal(patient)" class="cursor-pointer confinement-details">
+              {{ patient.name }} - {{ patient.occupation }} - {{ patient.time }} 
+            </span>
+            <button @click="deleteConsultationRecord(patient.consultation_id)" class="p-1 .text-white bg-red-500 rounded ">
+              <Icon icon="fluent:delete-28-regular" />
             </button>
           </li>
         </ul>
       </div>
-  
-
-      <ul class="mt-4 overflow-y-auto max-h-60">
-        <li v-for="(patient, index) in patients" :key="patient.consultationId" class="flex items-center justify-between mb-2 text-lg confinement-item text-[#2f4a71]">
-          <span @click="openEditModal(patient)" class="cursor-pointer confinement-details">
-            {{ patient.name }} - {{ patient.occupation }} - {{ patient.time }} 
-          </span>
-          <button @click="deleteConsultationRecord(patient.consultation_id)" class="p-1 .text-white bg-red-500 rounded ">
-            <Icon icon="fluent:delete-28-regular" />
-          </button>
-        </li>
-      </ul>
+      
+      <!-- Appointment Tab Content -->
+      <div v-else-if="activeTab === 'appointment'" class="mt-4">
+        <div class="p-8 text-center text-gray-500 border-2 border-dashed rounded-lg">
+          <p class="text-lg font-medium">Appointment feature coming soon</p>
+          <p class="mt-2">This section is under development</p>
+        </div>
+      </div>
     </div>
   </div>
+  
+  <!-- Rest of your existing template code -->
     <!-- Add Modal -->
   
 
@@ -887,31 +1399,84 @@ const removeComplaint = (complaintId) => {
         </div>
         <!-- Complaint -->
         <div class="mb-4">
-  <label for="complaint" class="block text-sm font-semibold text-gray-600">Complaint</label>
-  <div class="flex flex-wrap gap-2">
-    <div v-for="(complaint, index) in selectedPerson.complaints" :key="complaint.id" class="flex items-center delete-transition">
-      <!-- Move delete button to left side -->
-      <button
-        v-if="selectedPerson.complaints.length > 1"
-        @click="removeComplaint(complaint.id)"
-        class="mr-2 text-red-500 hover:text-red-700 delete-button"
-      >
+  <label for="complaint" class="block text-sm font-semibold text-gray-600">Diagnosis</label>
+  <div class="flex items-center mb-2 space-x-2">
+    <div class="relative flex-grow">
+      <input 
+        v-model="diagnosisSearchQuery"
+        type="text"
+        placeholder="Search or select diagnoses..."
+        class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md"
+        @focus="showDiagnosisDropdown = true"
+        @blur="setTimeout(() => closeDiagnosisDropdown(), 200)"
+      />
+      <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+        <Icon icon="mdi:magnify" class="w-5 h-5 text-gray-400" />
+      </div>
+      <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+        <button 
+          @click="toggleDiagnosisDropdown" 
+          type="button"
+          class="text-gray-400 focus:outline-none"
+        >
+          <Icon :icon="showDiagnosisDropdown ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="w-5 h-5" />
+        </button>
+      </div>
+      
+      <!-- Show dropdown when input is focused or dropdown toggle is clicked -->
+      <div v-if="showDiagnosisDropdown || diagnosisSearchQuery" 
+           class="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg">
+        <div v-if="filteredDiseases.length === 0" class="p-3 text-sm text-gray-500">
+          No matching diagnoses
+        </div>
+        <div v-else class="overflow-y-auto max-h-60">
+          <!-- Group diagnoses by category for better organization -->
+          <div v-for="(categoryId, index) in Object.keys(diseasesByCategory)" :key="categoryId" class="border-b last:border-b-0">
+            <div class="px-3 py-1 text-xs font-semibold text-gray-500 bg-gray-50">
+              {{ getCategoryName(categoryId) }}
+            </div>
+            <div 
+              v-for="disease in filteredDiagnosesByCategory(categoryId, diagnosisSearchQuery)"
+              :key="disease.diagnosis_id"
+              @click="selectDisease(disease)"
+              class="flex items-center justify-between p-2 cursor-pointer hover:bg-gray-100"
+            >
+              <div>
+                <div class="font-medium">{{ disease.name }}</div>
+              </div>
+              <Icon icon="mdi:plus" class="text-green-500" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Buttons for managing diagnoses/categories -->
+    <button 
+      @click="openAddDiagnosisModal" 
+      class="flex items-center px-3 py-2 text-white bg-purple-600 rounded-md hover:bg-purple-700"
+    >
+      <Icon icon="mdi:plus" class="mr-1" />
+      New
+    </button>
+    <button 
+      @click="openManageModal" 
+      class="flex items-center px-3 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700"
+    >
+      <Icon icon="mdi:cog" class="mr-1" />
+      Manage
+    </button>
+  </div>
+  
+  <!-- Selected diagnoses display (keep this from your existing code) -->
+  <div class="flex flex-wrap gap-2 mb-2">
+    <div v-for="complaint in selectedPerson.complaints" :key="complaint.id" class="flex items-center px-3 py-1 bg-purple-100 rounded-full">
+      {{ complaint.text }}
+      <button @click="removeComplaint(complaint.id)" class="ml-2 text-red-500 hover:text-red-700">
         <Icon icon="mdi:delete" />
       </button>
-      <input
-        type="text"
-        v-model="complaint.text"
-        placeholder="Enter illness"
-        class="w-48 px-2 py-1 border border-gray-300 rounded"
-      />
     </div>
   </div>
-  <button
-    @click="addComplaint"
-    class="px-4 py-2 mt-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600"
-  >
-    Add Complaint
-  </button>
 </div>
             <div class="mb-4">
                 <label for="remarks" class="block text-sm font-semibold text-gray-600">Remarks</label>
@@ -976,6 +1541,31 @@ const removeComplaint = (complaintId) => {
         <div class="flex justify-between mt-6">
           <button @click="cancelEdit" class="text-purple-600 underline">Cancel</button>
           <button @click="savePerson" class="px-4 py-2 text-white bg-purple-500 rounded-lg">Submit</button>
+        </div>
+
+        <!-- Action and Disposition Fields (moved from tabs) -->
+        <div class="pt-4 mt-6 mb-4 border-t border-gray-200">
+          <div class="mb-4">
+            <label for="action" class="block text-sm font-semibold text-gray-600">Action's Taken</label>
+            <textarea
+              id="action"
+              v-model="selectedPerson.action"
+              rows="4"
+              class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter actions taken...">
+            </textarea>
+          </div>
+
+          <div class="mb-4">
+            <label for="disposition" class="block text-sm font-semibold text-gray-600">Disposition of the Student</label>
+            <textarea
+              id="disposition"
+              v-model="selectedPerson.disposition"
+              rows="4"
+              class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter student disposition...">
+            </textarea>
+          </div>
         </div>
       </div>
     </div>
@@ -1127,6 +1717,434 @@ const removeComplaint = (complaintId) => {
 </div>
 
   </div>
+
+  <!-- Improved Add Disease Modal -->
+<div v-if="showAddDiseaseModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60]">
+  <div class="w-full max-w-4xl p-8 bg-white rounded-lg shadow-lg overflow-y-auto max-h-[80vh]">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-2xl font-semibold text-purple-600">Manage Diagnoses</h2>
+      <button 
+        @click="showAddDiseaseModal = false" 
+        aria-label="Close Modal" 
+        class="text-gray-500 hover:text-gray-700">
+        <Icon icon="mdi:close" class="w-6 h-6" />
+      </button>
+    </div>
+    
+    <!-- Content Grid -->
+    <div class="grid grid-cols-1 gap-8">
+      <!-- Diagnoses Section -->
+      <div class="p-6 border rounded-lg">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-700">Diagnoses</h3>
+          <button 
+            @click="showAddNewDiseaseForm = true"
+            class="flex items-center px-4 py-2 text-white bg-purple-600 rounded-md hover:bg-purple-700">
+            <Icon icon="mdi:plus" class="mr-1" />
+            Add Diagnosis
+          </button>
+        </div>
+        
+        <!-- New Disease Form (Conditional) -->
+        <div v-if="showAddNewDiseaseForm" class="p-4 mb-6 border rounded-md bg-gray-50">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-600">Category</label>
+              <select 
+                v-model="newDisease.category_id" 
+                class="w-full px-4 py-2 mt-1 border border-gray-300 rounded-md">
+                <option value="" disabled>Select a category</option>
+                <option v-for="category in diseaseCategories" :key="category.category_id" :value="category.category_id">
+                  {{ category.name }}
+                </option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-600">Diagnosis Name</label>
+              <input 
+                v-model="newDisease.name" 
+                type="text" 
+                placeholder="Enter diagnosis name"
+                class="w-full px-4 py-2 mt-1 border border-gray-300 rounded-md" />
+            </div>
+          </div>
+          <div class="flex justify-end mt-4 space-x-2">
+            <button 
+              @click="showAddNewDiseaseForm = false"
+              class="px-3 py-1 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">
+              Cancel
+            </button>
+            <button 
+              @click="addNewDisease"
+              class="px-3 py-1 text-white bg-purple-600 rounded-md hover:bg-purple-700">
+              Save
+            </button>
+          </div>
+        </div>
+        
+        <!-- Search Bar -->
+        <div class="relative mb-4">
+          <input 
+            v-model="diagnosisManageSearchQuery" 
+            type="text"
+            placeholder="Search diagnoses..."
+            class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md" />
+          <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            <Icon icon="mdi:magnify" class="w-5 h-5 text-gray-400" />
+          </div>
+        </div>
+        
+        <!-- Diagnoses Table -->
+        <div v-for="(groupedDiseases, categoryId) in diseasesByCategory" :key="categoryId" class="mb-6">
+          <div class="flex items-center justify-between px-4 py-2 bg-gray-100 rounded-t-md">
+            <h4 class="font-medium text-gray-700 text-md">{{ getCategoryName(categoryId) || 'Uncategorized' }}</h4>
+            <span class="px-2 py-1 text-xs text-gray-600 bg-gray-200 rounded-full">
+              {{ groupedDiseases.length }} items
+            </span>
+          </div>
+          <div class="divide-y divide-gray-200">
+            <div 
+              v-for="disease in filteredDiagnosesByCategory(categoryId, diagnosisManageSearchQuery)" 
+              :key="disease.diagnosis_id"
+              class="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
+              <div>
+                <p class="font-medium text-gray-800">{{ disease.name }}</p>
+                <p v-if="disease.created_at" class="text-xs text-gray-500">
+                  Added: {{ formatDate(disease.created_at) }}
+                </p>
+              </div>
+              <div class="flex space-x-3">
+                <button 
+                  @click="selectDisease(disease)" 
+                  class="p-2 text-white transition bg-green-500 rounded-md hover:bg-green-600"
+                  title="Select Diagnosis">
+                  <Icon icon="mdi:check" class="w-5 h-5" />
+                </button>
+                <button 
+                  @click="deleteDisease(disease.diagnosis_id)" 
+                  class="p-2 text-white transition bg-red-500 rounded-md hover:bg-red-600"
+                  title="Delete Diagnosis">
+                  <Icon icon="mdi:delete" class="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Categories Section -->
+      <div class="p-6 border rounded-lg">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-700">Categories</h3>
+          <button 
+            @click="showAddNewCategoryForm = true"
+            class="flex items-center px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700">
+            <Icon icon="mdi:plus" class="mr-1" />
+            Add Category
+          </button>
+        </div>
+        
+        <!-- New Category Form (Conditional) -->
+        <div v-if="showAddNewCategoryForm" class="p-4 mb-6 border rounded-md bg-gray-50">
+          <div>
+            <label class="block text-sm font-medium text-gray-600">Category Name</label>
+            <input 
+              v-model="newCategory.name" 
+              type="text" 
+              placeholder="Enter category name"
+              class="w-full px-4 py-2 mt-1 border border-gray-300 rounded-md" />
+          </div>
+          <div class="flex justify-end mt-4 space-x-2">
+            <button 
+              @click="showAddNewCategoryForm = false"
+              class="px-3 py-1 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">
+              Cancel
+            </button>
+            <button 
+              @click="addNewCategory"
+              class="px-3 py-1 text-white bg-blue-600 rounded-md hover:bg-blue-700">
+              Save
+            </button>
+          </div>
+        </div>
+        
+        <!-- Categories Table -->
+        <div class="border rounded-md">
+          <div v-for="category in diseaseCategories" :key="category.category_id" 
+               class="flex items-center justify-between px-4 py-3 border-b last:border-b-0 hover:bg-gray-50">
+            <span class="font-medium text-gray-700">{{ category.name }}</span>
+            <div class="flex space-x-2">
+              <button 
+                @click="deleteCategory(category.category_id)" 
+                class="p-1 text-white bg-red-500 rounded hover:bg-red-600" 
+                title="Delete Category">
+                <Icon icon="mdi:delete" class="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+          <div v-if="!diseaseCategories.length" class="px-4 py-3 text-sm text-gray-500">
+            No categories available.
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Footer -->
+    <div class="flex justify-end mt-6">
+      <button 
+        @click="showAddDiseaseModal = false" 
+        class="px-6 py-2 text-gray-700 transition bg-gray-200 rounded-md hover:bg-gray-300">
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Category Modal -->
+<div v-if="showAddCategoryModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 z-[70]">
+  <div class="w-1/3 p-6 bg-white rounded-2xl">
+    <h2 class="mb-4 text-2xl font-semibold">Add New Category</h2>
+    <div class="space-y-4">
+      <div>
+        <label for="category-name" class="block text-sm font-medium text-gray-700">Category Name</label>
+        <input 
+          v-model="newCategory.name" 
+          id="category-name" 
+          type="text" 
+          placeholder="Enter category name"
+          class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+        />
+      </div>
+    </div>
+    <div class="flex justify-end mt-6 space-x-3">
+      <button 
+        @click="showAddCategoryModal = false" 
+        class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">
+        Cancel
+      </button>
+      <button 
+        @click="addNewCategory" 
+        class="px-4 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600">
+        Add Category
+      </button>
+    </div>
+    <!-- Existing Categories List -->
+    <div class="mt-6">
+      <h3 class="mb-2 text-lg font-semibold">Existing Categories</h3>
+      <div v-if="diseaseCategories && diseaseCategories.length">
+        <div 
+          v-for="category in diseaseCategories" 
+          :key="category.category_id" 
+          class="flex items-center justify-between px-3 py-2 mb-2 border rounded-md">
+          <span>{{ category.name }}</span>
+          <button 
+            @click="deleteCategory(category.category_id)" 
+            class="p-2 text-white bg-red-500 rounded hover:bg-red-600" 
+            title="Delete Category">
+            <Icon icon="mdi:delete" class="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+      <div v-else class="text-sm text-gray-500">
+        No categories available.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Diagnosis Modal -->
+<div v-if="showAddDiagnosisModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60]">
+  <div class="w-full max-w-md p-6 bg-white rounded-lg shadow-lg">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-semibold text-gray-800">Add New Diagnosis</h2>
+      <button @click="cancelAddDiagnosis" class="text-gray-500 hover:text-gray-700">
+        <Icon icon="mdi:close" class="w-6 h-6" />
+      </button>
+    </div>
+
+    <div class="space-y-4">
+      <!-- Diagnosis Name -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Diagnosis Name</label>
+        <input 
+          v-model="newDisease.name" 
+          type="text" 
+          placeholder="Enter diagnosis name"
+          class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md" 
+        />
+      </div>
+
+      <!-- Category Dropdown -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Category</label>
+        <div class="flex space-x-2">
+          <div class="relative flex-grow">
+            <select 
+              v-model="newDisease.category_id" 
+              class="w-full px-3 py-2 pr-8 mt-1 border border-gray-300 rounded-md appearance-none"
+            >
+              <option value="" disabled>Select a category</option>
+              <option v-for="category in diseaseCategories" :key="category.category_id" :value="category.category_id">
+                {{ category.name }}
+              </option>
+            </select>
+            <div class="absolute inset-y-0 right-0 flex items-center px-2 mt-1 pointer-events-none">
+              <Icon icon="mdi:chevron-down" class="w-5 h-5 text-gray-400" />
+            </div>
+          </div>
+          <button 
+            @click="openAddCategoryModal" 
+            class="px-3 py-2 mt-1 text-white bg-blue-600 rounded-md hover:bg-blue-700"
+            title="Add new category"
+          >
+            <Icon icon="mdi:plus" />
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-end mt-6 space-x-3">
+      <button 
+        @click="cancelAddDiagnosis" 
+        class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+      >
+        Cancel
+      </button>
+      <button 
+        @click="saveDiagnosis" 
+        class="px-4 py-2 text-white bg-purple-600 rounded-md hover:bg-purple-700"
+        :disabled="!newDisease.name || !newDisease.category_id"
+      >
+        Add Diagnosis
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Management Modal -->
+<div v-if="showManageModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60]">
+  <div class="w-full max-w-4xl p-8 bg-white rounded-lg shadow-lg max-h-[80vh] overflow-y-auto">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-2xl font-semibold text-gray-800">Manage Diagnoses & Categories</h2>
+      <button @click="closeManageModal" class="text-gray-500 hover:text-gray-700">
+        <Icon icon="mdi:close" class="w-6 h-6" />
+      </button>
+    </div>
+    
+    <!-- Tab navigation -->
+    <div class="flex mb-6 border-b">
+      <button 
+        @click="activeManageTab = 'diagnoses'" 
+        class="px-4 py-2 -mb-px font-medium"
+        :class="activeManageTab === 'diagnoses' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-600'"
+      >
+        Diagnoses
+      </button>
+      <button 
+        @click="activeManageTab = 'categories'" 
+        class="px-4 py-2 -mb-px font-medium"
+        :class="activeManageTab === 'categories' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600'"
+      >
+        Categories
+      </button>
+    </div>
+    
+    <!-- Diagnoses Tab -->
+    <div v-if="activeManageTab === 'diagnoses'" class="space-y-6">
+      <div class="flex items-center justify-between">
+        <div class="relative w-64">
+          <input 
+            v-model="diagnosisManageSearchQuery"
+            type="text" 
+            placeholder="Search diagnoses..."
+            class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md"
+          />
+          <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            <Icon icon="mdi:magnify" class="w-5 h-5 text-gray-400" />
+          </div>
+        </div>
+        <button 
+          @click="openAddDiagnosisModal" 
+          class="flex items-center px-4 py-2 text-white bg-purple-600 rounded-md hover:bg-purple-700"
+        >
+          <Icon icon="mdi:plus" class="mr-1" />
+          Add Diagnosis
+        </button>
+      </div>
+      
+      <!-- Diagnoses List -->
+      <div v-for="(groupedDiseases, categoryId) in diseasesByCategory" :key="categoryId" class="mb-4">
+        <div class="flex items-center justify-between px-4 py-2 bg-gray-100 rounded-t-md">
+          <h4 class="font-medium text-gray-700">{{ getCategoryName(categoryId) }}</h4>
+          <span class="px-2 py-1 text-xs text-gray-600 bg-gray-200 rounded-full">
+            {{ groupedDiseases.length }} items
+          </span>
+        </div>
+        <div class="border border-t-0 rounded-b-md">
+          <div 
+            v-for="disease in filteredDiagnosesByCategory(categoryId, diagnosisManageSearchQuery)" 
+            :key="disease.diagnosis_id"
+            class="flex items-center justify-between px-4 py-2 border-b last:border-b-0"
+          >
+            <div>{{ disease.name }}</div>
+            <div class="flex space-x-2">
+              <button 
+                @click="deleteDisease(disease.diagnosis_id)"
+                class="p-1 text-red-500 rounded hover:text-white hover:bg-red-500"
+                title="Delete diagnosis"
+              >
+                <Icon icon="mdi:delete" class="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+          <div v-if="filteredDiagnosesByCategory(categoryId, diagnosisManageSearchQuery).length === 0" class="p-4 text-sm text-gray-500">
+            No diagnoses in this category
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Categories Tab -->
+    <div v-else-if="activeManageTab === 'categories'" class="space-y-6">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-800">Diagnosis Categories</h3>
+        <button 
+          @click="openAddCategoryModal" 
+          class="flex items-center px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700"
+        >
+          <Icon icon="mdi:plus" class="mr-1" />
+          Add Category
+        </button>
+      </div>
+      
+      <!-- Categories List -->
+      <div class="border rounded-md">
+        <div 
+          v-for="category in diseaseCategories" 
+          :key="category.category_id"
+          class="flex items-center justify-between px-4 py-3 border-b last:border-b-0"
+        >
+          <span>{{ category.name }}</span>
+          <div class="flex space-x-2">
+            <button 
+              @click="deleteCategory(category.category_id)"
+              class="p-1 text-red-500 rounded hover:text-white hover:bg-red-500"
+              title="Delete category (will also delete associated diagnoses)"
+            >
+              <Icon icon="mdi:delete" class="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+        <div v-if="diseaseCategories.length === 0" class="p-4 text-sm text-gray-500">
+          No categories available
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 </template>
 <style scoped>
 textarea {

@@ -1,8 +1,10 @@
 {
   "dependencies": {
+    "@google-cloud/storage": "^7.15.2",
     "@nestjs/platform-express": "^11.0.7",
-    "@prisma/client": "^6.3.1",
+    "@prisma/client": "^6.5.0",
     "concurrently": "^9.1.0",
+    "googleapis": "^148.0.0",
     "vue3-pdfjs": "^0.0.1"
   },
   "scripts": {

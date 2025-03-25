@@ -35,6 +35,7 @@ async function hashPasswords(tableName, idField) {
 // Example usage: Hash passwords for both Client and Admin tables
 async function main() {
     try {
+        await hashPasswords('manager', 'manager_id')
         await hashPasswords('client', 'client_id')
         await hashPasswords('admin', 'admin_id')
     } catch (error) {

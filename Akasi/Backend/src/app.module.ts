@@ -1,5 +1,5 @@
 //app.module.ts
-import { Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';  
 import {AdminsModule} from './admin/admins.module'
 import { PrismaModule } from './prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -21,10 +21,14 @@ import { FileModule } from './file/file.module';
 import { ProfileService } from './profile/profile.service';
 import { ProfileModule } from './profile/profile.module';
 import { ProfileController } from './profile/profile.controller';
+import { ManagersModule } from './managers/managers.module';
+import { BackupModule } from './backup/backup.module';
+import { DiagnosisModule } from './diagnosis/diagnosis.module';
+
 
 
 @Module({
-  imports: [PrismaModule, AdminsModule, AuthModule, ClientsModule, ConsultationRecordsModule, PostsModule, InventoryModule, MedAdministrationModule, StorageModule, FileModule, ProfileModule],
+  imports: [PrismaModule, AdminsModule, AuthModule, ClientsModule, ConsultationRecordsModule, PostsModule, InventoryModule, MedAdministrationModule, StorageModule, FileModule, ProfileModule, ManagersModule, BackupModule, DiagnosisModule],
   providers: [PostsService, MedAdministrationService, StorageService, FileService, ProfileService],
   controllers: [PostsController, MedAdministrationController, FileController, ProfileController],
 })

@@ -1,8 +1,6 @@
 <script setup>
 import { ref } from 'vue'
 import moment from 'moment-timezone'
-import Calendar from '~/components/admin/parts/Home/Calendar.vue';
-import AddList from '~/components/admin/parts/Home/AddList.vue';
 
 const currentDay = ref({ 
   date: moment().tz("Asia/Manila").toDate()

@@ -118,3 +118,28 @@ export async function del(endpoint: string) {
     throw error;
   }
 }
+
+// Add this new function to your apiService.ts
+export async function uploadFile(endpoint: string, formData: FormData) {
+  const token = localStorage.getItem('authToken');
+  
+  try {
+    const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : ''
+      },
+      body: formData
+    }, 60000); // Use longer timeout for uploads
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Upload to ${endpoint} failed: ${response.statusText}`);
+    }
+    
+    return response.json();
+  } catch (error) {
+    console.error(`Network error during upload to ${endpoint}:`, error);
+    throw error;
+  }
+}

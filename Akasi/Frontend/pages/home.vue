@@ -1,5 +1,7 @@
 <template>
   <HomeLayoutA/>
+  <HomeLayoutC/>
+  <HomeLayoutS/>
 </template>
 <script setup>
 definePageMeta({
