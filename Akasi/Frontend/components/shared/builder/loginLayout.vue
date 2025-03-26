@@ -2,48 +2,29 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuth } from '~/composables/useAuth';
+import { login } from '~/services/authService'; // Import the login function
 
 const router = useRouter();
 const username = ref<string>('');
 const password = ref<string>('');
 const loginError = ref<string>();
 
-const { setToken, isAdmin, isClient } = useAuth(); // Import setToken, isAdmin, and isClient
+const { setToken} = useAuth(); // Import setToken, isAdmin, and isClient
 
 const handleLogin = async () => {
   try {
-    console.log('Attempting login...');
-    const response = await fetch('http://localhost:3001/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username: username.value,
-        password: password.value,
-      }),
-    });
-
-    console.log('Response:', response);
-    const data = await response.json();
-    console.log('Login data:', data);
-
-    if (!response.ok) {
-      throw new Error(data.message || 'Login failed');
-    }
-
-    const { isAuthenticated, token, role } = data;
-
-    if (isAuthenticated && token) {
-      console.log('Setting token...');
-      setToken(token);
-
+    const { isAuthenticated, token, role } = await login(username.value, password.value);
+    if (isAuthenticated) {
+      setToken(token); // Use setToken from useAuth
       loginError.value = undefined;
       if (role === 'admin') {
         router.push('/home');
       } else if (role === 'client') {
         router.push('/bulletin');
-      } else {
+      }  else if (role === 'manager') {
+        router.push('/dashboard');
+      } 
+        else {
         router.push('/login');
       }
     }

@@ -1,7 +1,7 @@
 // consultation-records.controller.ts
 import { Body, Controller, Post, Get, Put, Delete, Param, ParseIntPipe, NotFoundException, BadRequestException, Query } from '@nestjs/common';
 import { ConsultationRecordsService } from './consultation-records.service';
-import { ConsultationRecordCreateInput, ConsultationRecordUpdateInput } from './consultation-records.types';
+//import { ConsultationRecordCreateInput, ConsultationRecordUpdateInput } from './consultation-records.types';
 
 @Controller('consultation-records')
 export class ConsultationRecordsController {

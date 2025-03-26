@@ -1,11 +1,16 @@
 <template>
-        <div>
-        <ProfileFilesStudent v-if="isStudent"/>
-        <ProfileFilesStaff v-else-if="isFaculty"/>
-        <div v-else>
-            <p>No matching layout for your user category</p>
+     <div class="flex-grow bg-white rounded-lg shadow">
+        <h3 class="m-5 font-bold"> Files</h3>
+        <div class="grid grid-cols-2 gap-2 mt-2 text-gray-700">
+            <p><button class="buttonGrey">Grade 7</button></p>
+            <p><button class="buttonGrey">Grade 10</button></p>
+            <p><button class="buttonGrey">Grade 8</button></p>
+            <p><button class="buttonGrey">Grade 11</button></p>
+            <p><button class="buttonGrey">Grade 9</button></p>
+            <p><button class="buttonGrey">Grade 12</button></p>
         </div>
-        </div>
+    </div>     
+
 </template>
     
     <script setup>
@@ -47,3 +52,22 @@
         console.log('Is Faculty:', isFaculty.value);
     });
 </script>
+
+<style>
+    .buttonGrey {
+        font-weight: bold;
+        background-color: lightgray;
+        color: #2f4a71;
+        padding: 20px 50px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    
+    }
+    
+    .buttonGrey:hover {
+        background-color: #2f4a71;
+        color: white;
+    }
+    
+</style>

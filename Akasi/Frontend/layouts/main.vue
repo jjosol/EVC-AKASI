@@ -30,21 +30,13 @@
 }
 </style>
 <template>
-    <div class="split left">
-        <div class="center">
-            <SideBarA v-if="isAdmin"/>
-            <SideBarC v-else-if="isClient"/>
-        </div>
-    </div>
-
-    <div class="split right">
-        <div class="center">
-            <slot/>
-        </div>
-    </div>
+    <SideBarA v-if="isAdmin"/>
+    <SideBarC v-else-if="isClient"/>
+    <SideBarM v-else-if="isManager"/>
+    <slot />
 </template>
 <script setup>
 import { useAuth } from '~/composables/useAuth';
-const { isAdmin, isClient } = useAuth();
+const { isAdmin, isClient, isManager } = useAuth();
 
 </script>

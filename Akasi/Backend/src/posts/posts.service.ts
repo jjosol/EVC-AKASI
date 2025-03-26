@@ -141,5 +141,9 @@ export class PostsService {
         where: { post_id: id }
       });
     });
-  }
+    // Then delete the post.
+    return tx.hSU_bulletin.delete({
+      where: { post_id: id }
+    });
+  };
 }

@@ -28,8 +28,9 @@
     "ohmyfetch": "^0.4.21",
     "puppeteer": "^24.4.0",
     "vue": "latest",
+    "vue-pdf-embed": "^2.1.2",
     "vue-router": "latest",
-    "xlsx": "^0.18.5"
+    "vue3-pdfjs": "^0.0.1"
   },
   "devDependencies": {
     "@iconify/vue": "^4.1.2",

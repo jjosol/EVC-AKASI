@@ -10,7 +10,7 @@
 
 */
 -- AlterTable
-ALTER TABLE `hsu_bulletin_files` DROP COLUMN `file_path`,
+ALTER TABLE `hsu_bulletin_files`
     ADD COLUMN `data` LONGBLOB NOT NULL,
     ADD COLUMN `mime_type` VARCHAR(191) NOT NULL,
     MODIFY `file_name` VARCHAR(191) NOT NULL,

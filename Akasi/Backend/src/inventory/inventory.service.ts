@@ -203,7 +203,7 @@ export class InventoryService {
       await this.prisma.inventory.deleteMany({
         where: { category_id: id }
       });
-
+      
       // Then, delete the category itself
       return await this.prisma.medicineCategory.delete({
         where: { category_id: id }

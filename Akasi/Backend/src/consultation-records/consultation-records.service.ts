@@ -1,8 +1,8 @@
 // consultation-records.service.ts
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { ConsultationRecordCreateInput, ConsultationRecordUpdateInput } from './consultation-records.types';
-import { Prisma } from '@prisma/client';
+//import { ConsultationRecordCreateInput, ConsultationRecordUpdateInput } from './consultation-records.types';
+//import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class ConsultationRecordsService {
@@ -43,7 +43,6 @@ export class ConsultationRecordsService {
           await this.linkDiagnosisToConsultation(record.consultation_id, diagnosis_id);
         }
       }
-
       return this.getConsultationRecord(record.consultation_id);
     } catch (error) {
       throw new BadRequestException(`Failed to create consultation record: ${error.message}`);
@@ -53,7 +52,20 @@ export class ConsultationRecordsService {
   // Method to update a consultation record
   async updateConsultationRecord(
     consultation_id: number,
-    person: ConsultationRecordUpdateInput,
+    person: {
+      clientId: number;
+      name: string;
+      occupation?: string;
+      grade?: string;
+      section?: string;
+      generalComplaint?: string;
+      remarks?: string;
+      action?: string;         // Add this field
+      disposition?: string;    // Add this field
+      confined?: boolean;
+      medicationAdministration?: boolean;
+      intern?: boolean;
+    },
   ) {
     try {
       const existingRecord = await this.getConsultationRecord(consultation_id);
