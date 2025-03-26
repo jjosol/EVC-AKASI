@@ -4,8 +4,9 @@ import { formatAMPM } from '~/composables/useTimeFormatter';
 import moment from 'moment-timezone';
 import { useProfile } from '~/composables/useProfile'
 import { useAppointmentsByDate } from '~/composables/useAppointmentsByDate';
+import * as consultationRecordService from '~/services/consultationRecordService';
 
-const { profile, fetchProfile } = useProfile()
+const activeTab = ref('consultation');
 
 // Appointments
 const { 
@@ -15,9 +16,6 @@ const {
   formatTime, 
   fetchAppointmentsByDate 
 } = useAppointmentsByDate();
-
-// Tab state
-const activeTab = ref('tab1');
 
 //prop
 const props = defineProps({
@@ -292,157 +290,6 @@ watch(
  * Handles both new records and updates
  * @returns {Promise<void>}
  */
-const savePerson = async () => {
-  try {
-    if (!selectedPerson.value?.clientId) {
-      throw new Error('Client ID is required');
-    }
-
-    // Prepare consultation data
-    const selectedDateTime = new Date(props.currentDay.date);
-    const now = new Date();
-    selectedDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
-
-    const consultationData = {
-      client_id: selectedPerson.value.clientId,
-      admin_id: 1, // Replace with the actual admin ID
-      date: selectedDateTime.toISOString(),
-      patient_name: selectedPerson.value.name,
-      patient_occupation:
-        selectedPerson.value.occupation ||
-        `${selectedPerson.value.grade}-${selectedPerson.value.section}`,
-      doctor: 'John Doe',
-      complaint: selectedPerson.value.generalComplaint || '',
-      remarks: selectedPerson.value.remarks || '',
-      confined: Boolean(selectedPerson.value.confined), // Ensure correct boolean value
-      medAdministration: Boolean(selectedPerson.value.medicationAdministration),
-    };
-
-    let consultationId;
-
-    // Check if updating an existing consultation record
-    if (selectedConsultationRecord.value?.consultation_id) {
-      // Update the existing consultation record
-      const response = await fetch(
-        `http://localhost:3001/consultation-records/${selectedConsultationRecord.value.consultation_id}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(consultationData),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to update consultation record');
-      }
-
-      consultationId = selectedConsultationRecord.value.consultation_id;
-    } else {
-      // Create a new consultation record
-      const response = await fetch('http://localhost:3001/consultation-records', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(consultationData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create consultation record');
-      }
-
-      const newRecord = await response.json();
-      consultationId = newRecord.consultation_id;
-    }
-
-    // Ensure consultationId is obtained
-    if (!consultationId) {
-      throw new Error('Consultation ID is not available');
-    }
-
-    // Handle medicines if medication administration is enabled
-    if (
-      selectedPerson.value.medicationAdministration &&
-      selectedPerson.value.medicines?.length > 0
-    ) {
-      for (const medicine of selectedPerson.value.medicines) {
-        if (medicine.markedForDeletion) {
-          // Delete the medicine
-          const response = await fetch(`http://localhost:3001/med-administration/${medicine.consultation_id}`, {
-            method: 'DELETE'
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to delete medicine record');
-          }
-        } else {
-          // Save or update the medicine
-          const medAdminData = {
-            consultation_id: consultationId,
-            client_id: selectedPerson.value.clientId,
-            admin_id: 1,
-            med_id: medicine.med_id,
-            medName: medicine.name,
-            count: Number(medicine.quantity),
-            schedule: medicine.schedule || '',
-            start_date: medicine.startDate,
-            end_date: medicine.endDate,
-            remarks: medicine.remarks || '',
-            date: new Date().toISOString(),
-            patient: selectedPerson.value.name
-          };
-
-          const response = await fetch('http://localhost:3001/med-administration', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(medAdminData)
-          });
-
-          if (!response.ok) {
-            throw new Error(`Failed to save medicine ${medicine.name}`);
-          }
-        }
-      }
-    }
-
-    // Reset form and refresh data
-    selectedPerson.value = null;
-    showEditModal.value = false;
-    showAddModal.value = false;
-    await fetchPatients();
-    emit('consultation-saved'); // Emit the event
-  } catch (error) {
-    console.error('Error saving data:', error);
-    alert('Failed to save data: ' + error.message);
-  }
-};
-
-/**
- * Fetches medicine inventory from API
- * @returns {Promise<void>}
- */
-const fetchInventory = async () => {
-  try {
-    const response = await fetch('http://localhost:3001/inventory');
-    if (!response.ok) {
-      throw new Error('Failed to fetch inventory');
-    }
-    const data = await response.json();
-    allMedicines.value = data.map(item => ({
-      med_id: item.med_id,
-      name: item.medName,
-      expirationDate: formatDate(item.expiration),
-      count: parseInt(item.count),
-      requestedQuantity: 1
-    }));
-  } catch (error) {
-    console.error('Error fetching inventory:', error);
-  }
-};
 
 //Appointments
 // Add new function to fetch appointments for selected date
@@ -472,11 +319,204 @@ onMounted(() => {
   fetchPatients();
   fetchRecordCount();
   fetchInventory(); 
-  fetchProfile();
 
   if (activeTab.value === 'tab2') {
     fetchAppointmentsForSelectedDate();
   }
+});
+console.log(patients)
+
+
+
+
+
+
+////////////////
+/**
+ * Saves/updates person and consultation record
+ * Handles both new records and updates
+ * @returns {Promise<void>}
+ */
+ const savePerson = async () => {
+  try {
+    if (!selectedPerson.value?.clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    // Filter out any empty complaints before saving
+    if (selectedPerson.value.complaints) {
+      selectedPerson.value.complaints = selectedPerson.value.complaints.filter(
+        complaint => complaint.text && complaint.text.trim() !== ''
+      );
+    }
+
+    // Ensure complaints is defined as an array and not empty
+    if (
+      !Array.isArray(selectedPerson.value.complaints) ||
+      !selectedPerson.value.complaints.length
+    ) {
+      throw new Error('At least one diagnosis is required');
+    }
+
+    // Prepare consultation data
+    const selectedDateTime = new Date(props.currentDay.date);
+    const now = new Date();
+    selectedDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+
+    const consultationData = {
+      client_id: selectedPerson.value.clientId,
+      admin_id: 1, // Replace with the actual admin ID
+      date: selectedDateTime.toISOString(),
+      patient_name: selectedPerson.value.name,
+      patient_occupation:
+        selectedPerson.value.occupation ||
+        `${selectedPerson.value.grade}-${selectedPerson.value.section}`,
+      doctor: 'John Doe',
+      complaint: selectedPerson.value.complaints.length > 0 ? selectedPerson.value.complaints.map(c => c.text).join(', ') : null,
+      remarks: selectedPerson.value.remarks || '',
+      confined: Boolean(selectedPerson.value.confined),
+      medAdministration: Boolean(selectedPerson.value.medicationAdministration),
+      intern: Boolean(selectedPerson.value.intern),
+      // Include diagnosis_ids array if present
+      diagnosis_ids: selectedPerson.value.complaints
+        .filter(c => c.disease_id)
+        .map(c => c.disease_id),
+      action: selectedPerson.value.action || '',
+      disposition: selectedPerson.value.disposition || ''
+    };
+
+    let consultationId;
+
+    // Check if updating an existing consultation record
+    if (selectedConsultationRecord.value?.consultation_id) {
+      try {
+        // First, fetch the existing record to check if it exists
+        await consultationRecordService.fetchConsultationRecord(selectedConsultationRecord.value.consultation_id);
+
+        // Update the existing consultation record
+        await consultationRecordService.updateConsultationRecord(selectedConsultationRecord.value.consultation_id, consultationData);
+        consultationId = selectedConsultationRecord.value.consultation_id;
+      } catch (fetchError) {
+        // If the record is not found, create a new one
+        console.warn('Consultation record not found, creating a new one.');
+        const newRecord = await consultationRecordService.createConsultationRecord(consultationData);
+        consultationId = newRecord.consultation_id;
+      }
+    } else {
+      // Create a new consultation record
+      const newRecord = await consultationRecordService.createConsultationRecord(consultationData);
+      consultationId = newRecord.consultation_id;
+    }
+
+    // Ensure consultationId is obtained
+    if (!consultationId) {
+      throw new Error('Consultation ID is not available');
+    }
+
+    // Handle individual diagnoses via the specialized endpoints if they have disease_id
+    // This step allows us to maintain the proper relationships in the database
+    for (const complaint of selectedPerson.value.complaints) {
+      if (complaint.disease_id) {
+        try {
+          await consultationRecordService.linkDiagnosisToConsultation(
+            consultationId,
+            complaint.disease_id
+          );
+        } catch (error) {
+          console.warn(`Failed to link diagnosis ${complaint.disease_id} to consultation: ${error.message}`);
+        }
+      }
+    }
+
+    // Handle medicines if medication administration is enabled
+    if (
+      selectedPerson.value.medicationAdministration &&
+      selectedPerson.value.medicines?.length > 0
+    ) {
+      for (const medicine of selectedPerson.value.medicines) {
+        if (medicine.markedForDeletion) {
+          // Delete the medicine
+          await consultationRecordService.deleteMedAdministrationRecord(medicine.consultation_id);
+        } else {
+          // Save or update the medicine
+          const medAdminData = {
+            consultation_id: consultationId,
+            client_id: selectedPerson.value.clientId,
+            admin_id: 1,
+            med_id: medicine.med_id,
+            medName: medicine.name,
+            count: Number(medicine.quantity),
+            schedule: medicine.schedule || '',
+            start_date: medicine.startDate,
+            end_date: medicine.endDate,
+            remarks: medicine.remarks || '',
+            date: new Date().toISOString(),
+            patient: selectedPerson.value.name
+          };
+
+          await consultationRecordService.createMedAdministrationRecord(medAdminData);
+        }
+      }
+    }
+
+    // After processing medicines, update the selectedPerson.medicines array
+    // to trigger reactivity
+    const medAdminRecords = await consultationRecordService.fetchMedAdministrationRecords(consultationId);
+
+    // Map the med admin records to match the expected format
+    const mappedMedicines = medAdminRecords.map(record => ({
+      med_id: record.med_id,
+      consultation_id: record.consultation_id, // Add this line
+      name: record.medName,
+      quantity: record.count,
+      schedule: record.schedule,
+      startDate: new Date(record.start_date).toISOString().split('T')[0],
+      endDate: new Date(record.end_date).toISOString().split('T')[0],
+      remarks: record.remarks
+    }));
+
+    selectedPerson.value.medicines = mappedMedicines;
+
+    // Reset form and refresh data
+    selectedPerson.value = null;
+    showEditModal.value = false;
+    showAddModal.value = false;
+    await fetchPatients();
+    emit('consultation-saved');
+  } catch (error) {
+    console.error('Error saving data:', error);
+    alert('Failed to save data: ' + error.message);
+  }
+};
+
+/**
+ * Fetches medicine inventory from API
+ * @returns {Promise<void>}
+ */
+const fetchInventory = async () => {
+  try {
+    const data = await consultationRecordService.fetchInventory();
+    allMedicines.value = data.map(item => ({
+      med_id: item.med_id,
+      name: item.medName,
+      expirationDate: formatDate(item.expiration),
+      count: parseInt(item.count),
+      requestedQuantity: 1
+    }));
+  } catch (error) {
+    console.error('Error fetching inventory:', error);
+  }
+};
+
+
+// fetch data when mounted
+onMounted(() => {
+  fetchPeople();
+  fetchPatients();
+  fetchRecordCount();
+  fetchInventory(); // This should be called
+  fetchDiseases();
+  fetchDiseaseCategories();
 });
 console.log(patients)
 // Initialize values for meds list
@@ -489,8 +529,8 @@ const expandedMedicines = ref(new Set());
 const groupedMedicines = computed(() => {
   const groups = {};
   allMedicines.value.forEach(item => {
-    if (!medicineSearchQuery.value || 
-        item.name.toLowerCase().includes(medicineSearchQuery.value.toLowerCase())) {
+    if (!medicineSearchQuery.value ||
+      item.name.toLowerCase().includes(medicineSearchQuery.value.toLowerCase())) {
       if (!groups[item.name]) {
         groups[item.name] = [];
       }
@@ -500,7 +540,7 @@ const groupedMedicines = computed(() => {
 
   // Sort each group by expiration date
   Object.keys(groups).forEach(name => {
-    groups[name].sort((a, b) => 
+    groups[name].sort((a, b) =>
       new Date(a.expirationDate) - new Date(b.expirationDate)
     );
   });
@@ -526,13 +566,13 @@ const filteredPeople = computed(() => {
   if (!searchQuery.value) {
     return allPeople.value;
   }
-  return allPeople.value.filter(person => 
+  return allPeople.value.filter(person =>
     person.name.toLowerCase().includes(searchQuery.value.toLowerCase())
   );
 });
 
 const filteredMedicines = computed(() => {
-  return selectedPerson.value.medicines.filter(medicine => !medicine.markedForDeletion);
+  return selectedPerson.value?.medicines?.filter(medicine => !medicine.markedForDeletion) || [];
 });
 
 /**
@@ -542,12 +582,7 @@ const filteredMedicines = computed(() => {
  */
 const fetchConsultationRecord = async (consultation_id) => {
   try {
-    const response = await fetch(`http://localhost:3001/consultation-records/${consultation_id}`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch consultation record`);
-    }
-    const data = await response.json();
-    return data;
+    return await consultationRecordService.fetchConsultationRecord(consultation_id);
   } catch (error) {
     console.error('Error fetching consultation record:', error);
     throw error;
@@ -564,11 +599,10 @@ const openEditModal = async (patient) => {
   try {
     const consultationRecord = await fetchConsultationRecord(patient.consultation_id);
     selectedConsultationRecord.value = consultationRecord;
-    
+
     // Fetch medication administration records
-    const medAdminResponse = await fetch(`http://localhost:3001/med-administration/consultation/${patient.consultation_id}`);
-    const medAdminRecords = await medAdminResponse.json();
-    
+    const medAdminRecords = await consultationRecordService.fetchMedAdministrationRecords(patient.consultation_id);
+
     // Map the med admin records to match the expected format
     const mappedMedicines = medAdminRecords.map(record => ({
       med_id: record.med_id,
@@ -581,16 +615,37 @@ const openEditModal = async (patient) => {
       remarks: record.remarks
     }));
 
+    // Handle existing diagnoses if available in the consultationRecord
+    let diagnosisComplaints = [];
+    if (consultationRecord.diagnoses && consultationRecord.diagnoses.length > 0) {
+      diagnosisComplaints = consultationRecord.diagnoses.map(diag => ({
+        id: generateId(),
+        text: diag.diagnosis.name,
+        disease_id: diag.diagnosis_id,
+        category: diag.diagnosis.category?.name || ''
+      }));
+    } else if (consultationRecord.complaint) {
+      // Fallback to the old way of splitting complaint text
+      diagnosisComplaints = consultationRecord.complaint.split(', ').map(text => ({
+        id: generateId(),
+        text: text.trim()
+      }));
+    }
+
     selectedPerson.value = {
       ...patient,
       clientId: patient.id,
-      generalComplaint: consultationRecord.complaint,
+      complaints: diagnosisComplaints,
       remarks: consultationRecord.remarks,
       confined: consultationRecord.confined,
+      intern: consultationRecord.intern,
       medicationAdministration: consultationRecord.medAdministration,
-      medicines: mappedMedicines // Add the medicines array
+      medicines: mappedMedicines,
+      action: consultationRecord.action || '',
+      disposition: consultationRecord.disposition || ''
     };
 
+    currentModalPage.value = 1; // Reset to first page when opening
     showEditModal.value = true;
   } catch (error) {
     console.error('Error opening edit modal:', error);
@@ -605,19 +660,12 @@ const openEditModal = async (patient) => {
  */
 const deleteConsultationRecord = async (consultation_id) => {
   try {
-    const response = await fetch(`http://localhost:3001/consultation-records/${consultation_id}/delete`, {
-      method: 'DELETE',
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to delete consultation record');
-    }
-
+    await consultationRecordService.deleteConsultationRecord(consultation_id);
     await fetchPatients();
-    emit('consultation-deleted'); // Emit the event
+    emit('consultation-deleted');
   } catch (error) {
     console.error('Error deleting consultation record:', error);
-    alert('Failed to delete consultation record: ' + error.message);
+    alert('Failed to delete consultation record');
   }
 };
 
@@ -628,7 +676,14 @@ const deleteConsultationRecord = async (consultation_id) => {
 const addPerson = (person) => {
   const now = new Date();
   if (person.name && person.section) {
-    selectedPerson.value = { ...person, addedAt: now, medicines: [] };
+    selectedPerson.value = {
+      ...person,
+      addedAt: now,
+      medicines: [],
+      complaints: selectedPerson.value?.complaints !== undefined ? selectedPerson.value.complaints : [],
+      action: '',
+      disposition: ''
+    };
     selectedTime.value = formatAMPM(now);
     showEditModal.value = true;
   }
@@ -640,12 +695,13 @@ const addPerson = (person) => {
  */
 const cancelEdit = () => {
   showEditModal.value = false;
+  currentModalPage.value = 1; // Reset to first page
 };
 
 /**
  * Closes add modal and resets state
  */
-const cancelAdd = () =>{
+const cancelAdd = () => {
   showAddModal.value = false;
 }
 // Medicine modal
@@ -727,7 +783,7 @@ const canAddMedicine = (medicine) => {
 const editMedicine = (medicine, index) => {
   selectedMedicine.value = {
     med_id: medicine.med_id,
-    consultation_id: medicine.consultation_id, // Add this line
+    consultation_id: medicine.consultation_id,
     name: medicine.name,
     quantity: medicine.quantity,
     schedule: medicine.schedule,
@@ -756,7 +812,7 @@ const saveMedicineDetails = async () => {
     if (!medicine.startDate || !medicine.endDate) {
       throw new Error('Start date and end date are required');
     }
-    
+
     if (!medicine.quantity || medicine.quantity <= 0) {
       throw new Error('Valid quantity is required');
     }
@@ -779,7 +835,7 @@ const saveMedicineDetails = async () => {
  * Removes medicine from current consultation
  * @param {number} index - Index of medicine to remove
  */
- const removeMedicine = (index) => {
+const removeMedicine = (index) => {
   selectedPerson.value.medicines[index].markedForDeletion = true;
   console.log(index)
 };
@@ -811,7 +867,12 @@ const selectedMedicine = ref({
   index: null,
   originalQuantity: 1
 });
-const emit = defineEmits(['confined', 'update-confined']);
+const emit = defineEmits([
+  'confined',
+  'update-confined',
+  'consultation-saved',
+  'consultation-deleted'
+]);
 
 
 // To make sure that if meds is false all meds in list would be removed
@@ -833,6 +894,464 @@ const openViewMedicineModal = (medicine) => {
   isViewOnly.value = true; // Set the modal to view-only mode
   showMedicineDetailModal.value = true;
 };
+
+function generateId() {
+  return Math.random().toString(36).substring(2, 11);
+}
+
+const addComplaint = () => {
+  if (!selectedPerson.value.complaints) {
+    selectedPerson.value.complaints = [];
+  }
+  selectedPerson.value.complaints.push({
+    id: generateId(),
+    text: '' // or any initial text
+  });
+};
+
+const removeComplaint = (complaintId) => {
+  const index = selectedPerson.value.complaints.findIndex(c => c.id === complaintId);
+  if (index !== -1) {
+    // Immediately remove the complaint
+    selectedPerson.value.complaints.splice(index, 1);
+  }
+};
+
+///// Diseases
+
+// Add new refs for diseases functionality
+const diseases = ref([]);
+const diseaseCategories = ref([]);
+const showAddDiseaseModal = ref(false);
+const showAddCategoryModal = ref(false); // New ref for category modal
+const newDisease = ref({ name: '', category_id: null, created_by: 1 }); // Removed description
+const newCategory = ref({ name: '' }); // New ref for category data
+const diagnosisSearchQuery = ref('');
+
+// Add these to your existing refs
+const showAddNewDiseaseForm = ref(false);
+const showAddNewCategoryForm = ref(false);
+
+// Fetch diseases and categories
+const fetchDiseases = async () => {
+  try {
+    const data = await consultationRecordService.fetchDiseases();
+    diseases.value = data;
+    console.log('Fetched diseases:', diseases.value.length);
+
+    // Group diseases by category for easier management
+    const groupedByCategory = {};
+    diseases.value.forEach(disease => {
+      const categoryId = disease.category_id;
+      if (!groupedByCategory[categoryId]) {
+        groupedByCategory[categoryId] = [];
+      }
+      groupedByCategory[categoryId].push(disease);
+    });
+
+  } catch (error) {
+    console.error('Error fetching diseases:', error);
+    alert('Failed to load diagnoses. Please try refreshing the page.');
+  }
+};
+
+const fetchDiseaseCategories = async () => {
+  try {
+    const data = await consultationRecordService.fetchDiseaseCategories();
+    diseaseCategories.value = data;
+    console.log('Fetched categories:', diseaseCategories.value.length);
+  } catch (error) {
+    console.error('Error fetching disease categories:', error);
+    alert('Failed to load diagnosis categories. Please try refreshing the page.');
+  }
+};
+
+// Add disease filtering
+const filteredDiseases = computed(() => {
+  if (!diagnosisSearchQuery.value) {
+    return diseases.value.slice(0, 15); // Return a limited number of most recent diagnoses
+  }
+
+  const query = diagnosisSearchQuery.value.toLowerCase();
+  return diseases.value.filter(disease =>
+    disease.name.toLowerCase().includes(query) ||
+    (disease.category && disease.category.name.toLowerCase().includes(query))
+  );
+});
+
+// Method to add a new disease
+const addNewDisease = async () => {
+  try {
+    if (!newDisease.value.name || !newDisease.value.category_id) {
+      throw new Error('Disease name and category are required');
+    }
+
+    // Add the current admin ID to the disease data
+    newDisease.value.created_by = 1; // Replace with actual admin ID from auth
+
+    const response = await consultationRecordService.createDisease(newDisease.value);
+
+    // Add the new disease to the local list
+    diseases.value.push(response);
+
+    // Select the newly created disease
+    selectDisease(response);
+
+    // Reset the form
+    newDisease.value = { name: '', category_id: null, created_by: 1 }; // Removed description
+
+    // Close the modal
+    showAddDiseaseModal.value = false;
+
+    // Show success message
+    alert('Diagnosis added successfully!');
+  } catch (error) {
+    console.error('Error adding disease:', error);
+    alert('Failed to add disease: ' + error.message);
+  }
+};
+
+// Method to select a disease for the complaint
+const selectDisease = (disease) => {
+  if (!selectedPerson.value) {
+    console.error('No patient selected');
+    return;
+  }
+
+  if (!selectedPerson.value.complaints) {
+    selectedPerson.value.complaints = [];
+  }
+
+  // Check if this disease is already selected to avoid duplicates
+  const alreadySelected = selectedPerson.value.complaints.some(
+    complaint => complaint.disease_id === disease.diagnosis_id
+  );
+
+  if (!alreadySelected) {
+    selectedPerson.value.complaints.push({
+      id: generateId(),
+      text: disease.name,
+      disease_id: disease.diagnosis_id,
+      category: disease.category?.name || ''
+    });
+  } else {
+    alert('This diagnosis is already selected.');
+  }
+
+  diagnosisSearchQuery.value = '';
+};
+
+// Method to add a new category
+const addNewCategory = async () => {
+  try {
+    if (!newCategory.value.name) {
+      throw new Error('Category name is required');
+    }
+
+    const response = await consultationRecordService.createDiseaseCategory(newCategory.value);
+
+    // Add the new category to the local list
+    diseaseCategories.value.push(response);
+
+    // Reset the form
+    newCategory.value = { name: '' };
+
+    // Close the modal
+    showAddCategoryModal.value = false;
+
+    // Show success message
+    alert('Category added successfully!');
+  } catch (error) {
+    console.error('Error adding category:', error);
+    alert('Failed to add category: ' + error.message);
+  }
+};
+
+// Add these new refs for improved UI/UX
+const showCategoryInput = ref(false);
+
+// Toggle the category input field
+const toggleCategoryInput = () => {
+  showCategoryInput.value = !showCategoryInput.value;
+  if (!showCategoryInput.value) {
+    newCategory.value = { name: '' }; // Reset when hiding
+  }
+};
+
+// Add a new category inline and select it
+const addNewCategoryInline = async () => {
+  try {
+    if (!newCategory.value.name) {
+      alert('Please enter a category name');
+      return;
+    }
+
+    const response = await consultationRecordService.createDiseaseCategory(newCategory.value);
+
+    // Add the new category to the local list
+    diseaseCategories.value.push(response);
+
+    // Select the newly created category
+    newDisease.value.category_id = response.category_id;
+
+    // Reset and hide the input
+    newCategory.value = { name: '' };
+    showCategoryInput.value = false;
+
+    // Show success message
+    alert('Category added successfully!');
+  } catch (error) {
+    console.error('Error adding category:', error);
+    alert('Failed to add category: ' + error.message);
+  }
+};
+
+// Add delete functionality for diagnoses
+const deleteDisease = async (diagnosisId) => {
+  try {
+    if (confirm('Are you sure you want to delete this diagnosis? This cannot be undone.')) {
+      await consultationRecordService.deleteDisease(diagnosisId);
+
+      // Remove from local list
+      diseases.value = diseases.value.filter(d => d.diagnosis_id !== diagnosisId);
+
+      alert('Diagnosis deleted successfully!');
+    }
+  } catch (error) {
+    console.error('Error deleting diagnosis:', error);
+    alert('Failed to delete diagnosis: ' + error.message);
+  }
+};
+
+// Make sure to include these in onMounted
+
+
+// Add these refs
+const diagnosisManageSearchQuery = ref('');
+
+// Computed property to organize diseases by category
+const diseasesByCategory = computed(() => {
+  const grouped = {};
+
+  // Group by category_id
+  diseases.value.forEach(disease => {
+    const categoryId = disease.category_id || 'uncategorized';
+    if (!grouped[categoryId]) {
+      grouped[categoryId] = [];
+    }
+    grouped[categoryId].push(disease);
+  });
+
+  // Sort categories by name
+  const sortedGrouped = {};
+  Object.keys(grouped).sort((a, b) => {
+    const catA = getCategoryName(a);
+    const catB = getCategoryName(b);
+    return catA.localeCompare(catB);
+  }).forEach(key => {
+    sortedGrouped[key] = grouped[key];
+  });
+
+  return sortedGrouped;
+});
+
+// Helper to get category name by ID
+const getCategoryName = (categoryId) => {
+  if (categoryId === 'uncategorized') return 'Uncategorized';
+  const category = diseaseCategories.value.find(c => c.category_id == categoryId);
+  return category ? category.name : 'Unknown';
+};
+
+// Filter diagnoses by category with search
+const filteredDiagnosesByCategory = (categoryId, customSearchQuery) => {
+  // Use the provided search query or fall back to the global one
+  const searchToUse = customSearchQuery !== undefined ? customSearchQuery : diagnosisManageSearchQuery.value;
+
+  if (!searchToUse) {
+    return diseasesByCategory.value[categoryId] || [];
+  }
+
+  const query = searchToUse.toLowerCase();
+  return (diseasesByCategory.value[categoryId] || []).filter(disease =>
+    disease.name.toLowerCase().includes(query)
+  );
+};
+
+// Add category deletion function
+const deleteCategory = async (categoryId) => {
+  try {
+    if (!confirm('Are you sure you want to delete this category? This will also delete ALL diagnoses under this category. This action cannot be undone.')) {
+      return;
+    }
+
+    // Delete all diseases in the category first
+    const diseasesToDelete = diseases.value.filter(d => d.category_id === categoryId);
+    for (const disease of diseasesToDelete) {
+      await consultationRecordService.deleteDisease(disease.diagnosis_id);
+    }
+
+    // Then delete the category itself
+    await consultationRecordService.deleteDiseaseCategory(categoryId);
+
+    // Update local state
+    diseases.value = diseases.value.filter(d => d.category_id !== categoryId);
+    diseaseCategories.value = diseaseCategories.value.filter(c => c.category_id !== categoryId);
+
+    // Show success message
+    alert('Category and associated diagnoses deleted successfully!');
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    alert('Failed to delete category: ' + error.message);
+  }
+};
+
+// Add this to your onMounted or in a method that resets the form state
+const resetFormStates = () => {
+  showAddNewDiseaseForm.value = false;
+  showAddNewCategoryForm.value = false;
+  newDisease.value = { name: '', category_id: null, created_by: 1 };
+  newCategory.value = { name: '' };
+};
+
+// Add these new refs for managing the modals
+const showAddDiagnosisModal = ref(false);
+const showManageModal = ref(false);
+const activeManageTab = ref('diagnoses');
+
+/**
+ * Opens the add diagnosis modal
+ */
+const openAddDiagnosisModal = () => {
+  // Reset the form
+  newDisease.value = { name: '', category_id: null, created_by: 1 };
+  showAddDiagnosisModal.value = true;
+};
+
+/**
+ * Cancels adding a diagnosis and closes the modal
+ */
+const cancelAddDiagnosis = () => {
+  showAddDiagnosisModal.value = false;
+};
+
+/**
+ * Opens the add category modal
+ */
+const openAddCategoryModal = () => {
+  // Reset the form
+  newCategory.value = { name: '' };
+  showAddCategoryModal.value = true;
+};
+
+/**
+ * Cancels adding a category and closes the modal
+ */
+const cancelAddCategory = () => {
+  showAddCategoryModal.value = false;
+};
+
+/**
+ * Opens the management modal
+ */
+const openManageModal = () => {
+  showManageModal.value = true;
+  activeManageTab.value = 'diagnoses';
+};
+
+/**
+ * Closes the management modal
+ */
+const closeManageModal = () => {
+  showManageModal.value = false;
+};
+
+/**
+ * Saves a new diagnosis
+ * @returns {Promise<void>}
+ */
+const saveDiagnosis = async () => {
+  try {
+    if (!newDisease.value.name || !newDisease.value.category_id) {
+      throw new Error('Disease name and category are required');
+    }
+
+    newDisease.value.created_by = 1; // Replace with actual admin ID
+
+    const response = await consultationRecordService.createDisease(newDisease.value);
+
+    // Add to local list
+    diseases.value.push(response);
+
+    // Close the modal
+    showAddDiagnosisModal.value = false;
+
+    // Show success message
+    alert('Diagnosis added successfully!');
+
+    // Optionally, select the new diagnosis if we're in the consultation form
+    if (selectedPerson.value) {
+      selectDisease(response);
+    }
+
+  } catch (error) {
+    console.error('Error adding diagnosis:', error);
+    alert('Failed to add diagnosis: ' + error.message);
+  }
+};
+
+/**
+ * Saves a new category
+ * @returns {Promise<void>}
+ */
+const saveCategory = async () => {
+  try {
+    if (!newCategory.value.name) {
+      throw new Error('Category name is required');
+    }
+
+    const response = await consultationRecordService.createDiseaseCategory(newCategory.value);
+
+    // Add to local list
+    diseaseCategories.value.push(response);
+
+    // If we're adding from the diagnosis modal, select this new category
+    if (showAddDiagnosisModal.value) {
+      newDisease.value.category_id = response.category_id;
+    }
+
+    // Close the category modal
+    showAddCategoryModal.value = false;
+
+    // Show success message
+    alert('Category added successfully!');
+
+  } catch (error) {
+    console.error('Error adding category:', error);
+    alert('Failed to add category: ' + error.message);
+  }
+};
+
+// Function to switch tabs
+const switchTab = (tab) => {
+  activeTab.value = tab;
+};
+
+// Add this new ref to control dropdown visibility
+const showDiagnosisDropdown = ref(false);
+
+// Note: We already have filteredDiseases computed property defined earlier in the code
+
+// Function to toggle the diagnosis dropdown
+const toggleDiagnosisDropdown = () => {
+  showDiagnosisDropdown.value = !showDiagnosisDropdown.value;
+};
+
+// Close dropdown when clicking outside
+const closeDiagnosisDropdown = () => {
+  showDiagnosisDropdown.value = false;
+};
+
+const currentModalPage = ref(1);
 
 </script>
 
@@ -976,19 +1495,34 @@ const openViewMedicineModal = (medicine) => {
           </div>
     </div>
   </div>
-    <!-- Add Modal -->
-    <!-- Edit Modal -->
-    <div v-if="showEditModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
-        <div class="flex flex-col justify-center w-3/6 h-screen p-8 bg-white rounded-2xl">
-          <h2 class="mb-6 text-2xl text-[#2f4a71] font-bold">Consultation Record</h2>
-          
-          <div class="grid grid-cols-2 gap-6">
-            <!-- Left Column -->
-            <div>
-              <!-- Attending Physician -->
+  <!-- Edit Modal -->
+    <!-- Edit Modal with Pagination -->
+<div v-if="showEditModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
+    <div class="flex flex-col justify-center w-3/6 h-screen p-8 bg-white rounded-2xl">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl text-[#2f4a71] font-bold">Consultation Record</h2>
+        <div class="flex items-center">
+          <div class="flex items-center space-x-2">
+            <div class="flex items-center">
+              <div class="flex items-center justify-center w-8 h-8 rounded-full" 
+                :class="currentModalPage === 1 ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'">1</div>
+              <div class="w-8 h-[2px]" :class="currentModalPage === 2 ? 'bg-purple-600' : 'bg-gray-300'"></div>
+              <div class="flex items-center justify-center w-8 h-8 rounded-full"
+                :class="currentModalPage === 2 ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'">2</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Page 1: Patient Details, Diagnosis, Remarks, Medicines -->
+      <div v-if="currentModalPage === 1" class="flex-grow overflow-y-auto">
+        <div class="grid grid-cols-2 gap-6">
+          <!-- Left Column -->
+          <div>
+            <!-- Attending Physician -->
               <div class="mb-4">
                 <label for="ap" class="block text-sm font-semibold text-gray-600">Attending Physician</label>
-                <input type="text" :value="profile.name" id="ap" disabled
+                <input type="text" value="John Doe" id="ap" disabled
                   class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
               </div>
 
@@ -998,12 +1532,11 @@ const openViewMedicineModal = (medicine) => {
                 <input type="text" :value="selectedPerson.name" id="name" disabled
                   class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
               </div>
-
-            </div>
-            
-            <!-- Right Column -->
-            <div>
-              <!-- Date -->
+          </div>
+          
+          <!-- Right Column -->
+          <div>
+            <!-- Date -->
               <div class="mb-4">
                 <label for="date" class="block text-sm font-semibold text-gray-600">Date</label>
                 <input type="text" :value="selectedDate.monthYear" id="date" disabled
@@ -1014,43 +1547,124 @@ const openViewMedicineModal = (medicine) => {
               <div class="flex items-center mb-4 space-x-4">
                 <div class="w-1/2">
                   <label for="grade-level" class="block text-sm font-semibold text-gray-600">Grade Level</label>
-                  <input type="text" :value="selectedPerson.grade" id="grade-level" disabled
+                  <input type="text" value="12" id="grade-level" disabled
                     class="w-full px-4 py-2 mt-1 text-center bg-gray-200 border border-gray-300 rounded-full">
                 </div>
                 <div class="w-1/2">
                   <label for="section" class="block text-sm font-semibold text-gray-600">Section</label>
-                  <input type="text" :value="selectedPerson.section" id="section" disabled
+                  <input type="text" value="C" id="section" disabled
                     class="w-full px-4 py-2 mt-1 text-center bg-gray-200 border border-gray-300 rounded-full">
                 </div>
               </div>
-
-              <!-- Remarks -->
-              
           </div>
-          
         </div>
+        
         <!-- Complaint -->
         <div class="mb-4">
-                <label for="complaint" class="block text-sm font-semibold text-gray-600">Complaint</label>
-                <textarea v-model="selectedPerson.generalComplaint" placeholder="General Complaint"
-                  class="w-full h-32 px-4 py-2 mt-1 border border-gray-300 rounded-lg"></textarea>
+          <label for="complaint" class="block text-sm font-semibold text-gray-600">Diagnosis</label>
+          <div class="flex items-center mb-2 space-x-2">
+            <div class="relative flex-grow">
+              <input 
+                v-model="diagnosisSearchQuery"
+                type="text"
+                placeholder="Search or select diagnoses..."
+                class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md"
+                @focus="showDiagnosisDropdown = true"
+                @blur="setTimeout(() => closeDiagnosisDropdown(), 200)"
+              />
+              <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <Icon icon="mdi:magnify" class="w-5 h-5 text-gray-400" />
               </div>
-            <div class="mb-4">
-                <label for="remarks" class="block text-sm font-semibold text-gray-600">Remarks</label>
-              <textarea v-model="selectedPerson.remarks" placeholder="Remarks"
-                class="w-full h-32 px-4 py-2 mt-1 border border-gray-300 rounded-lg"></textarea>
+              <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+                <button 
+                  @click="toggleDiagnosisDropdown" 
+                  type="button"
+                  class="text-gray-400 focus:outline-none"
+                >
+                  <Icon :icon="showDiagnosisDropdown ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="w-5 h-5" />
+                </button>
+              </div>
+              
+              <!-- Diagnosis dropdown -->
+              <div v-if="showDiagnosisDropdown || diagnosisSearchQuery" 
+                  class="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg">
+                <div v-if="filteredDiseases.length === 0" class="p-3 text-sm text-gray-500">
+                  No matching diagnoses
+                </div>
+                <div v-else class="overflow-y-auto max-h-60">
+                  <!-- Group diagnoses by category -->
+                  <div v-for="(categoryId, index) in Object.keys(diseasesByCategory)" :key="categoryId" class="border-b last:border-b-0">
+                    <div class="px-3 py-1 text-xs font-semibold text-gray-500 bg-gray-50">
+                      {{ getCategoryName(categoryId) }}
+                    </div>
+                    <div 
+                      v-for="disease in filteredDiagnosesByCategory(categoryId, diagnosisSearchQuery)"
+                      :key="disease.diagnosis_id"
+                      @click="selectDisease(disease)"
+                      class="flex items-center justify-between p-2 cursor-pointer hover:bg-gray-100"
+                    >
+                      <div>
+                        <div class="font-medium">{{ disease.name }}</div>
+                      </div>
+                      <Icon icon="mdi:plus" class="text-green-500" />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
+            
+            <!-- Buttons for managing diagnoses/categories -->
+            <button 
+              @click="openAddDiagnosisModal" 
+              class="flex items-center px-3 py-2 text-white bg-purple-600 rounded-md hover:bg-purple-700"
+            >
+              <Icon icon="mdi:plus" class="mr-1" />
+              New
+            </button>
+            <button 
+              @click="openManageModal" 
+              class="flex items-center px-3 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700"
+            >
+              <Icon icon="mdi:cog" class="mr-1" />
+              Manage
+            </button>
+          </div>
+          
+          <!-- Selected diagnoses display -->
+          <div class="flex flex-wrap gap-2 mb-2">
+            <div v-for="complaint in selectedPerson.complaints" :key="complaint.id" class="flex items-center px-3 py-1 bg-purple-100 rounded-full">
+              {{ complaint.text }}
+              <button @click="removeComplaint(complaint.id)" class="ml-2 text-red-500 hover:text-red-700">
+                <Icon icon="mdi:delete" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label for="remarks" class="block text-sm font-semibold text-gray-600">Remarks</label>
+          <textarea v-model="selectedPerson.remarks" placeholder="Remarks"
+            class="w-full h-32 px-4 py-2 mt-1 border border-gray-300 rounded-lg"></textarea>
+        </div>
 
         <!-- Confined and Medication Administration -->
         <div class="flex items-center w-full mb-6 space-x-8">
+          <!-- Confined Checkbox -->
           <div class="flex items-center space-x-2">
             <input type="checkbox" id="confined" v-model="selectedPerson.confined" class="text-blue-500 form-checkbox">
             <label for="confined" class="text-sm font-semibold">Confined</label>
           </div>
+          <!-- Intern Checkbox -->
+          <div class="flex items-center space-x-2">
+            <input type="checkbox" id="intern" v-model="selectedPerson.intern" class="text-blue-500 form-checkbox">
+            <label for="intern" class="text-sm font-semibold">Intern</label>
+          </div>
+          <!-- Medicine Administration Checkbox -->
           <div class="flex items-center space-x-2">
             <input type="checkbox" id="medication-admin" v-model="selectedPerson.medicationAdministration" class="text-blue-500 form-checkbox">
             <label for="medication-admin" class="text-sm font-semibold">Medication Administration</label>
           </div>
+          <!-- Add Product Button -->
           <div class="flex justify-end w-7/12">
             <button v-if="selectedPerson.medicationAdministration" @click="openMedicineModal" class="px-4 text-purple-800 bg-transparent rounded-lg ">Add Product</button>
           </div>
@@ -1073,10 +1687,10 @@ const openViewMedicineModal = (medicine) => {
                 <td class="py-2">{{ medicine.quantity }}</td>
                 <td class="py-2">
                   <div class="flex space-x-2">
-                    <button v-if="medicine.consultation_id" @click="editMedicine(medicine, index)" class="text-blue-500 hover:text-blue-700">
+                    <button @click="editMedicine(medicine, index)" class="text-blue-500 hover:text-blue-700">
                       <Icon icon="mdi:pencil" />
                     </button>
-                    <button v-if="medicine.consultation_id" @click="removeMedicine(index)" class="text-red-500 hover:text-red-700">
+                    <button @click="removeMedicine(index)" class="text-red-500 hover:text-red-700">
                       <Icon icon="mdi:delete" />
                     </button>
                   </div>
@@ -1085,17 +1699,149 @@ const openViewMedicineModal = (medicine) => {
             </tbody>
           </table>
         </div>
+      </div>
+      
+      <!-- Page 2: Action's Taken and Disposition -->
+      <div v-else-if="currentModalPage === 2" class="flex-grow overflow-y-auto">
+        <div class="pt-4 mb-4">
+          <div class="mb-6">
+            <label for="action" class="block text-sm font-semibold text-gray-600">Action's Taken</label>
+            <textarea
+              id="action"
+              v-model="selectedPerson.action"
+              rows="6"
+              class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter actions taken...">
+            </textarea>
+          </div>
 
-        <!-- Action Buttons -->
-        <div class="flex justify-between mt-6">
+          <div class="mb-4">
+            <label for="disposition" class="block text-sm font-semibold text-gray-600">Disposition of the Student</label>
+            <textarea
+              id="disposition"
+              v-model="selectedPerson.disposition"
+              rows="6"
+              class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter student disposition...">
+            </textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Buttons -->
+      <div class="flex justify-between mt-6">
+        <div>
           <button @click="cancelEdit" class="text-purple-600 underline">Cancel</button>
-          <button @click="savePerson" class="px-4 py-2 text-white bg-purple-500 rounded-lg">Submit</button>
+        </div>
+        <div class="flex space-x-3">
+          <button 
+            v-if="currentModalPage === 2" 
+            @click="currentModalPage = 1" 
+            class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">
+            Back
+          </button>
+          <button 
+            v-if="currentModalPage === 1" 
+            @click="currentModalPage = 2" 
+            class="px-4 py-2 text-white bg-purple-500 rounded-lg">
+            Next
+          </button>
+          <button 
+            v-if="currentModalPage === 2" 
+            @click="savePerson" 
+            class="px-4 py-2 text-white bg-purple-500 rounded-lg">
+            Submit
+          </button>
         </div>
       </div>
     </div>
+</div>
 
 
 
+    <!-- Medicine Modal -->
+    <div v-if="showMedicineModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
+  <div class="w-2/3 p-6 bg-white rounded-2xl">
+    <h2 class="mb-4 text-2xl font-semibold">Add Product</h2>
+    <div class="flex items-center mb-4">
+      <input
+        v-model="medicineSearchQuery"
+        placeholder="Search Product"
+        class="w-full p-2 border border-gray-300 rounded-l-md"
+      />
+      <button class="p-2 bg-gray-100 border-t border-b border-r rounded-r-md">
+        <Icon icon="mdi:magnify" />
+      </button>
+      <button class="p-2 ml-2 bg-gray-100 border rounded-md">
+        <Icon icon="mdi:filter-variant" />
+      </button>
+      <button class="p-2 ml-2 bg-gray-100 border rounded-md">
+        <Icon icon="mdi:sort-ascending" />
+      </button>
+    </div>
+    <table class="w-full table-auto">
+      <thead class="border-b-2 border-gray-300">
+        <tr class="text-left text-gray-600">
+          <th class="pb-2">Medicine Name</th>
+          <th class="pb-2">Total Count</th>
+          <th class="pb-2">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="text-gray-700">
+        <template v-for="(medicines, name) in groupedMedicines" :key="name">
+          <tr class="border-b border-gray-200">
+            <td class="py-2">
+              <div class="flex items-center">
+                <button @click="toggleMedicineExpand(name)" class="flex items-center">
+                  <Icon 
+                    :icon="expandedMedicines.has(name) ? 'mdi:chevron-down' : 'mdi:chevron-right'" 
+                    class="mr-2"
+                  />
+                  {{ name }}
+                </button>
+              </div>
+            </td>
+            <td class="py-2">
+              {{ medicines.reduce((sum, med) => sum + med.count, 0) }}
+            </td>
+            <td></td>
+          </tr>
+          <tr v-if="expandedMedicines.has(name)" v-for="medicine in medicines" :key="medicine.med_id">
+            <td colspan="3" class="py-2 pl-6 bg-gray-50">
+              <div class="flex items-center justify-between">
+                <div>
+                  <span class="mr-4">Exp: {{ medicine.expirationDate || 'None' }}</span>
+                  <span>Count: {{ medicine.count }}</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <input 
+                    type="number"
+                    v-model.number="medicine.requestedQuantity"
+                    class="w-20 p-1 text-center border rounded"
+                    min="1"
+                    :max="medicine.count"
+                    placeholder="Qty"
+                  >
+                  <button 
+                    @click="addMedicine(medicine)"
+                    class="text-[#2f4a71] hover:text-white hover:bg-[#2f4a71] rounded-md p-2"
+                    :disabled="!canAddMedicine(medicine)"
+                    :class="{ 'opacity-50 cursor-not-allowed': !canAddMedicine(medicine) }"
+                  >
+                    <Icon icon="subway:add-1" />
+                  </button>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+    <div class="flex justify-end mt-6">
+      <button @click="cancelMedicine" class="p-2 ml-2 text-white bg-gray-500 rounded-md">Cancel</button>
+    </div>
+  </div>
+</div>
     <!-- Medicine Modal -->
     <div v-if="showMedicineModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
     <div class="w-2/3 p-6 bg-white rounded-2xl">
@@ -1242,6 +1988,203 @@ const openViewMedicineModal = (medicine) => {
     </div>
   </div>
 </div>
+
+
+  <!-- Add Category Modal -->
+  <div v-if="showAddCategoryModal"
+    class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 z-[70]">
+    <div class="w-1/3 p-6 bg-white rounded-2xl">
+      <h2 class="mb-4 text-2xl font-semibold">Add New Category</h2>
+      <div class="space-y-4">
+        <div>
+          <label for="category-name" class="block text-sm font-medium text-gray-700">Category Name</label>
+          <input v-model="newCategory.name" id="category-name" type="text" placeholder="Enter category name"
+            class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" />
+        </div>
+      </div>
+      <div class="flex justify-end mt-6 space-x-3">
+        <button @click="showAddCategoryModal = false"
+          class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">
+          Cancel
+        </button>
+        <button @click="addNewCategory" class="px-4 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600">
+          Add Category
+        </button>
+      </div>
+      <!-- Existing Categories List -->
+      <div class="mt-6">
+        <h3 class="mb-2 text-lg font-semibold">Existing Categories</h3>
+        <div v-if="diseaseCategories && diseaseCategories.length">
+          <div v-for="category in diseaseCategories" :key="category.category_id"
+            class="flex items-center justify-between px-3 py-2 mb-2 border rounded-md">
+            <span>{{ category.name }}</span>
+            <button @click="deleteCategory(category.category_id)"
+              class="p-2 text-white bg-red-500 rounded hover:bg-red-600" title="Delete Category">
+              <Icon icon="mdi:delete" class="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+        <div v-else class="text-sm text-gray-500">
+          No categories available.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Diagnosis Modal -->
+  <div v-if="showAddDiagnosisModal"
+    class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60]">
+    <div class="w-full max-w-md p-6 bg-white rounded-lg shadow-lg">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-semibold text-gray-800">Add New Diagnosis</h2>
+        <button @click="cancelAddDiagnosis" class="text-gray-500 hover:text-gray-700">
+          <Icon icon="mdi:close" class="w-6 h-6" />
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <!-- Diagnosis Name -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Diagnosis Name</label>
+          <input v-model="newDisease.name" type="text" placeholder="Enter diagnosis name"
+            class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md" />
+        </div>
+
+        <!-- Category Dropdown -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Category</label>
+          <div class="flex space-x-2">
+            <div class="relative flex-grow">
+              <select v-model="newDisease.category_id"
+                class="w-full px-3 py-2 pr-8 mt-1 border border-gray-300 rounded-md appearance-none">
+                <option value="" disabled>Select a category</option>
+                <option v-for="category in diseaseCategories" :key="category.category_id" :value="category.category_id">
+                  {{ category.name }}
+                </option>
+              </select>
+              <div class="absolute inset-y-0 right-0 flex items-center px-2 mt-1 pointer-events-none">
+                <Icon icon="mdi:chevron-down" class="w-5 h-5 text-gray-400" />
+              </div>
+            </div>
+            <button @click="openAddCategoryModal"
+              class="px-3 py-2 mt-1 text-white bg-blue-600 rounded-md hover:bg-blue-700" title="Add new category">
+              <Icon icon="mdi:plus" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end mt-6 space-x-3">
+        <button @click="cancelAddDiagnosis" class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">
+          Cancel
+        </button>
+        <button @click="saveDiagnosis" class="px-4 py-2 text-white bg-purple-600 rounded-md hover:bg-purple-700"
+          :disabled="!newDisease.name || !newDisease.category_id">
+          Add Diagnosis
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Management Modal -->
+  <div v-if="showManageModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60]">
+    <div class="w-full max-w-4xl p-8 bg-white rounded-lg shadow-lg max-h-[80vh] overflow-y-auto">
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-semibold text-gray-800">Manage Diagnoses & Categories</h2>
+        <button @click="closeManageModal" class="text-gray-500 hover:text-gray-700">
+          <Icon icon="mdi:close" class="w-6 h-6" />
+        </button>
+      </div>
+
+      <!-- Tab navigation -->
+      <div class="flex mb-6 border-b">
+        <button @click="activeManageTab = 'diagnoses'" class="px-4 py-2 -mb-px font-medium"
+          :class="activeManageTab === 'diagnoses' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-600'">
+          Diagnoses
+        </button>
+        <button @click="activeManageTab = 'categories'" class="px-4 py-2 -mb-px font-medium"
+          :class="activeManageTab === 'categories' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600'">
+          Categories
+        </button>
+      </div>
+
+      <!-- Diagnoses Tab -->
+      <div v-if="activeManageTab === 'diagnoses'" class="space-y-6">
+        <div class="flex items-center justify-between">
+          <div class="relative w-64">
+            <input v-model="diagnosisManageSearchQuery" type="text" placeholder="Search diagnoses..."
+              class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md" />
+            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              <Icon icon="mdi:magnify" class="w-5 h-5 text-gray-400" />
+            </div>
+          </div>
+          <button @click="openAddDiagnosisModal"
+            class="flex items-center px-4 py-2 text-white bg-purple-600 rounded-md hover:bg-purple-700">
+            <Icon icon="mdi:plus" class="mr-1" />
+            Add Diagnosis
+          </button>
+        </div>
+
+        <!-- Diagnoses List -->
+        <div v-for="(groupedDiseases, categoryId) in diseasesByCategory" :key="categoryId" class="mb-4">
+          <div class="flex items-center justify-between px-4 py-2 bg-gray-100 rounded-t-md">
+            <h4 class="font-medium text-gray-700">{{ getCategoryName(categoryId) }}</h4>
+            <span class="px-2 py-1 text-xs text-gray-600 bg-gray-200 rounded-full">
+              {{ groupedDiseases.length }} items
+            </span>
+          </div>
+          <div class="border border-t-0 rounded-b-md">
+            <div v-for="disease in filteredDiagnosesByCategory(categoryId, diagnosisManageSearchQuery)"
+              :key="disease.diagnosis_id" class="flex items-center justify-between px-4 py-2 border-b last:border-b-0">
+              <div>{{ disease.name }}</div>
+              <div class="flex space-x-2">
+                <button @click="deleteDisease(disease.diagnosis_id)"
+                  class="p-1 text-red-500 rounded hover:text-white hover:bg-red-500" title="Delete diagnosis">
+                  <Icon icon="mdi:delete" class="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div v-if="filteredDiagnosesByCategory(categoryId, diagnosisManageSearchQuery).length === 0"
+              class="p-4 text-sm text-gray-500">
+              No diagnoses in this category
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Categories Tab -->
+      <div v-else-if="activeManageTab === 'categories'" class="space-y-6">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-gray-800">Diagnosis Categories</h3>
+          <button @click="openAddCategoryModal"
+            class="flex items-center px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700">
+            <Icon icon="mdi:plus" class="mr-1" />
+            Add Category
+          </button>
+        </div>
+
+        <!-- Categories List -->
+        <div class="border rounded-md">
+          <div v-for="category in diseaseCategories" :key="category.category_id"
+            class="flex items-center justify-between px-4 py-3 border-b last:border-b-0">
+            <span>{{ category.name }}</span>
+            <div class="flex space-x-2">
+              <button @click="deleteCategory(category.category_id)"
+                class="p-1 text-red-500 rounded hover:text-white hover:bg-red-500"
+                title="Delete category (will also delete associated diagnoses)">
+                <Icon icon="mdi:delete" class="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+          <div v-if="diseaseCategories.length === 0" class="p-4 text-sm text-gray-500">
+            No categories available
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </template>
 <style scoped>
 textarea {

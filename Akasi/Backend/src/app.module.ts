@@ -53,10 +53,16 @@ import { ClientStatusModule } from './client-status/client-status.module';
 import { ClientFilesStaffService } from './client-files-staff/client-files-staff.service';
 import { ClientFilesStaffController } from './client-files-staff/client-files-staff.controller';
 import { ClientFilesStaffModule } from './client-files-staff/client-files-staff.module';
+import { DiagnosisService } from './diagnosis/diagnosis.service';
+import { DiagnosisController } from './diagnosis/diagnosis.controller';
+import { DiagnosisModule } from './diagnosis/diagnosis.module';
+import { ManagersService } from './managers/managers.service';
+import { ManagersController } from './managers/managers.controller';
+import { ManagersModule } from './managers/managers.module';
 
 @Module({
-  imports: [PrismaModule, AdminsModule, AuthModule, ClientsModule, ConsultationRecordsModule, PostsModule, InventoryModule, MedAdministrationModule, StorageModule, FileModule, ProfileModule, AddAppointmentModule, FetchAppointmentsClientModule, AdminFetchAppointmentsModule, EnrollmentDocumentsModule, ClientFilesModule, FetchClientFilesModule, GetClientsModule, FetchClientFilesAdminModule, FetchStaffFilesAdminModule, FileStatusModule, ClientStatusModule, ClientFilesStaffModule],
-  providers: [AppService, PostsService, MedAdministrationService, StorageService, FileService, ProfileService, AddAppointmentService, AdminFetchAppointmentsService, EnrollmentDocumentsService, FetchClientFilesService, GetClientsService, FetchClientFilesAdminService, FetchStaffFilesAdminService, FileStatusService, ClientStatusService, ClientFilesStaffService],
-  controllers: [AppController, PostsController, MedAdministrationController, FileController, ProfileController, AddAppointmentController, AdminFetchAppointmentsController, EnrollmentDocumentsController, FetchClientFilesAdminController, FetchStaffFilesAdminController, FileStatusController, ClientStatusController, ClientFilesStaffController],
+  imports: [PrismaModule, AdminsModule, AuthModule, ClientsModule, ConsultationRecordsModule, PostsModule, InventoryModule, MedAdministrationModule, StorageModule, FileModule, ProfileModule, AddAppointmentModule, FetchAppointmentsClientModule, AdminFetchAppointmentsModule, EnrollmentDocumentsModule, ClientFilesModule, FetchClientFilesModule, GetClientsModule, FetchClientFilesAdminModule, FetchStaffFilesAdminModule, FileStatusModule, ClientStatusModule, ClientFilesStaffModule, DiagnosisModule, ManagersModule],
+  providers: [AppService, PostsService, MedAdministrationService, StorageService, FileService, ProfileService, AddAppointmentService, AdminFetchAppointmentsService, EnrollmentDocumentsService, FetchClientFilesService, GetClientsService, FetchClientFilesAdminService, FetchStaffFilesAdminService, FileStatusService, ClientStatusService, ClientFilesStaffService, DiagnosisService, ManagersService],
+  controllers: [AppController, PostsController, MedAdministrationController, FileController, ProfileController, AddAppointmentController, AdminFetchAppointmentsController, EnrollmentDocumentsController, FetchClientFilesAdminController, FetchStaffFilesAdminController, FileStatusController, ClientStatusController, ClientFilesStaffController, DiagnosisController, ManagersController],
 })
 export class AppModule { }

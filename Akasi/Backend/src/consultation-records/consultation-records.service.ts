@@ -1,65 +1,71 @@
 // consultation-records.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { ConsultationRecordCreateInput, ConsultationRecordUpdateInput } from './consultation-records.types';
 
 @Injectable()
 export class ConsultationRecordsService {
   constructor(private prisma: PrismaService) { }
 
   // Method to create a consultation record
-  async createConsultationRecord(data: {
-    client_id: number;
-    admin_id: number;
-    date: Date;
-    patient_name: string;
-    patient_occupation: string;
-    doctor: string;
-    complaint: string;
-    remarks: string;
-    confined: boolean;
-    medAdministration: boolean;
-  }) {
+  async createConsultationRecord(data: ConsultationRecordCreateInput) {
     try {
-      const consultationRecord = await this.prisma.consultation_records.create({
-        data,
+      const { diagnosis_ids, ...consultationData } = data;
+
+      // Create the consultation record with proper Prisma syntax
+      const record = await this.prisma.consultation_records.create({
+        data: {
+          client_id: consultationData.client_id,
+          admin_id: consultationData.admin_id,
+          date: consultationData.date,
+          patient_name: consultationData.patient_name,
+          patient_occupation: consultationData.patient_occupation,
+          doctor: consultationData.doctor,
+          complaint: consultationData.complaint,
+          remarks: consultationData.remarks,
+          action: consultationData.action,
+          disposition: consultationData.disposition,
+          intern: consultationData.intern,
+          confined: consultationData.confined,
+          medAdministration: consultationData.medAdministration,
+        }
       });
-      return consultationRecord;
+
+      // If diagnosis_ids are provided, link them to the consultation
+      if (diagnosis_ids && Array.isArray(diagnosis_ids) && diagnosis_ids.length > 0) {
+        for (const diagnosis_id of diagnosis_ids) {
+          await this.linkDiagnosisToConsultation(record.consultation_id, diagnosis_id);
+        }
+      }
+
+      return this.getConsultationRecord(record.consultation_id);
     } catch (error) {
-      throw new Error(`Error creating consultation record: ${error.message}`);
+      throw new BadRequestException(`Failed to create consultation record: ${error.message}`);
     }
   }
 
   // Method to update a consultation record
   async updateConsultationRecord(
     consultation_id: number,
-    person: {
-      clientId: number;
-      name: string;
-      occupation?: string;
-      grade?: string;
-      section?: string;
-      generalComplaint?: string;
-      remarks?: string;
-      confined?: boolean;
-      medicationAdministration?: boolean;
-    },
+    person: ConsultationRecordUpdateInput,
   ) {
     try {
-      // First, fetch the existing record to get the original date
       const existingRecord = await this.getConsultationRecord(consultation_id);
 
-      // Prepare update data with proper type conversions
       const updateData = {
         client_id: person.clientId,
         admin_id: 1, // Replace with actual admin_id
-        date: new Date(existingRecord.date).toISOString(), // Ensure proper date format
+        date: new Date(existingRecord.date),
         patient_name: person.name,
         patient_occupation: person.occupation || `${person.grade}-${person.section}`,
         doctor: 'John Doe',
         complaint: person.generalComplaint || '',
         remarks: person.remarks || '',
+        action: person.action || '',
+        disposition: person.disposition || '',
         confined: Boolean(person.confined),
-        medAdministration: Boolean(person.medicationAdministration)
+        medAdministration: Boolean(person.medicationAdministration),
+        intern: Boolean(person.intern || false),
       };
 
       const consultationRecord = await this.prisma.consultation_records.update({
@@ -86,15 +92,31 @@ export class ConsultationRecordsService {
   // Method to fetch a single consultation record
   async getConsultationRecord(consultation_id: number) {
     try {
-      const consultationRecord = await this.prisma.consultation_records.findUnique({
+      const record = await this.prisma.consultation_records.findUnique({
         where: { consultation_id },
+        include: {
+          diagnoses: {
+            include: {
+              diagnosis: {
+                include: {
+                  category: true
+                }
+              }
+            }
+          }
+        }
       });
-      if (!consultationRecord) {
-        throw new Error(`Consultation record with ID ${consultation_id} not found`);
+
+      if (!record) {
+        throw new NotFoundException(`Consultation record with ID ${consultation_id} not found`);
       }
-      return consultationRecord;
+
+      return record;
     } catch (error) {
-      throw new Error(`Error fetching consultation record: ${error.message}`);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(`Failed to fetch consultation record: ${error.message}`);
     }
   }
 
@@ -185,5 +207,92 @@ export class ConsultationRecordsService {
         throw new Error(`Error deleting consultation record: ${error.message}`);
       }
     });
+  }
+
+  async linkDiagnosisToConsultation(consultation_id: number, diagnosis_id: number) {
+    try {
+      // Check if consultation exists
+      const consultation = await this.prisma.consultation_records.findUnique({
+        where: { consultation_id }
+      });
+
+      if (!consultation) {
+        throw new NotFoundException(`Consultation with ID ${consultation_id} not found`);
+      }
+
+      // Check if diagnosis exists
+      const diagnosis = await this.prisma.diagnosis.findUnique({
+        where: { diagnosis_id }
+      });
+
+      if (!diagnosis) {
+        throw new NotFoundException(`Diagnosis with ID ${diagnosis_id} not found`);
+      }
+
+      // Check if link already exists
+      const existingLink = await this.prisma.consultation_diagnosis.findUnique({
+        where: {
+          consultation_id_diagnosis_id: {
+            consultation_id,
+            diagnosis_id
+          }
+        }
+      });
+
+      if (existingLink) {
+        // If it already exists, just return success
+        return { message: 'Diagnosis already linked to consultation' };
+      }
+
+      // Create link
+      await this.prisma.consultation_diagnosis.create({
+        data: {
+          consultation_id,
+          diagnosis_id
+        }
+      });
+
+      return { message: 'Diagnosis linked to consultation successfully' };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(`Failed to link diagnosis to consultation: ${error.message}`);
+    }
+  }
+
+  async removeDiagnosisFromConsultation(consultation_id: number, diagnosis_id: number) {
+    try {
+      // Check if link exists
+      const existingLink = await this.prisma.consultation_diagnosis.findUnique({
+        where: {
+          consultation_id_diagnosis_id: {
+            consultation_id,
+            diagnosis_id
+          }
+        }
+      });
+
+      if (!existingLink) {
+        throw new NotFoundException('Diagnosis is not linked to this consultation');
+      }
+
+      // Delete link
+      await this.prisma.consultation_diagnosis.delete({
+        where: {
+          consultation_id_diagnosis_id: {
+            consultation_id,
+            diagnosis_id
+          }
+        }
+      });
+
+      return { message: 'Diagnosis removed from consultation successfully' };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(`Failed to remove diagnosis from consultation: ${error.message}`);
+    }
   }
 }

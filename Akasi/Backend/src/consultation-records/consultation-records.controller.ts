@@ -1,10 +1,11 @@
 // consultation-records.controller.ts
 import { Body, Controller, Post, Get, Put, Delete, Param, ParseIntPipe, NotFoundException, BadRequestException, Query } from '@nestjs/common';
 import { ConsultationRecordsService } from './consultation-records.service';
+import { ConsultationRecordCreateInput, ConsultationRecordUpdateInput } from './consultation-records.types';
 
 @Controller('consultation-records')
 export class ConsultationRecordsController {
-  constructor(private readonly service: ConsultationRecordsService) { }
+  constructor(private readonly consultationRecordsService: ConsultationRecordsService) { }
 
   // POST request to create a consultation record
   @Post()
@@ -17,7 +18,7 @@ export class ConsultationRecordsController {
         throw new BadRequestException('Missing required fields');
       }
 
-      const consultationRecord = await this.service.createConsultationRecord({
+      const consultationRecord = await this.consultationRecordsService.createConsultationRecord({
         client_id: Number(body.client_id),
         admin_id: Number(body.admin_id),
         date: new Date(body.date),
@@ -26,6 +27,9 @@ export class ConsultationRecordsController {
         doctor: String(body.doctor),
         complaint: String(body.complaint || ''),
         remarks: String(body.remarks || ''),
+        action: String(body.action || ''),           // Add this field
+        disposition: String(body.disposition || ''), // Add this field
+        intern: Boolean(body.intern),
         confined: Boolean(body.confined),
         medAdministration: Boolean(body.medAdministration),
       });
@@ -49,7 +53,7 @@ export class ConsultationRecordsController {
         throw new BadRequestException('Missing required fields');
       }
 
-      const existingRecord = await this.service.getConsultationRecord(consultation_id);
+      const existingRecord = await this.consultationRecordsService.getConsultationRecord(consultation_id);
       if (!existingRecord) {
         throw new NotFoundException(`Consultation record with ID ${consultation_id} not found`);
       }
@@ -61,11 +65,14 @@ export class ConsultationRecordsController {
         occupation: String(body.patient_occupation),
         generalComplaint: String(body.complaint || ''),
         remarks: String(body.remarks || ''),
+        action: String(body.action || ''),           // Add this field
+        disposition: String(body.disposition || ''), // Add this field
+        intern: Boolean(body.intern),
         confined: Boolean(body.confined),
         medicationAdministration: Boolean(body.medAdministration),
       };
 
-      return await this.service.updateConsultationRecord(consultation_id, updateData);
+      return await this.consultationRecordsService.updateConsultationRecord(consultation_id, updateData);
     } catch (error) {
       console.error('Update consultation error:', error);
       if (error instanceof NotFoundException) {
@@ -79,7 +86,7 @@ export class ConsultationRecordsController {
   @Get()
   async getConsultationRecords() {
     try {
-      return await this.service.getConsultationRecords();
+      return await this.consultationRecordsService.getConsultationRecords();
     } catch (error) {
       throw new BadRequestException(error.message);
     }
@@ -92,24 +99,24 @@ export class ConsultationRecordsController {
     @Query('confined') confined?: string,
   ) {
     const confinedBool = confined === 'true' ? true : confined === 'false' ? false : undefined;
-    return this.service.countConsultationRecordsByMonth(year, month, confinedBool);
+    return this.consultationRecordsService.countConsultationRecordsByMonth(year, month, confinedBool);
   }
 
   @Get('total-count')
   async getTotalConsultationCount() {
-    return this.service.getTotalConsultationCount();
+    return this.consultationRecordsService.getTotalConsultationCount();
   }
 
   @Get('year-count')
   async getConsultationRecordsCountByYear(@Query('year', ParseIntPipe) year: number) {
-    return this.service.getConsultationRecordsCountByYear(year);
+    return this.consultationRecordsService.getConsultationRecordsCountByYear(year);
   }
 
   // GET request to retrieve a single consultation record
   @Get(':id')
   async getConsultationRecord(@Param('id', ParseIntPipe) consultation_id: number) {
     try {
-      const record = await this.service.getConsultationRecord(consultation_id);
+      const record = await this.consultationRecordsService.getConsultationRecord(consultation_id);
       if (!record) {
         throw new NotFoundException(`Consultation record with ID ${consultation_id} not found`);
       }
@@ -126,12 +133,12 @@ export class ConsultationRecordsController {
     try {
       console.log(`Received DELETE request for ID: ${consultation_id}`); // Debug log
 
-      const existingRecord = await this.service.getConsultationRecord(consultation_id);
+      const existingRecord = await this.consultationRecordsService.getConsultationRecord(consultation_id);
       if (!existingRecord) {
         throw new NotFoundException(`Consultation record with ID ${consultation_id} not found`);
       }
 
-      await this.service.deleteConsultationRecord(consultation_id);
+      await this.consultationRecordsService.deleteConsultationRecord(consultation_id);
       return { message: `Consultation record with ID ${consultation_id} has been deleted` };
     } catch (error) {
       console.error('Delete consultation error:', error);
@@ -140,5 +147,29 @@ export class ConsultationRecordsController {
       }
       throw new BadRequestException(error.message);
     }
+  }
+
+  // Link diagnosis to consultation
+  @Post(':id/diagnoses')
+  async linkDiagnosisToConsultation(
+    @Param('id', ParseIntPipe) consultation_id: number,
+    @Body() data: { diagnosis_id: number }
+  ) {
+    return this.consultationRecordsService.linkDiagnosisToConsultation(
+      consultation_id,
+      data.diagnosis_id
+    );
+  }
+
+  // Remove diagnosis from consultation
+  @Delete(':id/diagnoses/:diagnosisId')
+  async removeDiagnosisFromConsultation(
+    @Param('id', ParseIntPipe) consultation_id: number,
+    @Param('diagnosisId', ParseIntPipe) diagnosis_id: number
+  ) {
+    return this.consultationRecordsService.removeDiagnosisFromConsultation(
+      consultation_id,
+      diagnosis_id
+    );
   }
 }

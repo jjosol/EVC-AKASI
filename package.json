@@ -12,6 +12,7 @@
     "dev": "concurrently -n \"FRONTEND,BACKEND,PRISMA\" \"cd akasi/frontend && npm run dev\" \"cd akasi/backend && npm run start:dev\" \"cd akasi/backend && npx prisma studio\""
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "prisma": "^6.3.1"
   }
 }
