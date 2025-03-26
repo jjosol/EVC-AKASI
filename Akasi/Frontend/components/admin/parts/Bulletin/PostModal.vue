@@ -100,7 +100,7 @@ function resetPost() {
     <div class="flex items-center">
       <img src="~/assets/logo.svg" alt="Avatar" class="w-20 h-20 rounded-full">
       <div>
-        <h3 class="text-lg font-semibold">John Doe</h3>
+        <h3 class="text-lg font-semibold">Health Services Unit</h3>
         <p class="text-sm text-gray-500">January 31, 2023</p>
       </div>
     </div>
