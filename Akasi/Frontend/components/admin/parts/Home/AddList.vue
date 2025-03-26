@@ -345,8 +345,14 @@ const savePerson = async () => {
       disposition: selectedPerson.value.disposition || ''
     };
 
-    // Rest of the implementation (keeping fionabranch version)
-    // ...
+    // Schedule medicine administration if needed
+    // This recursive call was causing issues - removing it
+    // await savePerson();
+  } catch (error) {
+    console.error('Error saving data:', error);
+    alert('Failed to save data: ' + error.message);
+  }
+};
 
 /**
  * Fetches medicine inventory from API
@@ -405,189 +411,6 @@ onMounted(() => {
   }
 });
 console.log(patients)
-
-
-
-
-
-
-////////////////
-/**
- * Saves/updates person and consultation record
- * Handles both new records and updates
- * @returns {Promise<void>}
- */
- const savePerson = async () => {
-  try {
-    if (!selectedPerson.value?.clientId) {
-      throw new Error('Client ID is required');
-    }
-
-    // Filter out any empty complaints before saving
-    if (selectedPerson.value.complaints) {
-      selectedPerson.value.complaints = selectedPerson.value.complaints.filter(
-        complaint => complaint.text && complaint.text.trim() !== ''
-      );
-    }
-
-    // Ensure complaints is defined as an array and not empty
-    if (
-      !Array.isArray(selectedPerson.value.complaints) ||
-      !selectedPerson.value.complaints.length
-    ) {
-      throw new Error('At least one diagnosis is required');
-    }
-
-    // Prepare consultation data
-    const selectedDateTime = new Date(props.currentDay.date);
-    const now = new Date();
-    selectedDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
-
-    const consultationData = {
-      client_id: selectedPerson.value.clientId,
-      admin_id: 1, // Replace with the actual admin ID
-      date: selectedDateTime.toISOString(),
-      patient_name: selectedPerson.value.name,
-      patient_occupation:
-        selectedPerson.value.occupation ||
-        `${selectedPerson.value.grade}-${selectedPerson.value.section}`,
-      doctor: 'John Doe',
-      complaint: selectedPerson.value.complaints.length > 0 ? selectedPerson.value.complaints.map(c => c.text).join(', ') : null,
-      remarks: selectedPerson.value.remarks || '',
-      confined: Boolean(selectedPerson.value.confined),
-      medAdministration: Boolean(selectedPerson.value.medicationAdministration),
-      intern: Boolean(selectedPerson.value.intern),
-      // Include diagnosis_ids array if present
-      diagnosis_ids: selectedPerson.value.complaints
-        .filter(c => c.disease_id)
-        .map(c => c.disease_id),
-      action: selectedPerson.value.action || '',
-      disposition: selectedPerson.value.disposition || ''
-    };
-
-    let consultationId;
-
-    // Check if updating an existing consultation record
-    if (selectedConsultationRecord.value?.consultation_id) {
-      try {
-        // First, fetch the existing record to check if it exists
-        await consultationRecordService.fetchConsultationRecord(selectedConsultationRecord.value.consultation_id);
-
-        // Update the existing consultation record
-        await consultationRecordService.updateConsultationRecord(selectedConsultationRecord.value.consultation_id, consultationData);
-        consultationId = selectedConsultationRecord.value.consultation_id;
-      } catch (fetchError) {
-        // If the record is not found, create a new one
-        console.warn('Consultation record not found, creating a new one.');
-        const newRecord = await consultationRecordService.createConsultationRecord(consultationData);
-        consultationId = newRecord.consultation_id;
-      }
-    } else {
-      // Create a new consultation record
-      const newRecord = await consultationRecordService.createConsultationRecord(consultationData);
-      consultationId = newRecord.consultation_id;
-    }
-
-    // Ensure consultationId is obtained
-    if (!consultationId) {
-      throw new Error('Consultation ID is not available');
-    }
-
-    // Handle individual diagnoses via the specialized endpoints if they have disease_id
-    // This step allows us to maintain the proper relationships in the database
-    for (const complaint of selectedPerson.value.complaints) {
-      if (complaint.disease_id) {
-        try {
-          await consultationRecordService.linkDiagnosisToConsultation(
-            consultationId,
-            complaint.disease_id
-          );
-        } catch (error) {
-          console.warn(`Failed to link diagnosis ${complaint.disease_id} to consultation: ${error.message}`);
-        }
-      }
-    }
-
-    // Handle medicines if medication administration is enabled
-    if (
-      selectedPerson.value.medicationAdministration &&
-      selectedPerson.value.medicines?.length > 0
-    ) {
-      for (const medicine of selectedPerson.value.medicines) {
-        if (medicine.markedForDeletion) {
-          // Delete the medicine
-          await consultationRecordService.deleteMedAdministrationRecord(medicine.consultation_id);
-        } else {
-          // Save or update the medicine
-          const medAdminData = {
-            consultation_id: consultationId,
-            client_id: selectedPerson.value.clientId,
-            admin_id: 1,
-            med_id: medicine.med_id,
-            medName: medicine.name,
-            count: Number(medicine.quantity),
-            schedule: medicine.schedule || '',
-            start_date: medicine.startDate,
-            end_date: medicine.endDate,
-            remarks: medicine.remarks || '',
-            date: new Date().toISOString(),
-            patient: selectedPerson.value.name
-          };
-
-          await consultationRecordService.createMedAdministrationRecord(medAdminData);
-        }
-      }
-    }
-
-    // After processing medicines, update the selectedPerson.medicines array
-    // to trigger reactivity
-    const medAdminRecords = await consultationRecordService.fetchMedAdministrationRecords(consultationId);
-
-    // Map the med admin records to match the expected format
-    const mappedMedicines = medAdminRecords.map(record => ({
-      med_id: record.med_id,
-      consultation_id: record.consultation_id, // Add this line
-      name: record.medName,
-      quantity: record.count,
-      schedule: record.schedule,
-      startDate: new Date(record.start_date).toISOString().split('T')[0],
-      endDate: new Date(record.end_date).toISOString().split('T')[0],
-      remarks: record.remarks
-    }));
-
-    selectedPerson.value.medicines = mappedMedicines;
-
-    // Reset form and refresh data
-    selectedPerson.value = null;
-    showEditModal.value = false;
-    showAddModal.value = false;
-    await fetchPatients();
-    emit('consultation-saved');
-  } catch (error) {
-    console.error('Error saving data:', error);
-    alert('Failed to save data: ' + error.message);
-  }
-};
-
-/**
- * Fetches medicine inventory from API
- * @returns {Promise<void>}
- */
-const fetchInventory = async () => {
-  try {
-    const data = await consultationRecordService.fetchInventory();
-    allMedicines.value = data.map(item => ({
-      med_id: item.med_id,
-      name: item.medName,
-      expirationDate: formatDate(item.expiration),
-      count: parseInt(item.count),
-      requestedQuantity: 1
-    }));
-  } catch (error) {
-    console.error('Error fetching inventory:', error);
-  }
-};
-
 
 // fetch data when mounted
 onMounted(() => {

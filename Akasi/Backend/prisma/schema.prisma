@@ -41,6 +41,7 @@ model client {
   age       Int
   gender    String @db.VarChar(225)
   category  String @db.VarChar(225)
+  type      String @db.VarChar(225)
   grade     Int?
   section   String @db.VarChar(225)
   status    String @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
@@ -80,11 +81,11 @@ model consultation_records {
   complaint          String   @db.VarChar(225)
   remarks            String   @db.VarChar(500)
   intervention       String   @db.VarChar(500)
-  action             String   @db.VarChar(500)
+  action             String   @db.VarChar(500) @default("")
   confined           Boolean
   medAdministration  Boolean
-  disposition        String   @db.VarChar(500)
-  intern            Boolean
+  disposition        String   @db.VarChar(500) @default("")
+  intern             Boolean  @default(false)
 
   // Relations
   admin     admin                    @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction)
@@ -147,7 +148,7 @@ model dental_certificates {
 model inventory {
   med_id      Int      @default(autoincrement())
   medName     String   @db.VarChar(225)
-  category_id Int
+  category_id Int      @default(1) // Use a valid existing category_id
   expiration  DateTime @db.Date
   count       Int
 
@@ -266,6 +267,7 @@ model medAdministration {
   start_date      DateTime @db.Date
   end_date        DateTime @db.Date
   remarks         String?  @db.VarChar(500)
+  intervention    String?  @db.VarChar(500)
 
   // Relations
   admin     admin     @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction)

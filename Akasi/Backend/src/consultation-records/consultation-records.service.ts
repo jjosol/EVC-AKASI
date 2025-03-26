@@ -2,36 +2,42 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { ConsultationRecordCreateInput, ConsultationRecordUpdateInput } from './consultation-records.types';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class ConsultationRecordsService {
   constructor(private prisma: PrismaService) { }
 
   // Method to create a consultation record
-  async createConsultationRecord(data: ConsultationRecordCreateInput) {
+  async createConsultationRecord(data: any) {
     try {
       const { diagnosis_ids, ...consultationData } = data;
+       
+      // This is where the createData object should go
+      const createData = {
+        client_id: consultationData.client_id,
+        admin_id: consultationData.admin_id,
+        date: new Date(consultationData.date),
+        patient_name: consultationData.patient_name, 
+        patient_occupation: consultationData.patient_occupation,
+        doctor: consultationData.doctor,
+        complaint: consultationData.complaint || '',
+        remarks: consultationData.remarks || '',
+        confined: consultationData.confined || false,
+        medAdministration: consultationData.medAdministration || false,
+        intervention: consultationData.intervention || '',
+        // The new fields with default values
+        action: consultationData.action || '',
+        disposition: consultationData.disposition || '',
+        intern: consultationData.intern || false
+      };
 
-      // Create the consultation record with proper Prisma syntax
+      // Create the consultation record using the properly formatted data
       const record = await this.prisma.consultation_records.create({
-        data: {
-          client_id: consultationData.client_id,
-          admin_id: consultationData.admin_id,
-          date: consultationData.date,
-          patient_name: consultationData.patient_name,
-          patient_occupation: consultationData.patient_occupation,
-          doctor: consultationData.doctor,
-          complaint: consultationData.complaint,
-          remarks: consultationData.remarks,
-          action: consultationData.action,
-          disposition: consultationData.disposition,
-          intern: consultationData.intern,
-          confined: consultationData.confined,
-          medAdministration: consultationData.medAdministration,
-        }
+        data: createData
       });
 
-      // If diagnosis_ids are provided, link them to the consultation
+      // Link diagnoses if provided
       if (diagnosis_ids && Array.isArray(diagnosis_ids) && diagnosis_ids.length > 0) {
         for (const diagnosis_id of diagnosis_ids) {
           await this.linkDiagnosisToConsultation(record.consultation_id, diagnosis_id);

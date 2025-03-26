@@ -9,41 +9,31 @@ export class ConsultationRecordsController {
 
   // POST request to create a consultation record
   @Post()
-  async createConsultationRecord(@Body() body: any) {
-    try {
-      console.log('Received POST request body:', body); // Debug log
+  async create(@Body() body: any) {
+    // Create a data object that matches your Prisma schema exactly
+    const data = {
+      client_id: Number(body.client_id),
+      admin_id: Number(body.admin_id),
+      date: new Date(body.date),
+      patient_name: String(body.patient_name),
+      patient_occupation: String(body.patient_occupation),
+      doctor: String(body.doctor),
+      complaint: String(body.complaint || ''),
+      remarks: String(body.remarks || ''),
+      confined: Boolean(body.confined),
+      medAdministration: Boolean(body.medAdministration),
+      intervention: String(body.intervention || ''),
+      action: String(body.action || ''),
+      disposition: String(body.disposition || ''),
+      intern: Boolean(body.intern || false),
+      // Pass diagnosis IDs separately
+      diagnosis_ids: body.diagnosis_ids || []
+    };
 
-      // Validate required fields
-      if (!body.client_id || !body.patient_name) {
-        throw new BadRequestException('Missing required fields');
-      }
-
-      const consultationRecord = await this.consultationRecordsService.createConsultationRecord({
-        client_id: Number(body.client_id),
-        admin_id: Number(body.admin_id),
-        date: new Date(body.date),
-        patient_name: String(body.patient_name),
-        patient_occupation: String(body.patient_occupation),
-        doctor: String(body.doctor),
-        complaint: String(body.complaint || ''),
-        remarks: String(body.remarks || ''),
-        action: String(body.action || ''),           // Add this field
-        disposition: String(body.disposition || ''), // Add this field
-        intern: Boolean(body.intern),
-        confined: Boolean(body.confined),
-        medAdministration: Boolean(body.medAdministration),
-        fatality: Boolean(body.fatality),
-        intervention: String(body.intervention || ''),
-      });
-
-      return consultationRecord;
-    } catch (error) {
-      console.error('Create consultation error:', error);
-      throw new BadRequestException(error.message);
-    }
+    return this.consultationRecordsService.createConsultationRecord(data);
   }
-  // PUT request to update a consultation record
 
+  // PUT request to update a consultation record
   @Put(':id')
   async updateConsultationRecord(
     @Param('id', ParseIntPipe) consultation_id: number,
@@ -72,7 +62,6 @@ export class ConsultationRecordsController {
         intern: Boolean(body.intern),
         confined: Boolean(body.confined),
         medicationAdministration: Boolean(body.medAdministration),
-        fatality: Boolean(body.fatality || false),
         intervention: String(body.intervention || ''),
       };
 
