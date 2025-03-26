@@ -1,5 +1,4 @@
 {
-  "type": "module",
   "dependencies": {
     "@nestjs/platform-express": "^11.0.7",
     "@nuxt/nitro": "^0.10.0",
