@@ -15,24 +15,29 @@ export class ReportsService {
     const startMonthNum = monthNameToNumber[startMonth] || parseInt(startMonth);
     const endMonthNum = monthNameToNumber[endMonth] || parseInt(endMonth);
     const startYearNum = parseInt(startYear);
-    const endYearNum = parseInt(endYear);
+    let endYearNum = parseInt(endYear);
 
-    console.log(`Processing cross-year request: ${startMonth}(${startYear}) to ${endMonth}(${endYear})`);
+    // ACADEMIC YEAR LOGIC: July-June is one academic year
+    // For ANY combination where start month > end month, we're crossing years
+    if (startMonthNum > endMonthNum && startYearNum === endYearNum) {
+      // If we're crossing years but the same year was provided for both, increment end year
+      endYearNum = startYearNum + 1;
+      console.log(`Academic year adjustment: Changed end year to ${endYearNum}`);
+    }
 
     // Create date range for query using UTC dates to match database format
     const startDate = new Date(Date.UTC(startYearNum, startMonthNum - 1, 1, 0, 0, 0));
     const endDate = new Date(Date.UTC(endYearNum, endMonthNum, 0, 23, 59, 59)); // Last day of end month
 
-    console.log(`Query date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.log(`Academic year query: ${startDate.toISOString()} to ${endDate.toISOString()}`);
 
     // Prepare the result structure with all months in range
     const monthsInRange = [];
     
     // Logic to populate months array with all months in the range
-    // Special handling for cross-year ranges (e.g., Dec-Feb)
-    if (startYearNum === endYearNum || 
-        (startMonthNum <= endMonthNum && startYearNum === endYearNum)) {
-      // Same year or simple range within same year
+    // Special handling for cross-year ranges (e.g., July-June academic year)
+    if (startYearNum === endYearNum && startMonthNum <= endMonthNum) {
+      // Simple range within same year (e.g., September-December)
       for (let i = startMonthNum; i <= endMonthNum; i++) {
         const monthName = new Date(startYearNum, i - 1, 1)
                              .toLocaleString('default', { month: 'long' });
@@ -44,8 +49,8 @@ export class ReportsService {
         });
       }
     } else {
-      // Cross-year range (e.g. July to June)
-      // First add months from startMonth to December
+      // Cross-year range (e.g. July to June or December to March)
+      // First add months from startMonth to December of start year
       for (let i = startMonthNum; i <= 12; i++) {
         const monthName = new Date(startYearNum, i - 1, 1)
                              .toLocaleString('default', { month: 'long' });
@@ -275,24 +280,31 @@ export class ReportsService {
           
           // Find the index in our monthsInRange array
           let monthIndex = -1;
-          
-          if (startYearNum === endYearNum) {
-            // Same year case
+
+          if (startYearNum === endYearNum && startMonthNum <= endMonthNum) {
+            // Same year case (e.g., Sept-Dec 2024)
             monthIndex = month - startMonthNum;
           } else {
-            // Cross-year case
+            // Academic year case (e.g., July 2024-June 2025)
             if (year === startYearNum) {
               // Data from start year (e.g., July-December)
               monthIndex = month - startMonthNum;
             } else if (year === endYearNum) {
               // Data from end year (e.g., January-June)
-              // Calculate offset from start of year
-              const monthsInFirstYear = 13 - startMonthNum; // Count of months in first year
+              // Calculate how many months we had in the first year
+              const monthsInFirstYear = 13 - startMonthNum;
               monthIndex = monthsInFirstYear + (month - 1);
+            } else {
+              // This handles any data that might be from years between start and end
+              // (in case the range spans more than 2 years)
+              console.log(`Data from year ${year} which is neither start nor end year`);
+              monthIndex = -1; // Skip this record
             }
           }
-          
-          console.log(`Month: ${month}, StartMonth: ${startMonthNum}, Index: ${monthIndex}`);
+
+          // Add more logging to diagnose the issue
+          console.log(`Month: ${month}, Year: ${year}, StartMonth: ${startMonthNum}, StartYear: ${startYearNum}, Index: ${monthIndex}`);
+          console.log(`MonthsInRange length: ${monthsInRange.length}`);
           
           if (monthIndex >= 0 && monthIndex < monthsInRange.length) {
             // Count this record in the appropriate category
@@ -341,13 +353,22 @@ export class ReportsService {
     const startMonthNum = monthNameToNumber[startMonth] || parseInt(startMonth);
     const endMonthNum = monthNameToNumber[endMonth] || parseInt(endMonth);
     const startYearNum = parseInt(startYear);
-    const endYearNum = parseInt(endYear);
+    let endYearNum = parseInt(endYear);
 
-    // Create date range for query with proper year handling
+    // ACADEMIC YEAR LOGIC: July-June is one academic year
+    // For ANY combination where start month > end month, we're crossing years
+    if (startMonthNum > endMonthNum && startYearNum === endYearNum) {
+      // If we're crossing years but the same year was provided for both, increment end year
+      endYearNum = startYearNum + 1;
+      console.log(`Academic year adjustment: Changed end year to ${endYearNum}`);
+    }
+
+    // Create date range for query
     const startDate = new Date(Date.UTC(startYearNum, startMonthNum - 1, 1, 0, 0, 0));
     const endDate = new Date(Date.UTC(endYearNum, endMonthNum, 0, 23, 59, 59)); // Last day of end month
 
     console.log(`Fetching consultation monitoring data from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.log(`Date range spans academic year: ${startYearNum !== endYearNum || startMonthNum > endMonthNum}`);
 
     // Fetch consultation records with client information within the date range
     const consultations = await this.prisma.consultation_records.findMany({
