@@ -1,0 +1,984 @@
+<script setup>
+import { ref, computed, onMounted, watch } from 'vue';
+import { 
+  fetchAdminAccounts, 
+  fetchClientAccounts, 
+  fetchManagerAccounts,
+  createAdminAccount, 
+  createClientAccount,
+  createManagerAccount,
+  updateAdminAccount,
+  updateClientAccount,
+  updateManagerAccount,
+  deleteAdminAccount,
+  deleteClientAccount,
+  deleteManagerAccount,
+  hashAllPasswords
+} from '~/services/dashboardServices';
+import { useBackupEvents } from '../../../../composables/useBackupEvents';
+
+// Tabs state
+const activeTab = ref('admins'); // 'admins', 'clients', or 'managers'
+
+// CRUD state
+const showCreateModal = ref(false);
+const showEditModal = ref(false);
+const selectedAccount = ref(null);
+const isLoading = ref(false);
+const searchQuery = ref('');
+
+// Data lists
+const adminAccounts = ref([]);
+const clientAccounts = ref([]);
+const managerAccounts = ref([]);  // New state for managers
+
+// New account form
+const newAccount = ref({
+  username: '',
+  password: '',
+  gmail: '',
+  // Additional client fields
+  name: '',
+  age: null,
+  gender: '',
+  category: '',
+  grade: null,
+  section: ''
+});
+
+// Error handling
+const errorMessage = ref('');
+const successMessage = ref('');
+
+// Form validation
+const validateForm = (account, isClient = false) => {
+  // Reset error message
+  errorMessage.value = '';
+  
+  // Basic validation for required fields
+  if (!account.username || !account.gmail) {
+    errorMessage.value = 'Username and email are required';
+    return false;
+  }
+  
+  // Password is required for new accounts
+  if (!selectedAccount.value && !account.password) {
+    errorMessage.value = 'Password is required for new accounts';
+    return false;
+  }
+  
+  // Additional client validation
+  if (isClient) {
+    if (!account.name) {
+      errorMessage.value = 'Name is required for client accounts';
+      return false;
+    }
+    if (!account.age || account.age < 1) {
+      errorMessage.value = 'Valid age is required for client accounts';
+      return false;
+    }
+    if (!account.gender) {
+      errorMessage.value = 'Gender is required for client accounts';
+      return false;
+    }
+    if (!account.category) {
+      errorMessage.value = 'Category is required for client accounts';
+      return false;
+    }
+    if (!account.section) {
+      errorMessage.value = 'Section is required for client accounts';
+      return false;
+    }
+  }
+  
+  return true;
+};
+
+// API functions
+const loadAdminAccounts = async () => {
+  try {
+    isLoading.value = true;
+    adminAccounts.value = await fetchAdminAccounts();
+  } catch (error) {
+    errorMessage.value = `Error: ${error.message}`;
+    console.error('Error fetching admin accounts:', error);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const loadClientAccounts = async () => {
+  try {
+    isLoading.value = true;
+    clientAccounts.value = await fetchClientAccounts();
+  } catch (error) {
+    errorMessage.value = `Error: ${error.message}`;
+    console.error('Error fetching client accounts:', error);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// Add this function after loadClientAccounts
+const loadManagerAccounts = async () => {
+  try {
+    isLoading.value = true;
+    managerAccounts.value = await fetchManagerAccounts();
+  } catch (error) {
+    errorMessage.value = `Error: ${error.message}`;
+    console.error('Error fetching manager accounts:', error);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const createAccount = async (isClient = false, isManager = false) => {
+  if (!validateForm(newAccount.value, isClient)) return;
+  
+  try {
+    isLoading.value = true;
+    
+    if (isClient) {
+      await createClientAccount(newAccount.value);
+      successMessage.value = 'Client account created successfully';
+      await loadClientAccounts();
+    } else if (isManager) {
+      await createManagerAccount(newAccount.value);
+      successMessage.value = 'Manager account created successfully';
+      await loadManagerAccounts();
+    } else {
+      await createAdminAccount(newAccount.value);
+      successMessage.value = 'Admin account created successfully';
+      await loadAdminAccounts();
+    }
+    
+    showCreateModal.value = false;
+    resetForm();
+    
+  } catch (error) {
+    errorMessage.value = `Error: ${error.message}`;
+    console.error(`Error creating account:`, error);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const updateAccount = async (isClient = false, isManager = false) => {
+  if (!validateForm(selectedAccount.value, isClient)) return;
+  
+  try {
+    isLoading.value = true;
+    
+    if (isClient) {
+      await updateClientAccount(
+        selectedAccount.value.client_id,
+        selectedAccount.value
+      );
+      successMessage.value = 'Client account updated successfully';
+      await loadClientAccounts();
+    } else if (isManager) {
+      await updateManagerAccount(
+        selectedAccount.value.manager_id,
+        selectedAccount.value
+      );
+      successMessage.value = 'Manager account updated successfully';
+      await loadManagerAccounts();
+    } else {
+      await updateAdminAccount(
+        selectedAccount.value.admin_id,
+        selectedAccount.value
+      );
+      successMessage.value = 'Admin account updated successfully';
+      await loadAdminAccounts();
+    }
+    
+    showEditModal.value = false;
+    selectedAccount.value = null;
+    
+  } catch (error) {
+    errorMessage.value = `Error: ${error.message}`;
+    console.error(`Error updating account:`, error);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const removeAccount = async (account, isClient = false, isManager = false) => {
+  if (!confirm(`Are you sure you want to delete this ${isClient ? 'client' : isManager ? 'manager' : 'admin'} account?`)) {
+    return;
+  }
+  
+  try {
+    isLoading.value = true;
+    
+    if (isClient) {
+      await deleteClientAccount(account.client_id);
+      successMessage.value = 'Client account deleted successfully';
+      await loadClientAccounts();
+    } else if (isManager) {
+      await deleteManagerAccount(account.manager_id);
+      successMessage.value = 'Manager account deleted successfully';
+      await loadManagerAccounts();
+    } else {
+      await deleteAdminAccount(account.admin_id);
+      successMessage.value = 'Admin account deleted successfully';
+      await loadAdminAccounts();
+    }
+    
+  } catch (error) {
+    errorMessage.value = `Error: ${error.message}`;
+    console.error(`Error deleting account:`, error);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// Add a new state for hash passwords operation
+const isHashingPasswords = ref(false);
+const hashPasswordsStatus = ref('');
+
+// Function to hash all passwords
+const hashAllAccountPasswords = async () => {
+  if (!confirm('Are you sure you want to hash all unhashed passwords in the system? This operation cannot be undone.')) {
+    return;
+  }
+  
+  try {
+    isHashingPasswords.value = true;
+    hashPasswordsStatus.value = 'Hashing passwords...';
+    
+    const response = await hashAllPasswords();
+    
+    hashPasswordsStatus.value = 'Success: All eligible passwords have been hashed.';
+    successMessage.value = 'All passwords have been successfully hashed';
+    
+    // Refresh the account lists
+    await loadAdminAccounts();
+    await loadClientAccounts();
+    
+  } catch (error) {
+    errorMessage.value = `Error: ${error.message}`;
+    hashPasswordsStatus.value = 'Error occurred while hashing passwords.';
+    console.error('Error hashing passwords:', error);
+  } finally {
+    isHashingPasswords.value = false;
+    // Auto-clear the hash status after 5 seconds
+    setTimeout(() => {
+      hashPasswordsStatus.value = '';
+    }, 5000);
+  }
+};
+
+// UI Handlers
+const openCreateModal = () => {
+  resetForm();
+  showCreateModal.value = true;
+};
+
+const openEditModal = (account, isClient = false, isManager = false) => {
+  selectedAccount.value = { ...account };
+  showEditModal.value = true;
+};
+
+const resetForm = () => {
+  newAccount.value = {
+    username: '',
+    password: '',
+    gmail: '',
+    name: '',
+    age: null,
+    gender: '',
+    category: '',
+    grade: null,
+    section: ''
+  };
+  errorMessage.value = '';
+};
+
+const closeModals = () => {
+  showCreateModal.value = false;
+  showEditModal.value = false;
+  selectedAccount.value = null;
+  errorMessage.value = '';
+};
+
+// Auto-clear success message after 3 seconds
+const clearSuccessMessage = () => {
+  if (successMessage.value) {
+    setTimeout(() => {
+      successMessage.value = '';
+    }, 3000);
+  }
+};
+
+// Watch for success message changes to set up auto-clear
+watch(successMessage, clearSuccessMessage);
+
+// Filtered accounts based on search
+const filteredAdmins = computed(() => {
+  if (!searchQuery.value) return adminAccounts.value;
+  const query = searchQuery.value.toLowerCase();
+  return adminAccounts.value.filter(admin => 
+    admin.username.toLowerCase().includes(query) || 
+    admin.gmail.toLowerCase().includes(query)
+  );
+});
+
+const filteredClients = computed(() => {
+  if (!searchQuery.value) return clientAccounts.value;
+  const query = searchQuery.value.toLowerCase();
+  return clientAccounts.value.filter(client => 
+    client.username.toLowerCase().includes(query) || 
+    client.name?.toLowerCase().includes(query) || 
+    client.gmail.toLowerCase().includes(query)
+  );
+});
+
+const filteredManagers = computed(() => {
+  if (!searchQuery.value) return managerAccounts.value;
+  const query = searchQuery.value.toLowerCase();
+  return managerAccounts.value.filter(manager => 
+    manager.username.toLowerCase().includes(query) || 
+    manager.gmail.toLowerCase().includes(query)
+  );
+});
+
+// Lifecycle hooks
+onMounted(() => {
+  loadAdminAccounts();
+  loadClientAccounts();
+  loadManagerAccounts(); // Add this line
+});
+
+// Add this inside setup()
+const { lastBackupRestored } = useBackupEvents();
+
+// Watch for changes
+watch(lastBackupRestored, async (newVal, oldVal) => {
+  if (newVal && newVal !== oldVal) {
+    console.log('Backup was restored, refreshing accounts...');
+    // Reload all account data
+    await Promise.all([
+      loadAdminAccounts(),
+      loadClientAccounts(),
+      loadManagerAccounts()
+    ]);
+  }
+});
+</script>
+
+<template>
+  <div class="p-6 bg-white rounded-lg shadow">
+    <!-- Success/Error Messages -->
+    <div v-if="successMessage" class="p-3 mb-4 text-green-700 bg-green-100 border border-green-400 rounded">
+      {{ successMessage }}
+    </div>
+    <div v-if="errorMessage" class="p-3 mb-4 text-red-700 bg-red-100 border border-red-400 rounded">
+      {{ errorMessage }}
+    </div>
+
+    <div class="border-b border-gray-200">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold text-[#2f4a71]">Account Management</h2>
+        <div class="flex gap-2">
+          <!-- Add Account Button -->
+          <button
+            @click="openCreateModal"
+            class="flex items-center px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700"
+          >
+            <span class="mr-2 material-icons">add</span>
+            Add Account
+          </button>
+          
+          <!-- Hash Passwords Button -->
+          <button
+            @click="hashAllAccountPasswords"
+            :disabled="isHashingPasswords"
+            class="flex items-center px-4 py-2 text-white rounded-md bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300"
+          >
+            <span class="mr-2 material-icons">lock</span>
+            {{ isHashingPasswords ? 'Hashing...' : 'Hash All Passwords' }}
+          </button>
+        </div>
+      </div>
+      
+      <!-- Hash Status Message -->
+      <div v-if="hashPasswordsStatus" class="px-4 py-3 mb-4 text-blue-700 bg-blue-100 border border-blue-400 rounded">
+        {{ hashPasswordsStatus }}
+      </div>
+      <!-- Tabs -->
+      <div class="flex mb-6">
+        <button 
+          @click="activeTab = 'admins'" 
+          :class="[
+            'px-4 py-2 text-lg font-medium border-b-2', 
+            activeTab === 'admins' 
+              ? 'border-[#2f4a71] text-[#2f4a71]' 
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          ]"
+        >
+          Admin Accounts
+        </button>
+        <button 
+          @click="activeTab = 'clients'" 
+          :class="[
+            'px-4 py-2 text-lg font-medium border-b-2 ml-8', 
+            activeTab === 'clients' 
+              ? 'border-[#2f4a71] text-[#2f4a71]' 
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          ]"
+        >
+          Client Accounts
+        </button>
+        <button 
+          @click="activeTab = 'managers'" 
+          :class="[
+            'px-4 py-2 text-lg font-medium border-b-2 ml-8', 
+            activeTab === 'managers' 
+              ? 'border-[#2f4a71] text-[#2f4a71]' 
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          ]"
+        >
+          Manager Accounts
+        </button>
+      </div>
+      
+      <!-- Search and Add -->
+      <div class="flex justify-between mb-6">
+        <div class="w-1/3">
+          <input 
+            type="text" 
+            v-model="searchQuery" 
+            placeholder="Search accounts..." 
+            class="w-full px-4 py-2 border border-gray-300 rounded-md"
+          />
+        </div>
+        <button
+          @click="openCreateModal"
+          class="px-4 py-2 bg-[#2f4a71] text-white rounded-md flex items-center"
+        >
+          <Icon icon="mdi:plus" class="mr-2" />
+          Add {{ activeTab === 'admins' ? 'Admin' : 'Client' }}
+        </button>
+      </div>
+      
+      <!-- Success Message -->
+      <div v-if="successMessage" class="px-4 py-3 mb-4 text-green-700 bg-green-100 border border-green-400 rounded">
+        {{ successMessage }}
+      </div>
+      
+      <!-- Error Message -->
+      <div v-if="errorMessage" class="px-4 py-3 mb-4 text-red-700 bg-red-100 border border-red-400 rounded">
+        {{ errorMessage }}
+      </div>
+      
+      <!-- Loading State -->
+      <div v-if="isLoading" class="flex justify-center py-8">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2f4a71]"></div>
+      </div>
+      
+      <!-- Admin Accounts Table -->
+      <div v-else-if="activeTab === 'admins'" class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ID</th>
+              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Username</th>
+              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Email</th>
+              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr v-for="admin in filteredAdmins" :key="admin.admin_id">
+              <td class="px-6 py-4 whitespace-nowrap">{{ admin.admin_id }}</td>
+              <td class="px-6 py-4 whitespace-nowrap">{{ admin.username }}</td>
+              <td class="px-6 py-4 whitespace-nowrap">{{ admin.gmail }}</td>
+              <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
+                <button @click="openEditModal(admin)" class="mr-3 text-indigo-600 hover:text-indigo-900">
+                  <Icon icon="mdi:pencil" class="w-5 h-5" />
+                </button>
+                <button @click="removeAccount(admin)" class="text-red-600 hover:text-red-900">
+                  <Icon icon="mdi:delete" class="w-5 h-5" />
+                </button>
+              </td>
+            </tr>
+            <tr v-if="filteredAdmins.length === 0">
+              <td colspan="4" class="px-6 py-4 text-center text-gray-500">No admin accounts found</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Client Accounts Table -->
+      <div v-else-if="activeTab === 'clients'" class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ID</th>
+              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Name</th>
+              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Username</th>
+              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Email</th>
+              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Category</th>
+              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Grade-Section</th>
+              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr v-for="client in filteredClients" :key="client.client_id">
+              <td class="px-6 py-4 whitespace-nowrap">{{ client.client_id }}</td>
+              <td class="px-6 py-4 whitespace-nowrap">{{ client.name }}</td>
+              <td class="px-6 py-4 whitespace-nowrap">{{ client.username }}</td>
+              <td class="px-6 py-4 whitespace-nowrap">{{ client.gmail }}</td>
+              <td class="px-6 py-4 whitespace-nowrap">{{ client.category }}</td>
+              <td class="px-6 py-4 whitespace-nowrap">{{ client.grade || '-' }}-{{ client.section }}</td>
+              <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
+                <button @click="openEditModal(client, true)" class="mr-3 text-indigo-600 hover:text-indigo-900">
+                  <Icon icon="mdi:pencil" class="w-5 h-5" />
+                </button>
+                <button @click="removeAccount(client, true)" class="text-red-600 hover:text-red-900">
+                  <Icon icon="mdi:delete" class="w-5 h-5" />
+                </button>
+              </td>
+            </tr>
+            <tr v-if="filteredClients.length === 0">
+              <td colspan="7" class="px-6 py-4 text-center text-gray-500">No client accounts found</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Manager Accounts Table -->
+      <div v-else-if="activeTab === 'managers'" class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ID</th>
+              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Username</th>
+              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Email</th>
+              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr v-for="manager in filteredManagers" :key="manager.manager_id">
+              <td class="px-6 py-4 whitespace-nowrap">{{ manager.manager_id }}</td>
+              <td class="px-6 py-4 whitespace-nowrap">{{ manager.username }}</td>
+              <td class="px-6 py-4 whitespace-nowrap">{{ manager.gmail }}</td>
+              <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
+                <button @click="openEditModal(manager, false, true)" class="mr-3 text-indigo-600 hover:text-indigo-900">
+                  <Icon icon="mdi:pencil" class="w-5 h-5" />
+                </button>
+                <button @click="removeAccount(manager, false, true)" class="text-red-600 hover:text-red-900">
+                  <Icon icon="mdi:delete" class="w-5 h-5" />
+                </button>
+              </td>
+            </tr>
+            <tr v-if="filteredManagers.length === 0">
+              <td colspan="4" class="px-6 py-4 text-center text-gray-500">No manager accounts found</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <!-- Create Account Modal -->
+    <div v-if="showCreateModal" class="fixed inset-0 z-50 w-full h-full overflow-y-auto bg-gray-600 bg-opacity-50">
+      <div class="relative p-5 mx-auto bg-white border rounded-md shadow-lg top-20 w-96">
+        <div class="mt-3">
+          <h3 class="text-lg font-medium leading-6 text-center text-gray-900">
+            Create {{ activeTab === 'admins' ? 'Admin' : activeTab === 'clients' ? 'Client' : 'Manager' }} Account
+          </h3>
+          
+          <!-- Error Message -->
+          <div v-if="errorMessage" class="px-4 py-3 mt-2 text-left text-red-700 bg-red-100 border border-red-400 rounded">
+            {{ errorMessage }}
+          </div>
+          
+          <form class="mt-4 text-left" @submit.prevent="createAccount(activeTab === 'clients', activeTab === 'managers')">
+            <!-- Username -->
+            <div class="mb-4">
+              <label class="block mb-2 text-sm font-bold text-gray-700" for="username">
+                Username*
+              </label>
+              <input
+                id="username"
+                type="text"
+                v-model="newAccount.username"
+                class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                required
+              />
+            </div>
+            
+            <!-- Password -->
+            <div class="mb-4">
+              <label class="block mb-2 text-sm font-bold text-gray-700" for="password">
+                Password*
+              </label>
+              <input
+                id="password"
+                type="password"
+                v-model="newAccount.password"
+                class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                required
+              />
+            </div>
+            
+            <!-- Email -->
+            <div class="mb-4">
+              <label class="block mb-2 text-sm font-bold text-gray-700" for="gmail">
+                Email*
+              </label>
+              <input
+                id="gmail"
+                type="email"
+                v-model="newAccount.gmail"
+                class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                required
+              />
+            </div>
+            
+            <!-- Client-specific fields -->
+            <template v-if="activeTab === 'clients'">
+              <!-- Name -->
+              <div class="mb-4">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="name">
+                  Full Name*
+                </label>
+                <input
+                  id="name"
+                  type="text"
+                  v-model="newAccount.name"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                  required
+                />
+              </div>
+              
+              <!-- Age -->
+              <div class="mb-4">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="age">
+                  Age*
+                </label>
+                <input
+                  id="age"
+                  type="number"
+                  v-model="newAccount.age"
+                  min="1"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                  required
+                />
+              </div>
+              
+              <!-- Gender -->
+              <div class="mb-4">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="gender">
+                  Gender*
+                </label>
+                <select
+                  id="gender"
+                  v-model="newAccount.gender"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                  required
+                >
+                  <option value="">Select Gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              
+              <!-- Category -->
+              <div class="mb-4">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="category">
+                  Category*
+                </label>
+                <select
+                  id="category"
+                  v-model="newAccount.category"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                  required
+                >
+                  <option value="">Select Category</option>
+                  <option value="Student">Student</option>
+                  <option value="Faculty">Faculty</option>
+                  <option value="Staff">Staff</option>
+                </select>
+              </div>
+              
+              <!-- Grade -->
+              <div class="mb-4">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="grade">
+                  Grade
+                </label>
+                <input
+                  id="grade"
+                  type="number"
+                  v-model="newAccount.grade"
+                  min="1"
+                  max="12"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                />
+              </div>
+              
+              <!-- Section -->
+              <div class="mb-4">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="section">
+                  Section*
+                </label>
+                <input
+                  id="section"
+                  type="text"
+                  v-model="newAccount.section"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                  required
+                />
+              </div>
+            </template>
+            
+            <div class="flex items-center justify-between mt-6">
+              <button
+                type="button"
+                @click="closeModals"
+                class="px-4 py-2 text-gray-800 bg-gray-300 rounded-md hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="px-4 py-2 bg-[#2f4a71] text-white rounded-md hover:bg-blue-700"
+                :disabled="isLoading"
+              >
+                {{ isLoading ? 'Creating...' : 'Create Account' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Edit Account Modal -->
+    <div v-if="showEditModal" class="fixed inset-0 z-50 w-full h-full overflow-y-auto bg-gray-600 bg-opacity-50">
+      <div class="relative p-5 mx-auto bg-white border rounded-md shadow-lg top-20 w-96">
+        <div class="mt-3">
+          <h3 class="text-lg font-medium leading-6 text-center text-gray-900">
+            Edit {{ activeTab === 'admins' ? 'Admin' : activeTab === 'clients' ? 'Client' : 'Manager' }} Account
+          </h3>
+          
+          <!-- Error Message -->
+          <div v-if="errorMessage" class="px-4 py-3 mt-2 text-left text-red-700 bg-red-100 border border-red-400 rounded">
+            {{ errorMessage }}
+          </div>
+          
+          <form v-if="selectedAccount" class="mt-4 text-left" @submit.prevent="updateAccount(activeTab === 'clients', activeTab === 'managers')">
+            <!-- Username -->
+            <div class="mb-4">
+              <label class="block mb-2 text-sm font-bold text-gray-700" for="edit-username">
+                Username*
+              </label>
+              <input
+                id="edit-username"
+                type="text"
+                v-model="selectedAccount.username"
+                class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                required
+              />
+            </div>
+            
+            <!-- Password (optional when updating) -->
+            <div class="mb-4">
+              <label class="block mb-2 text-sm font-bold text-gray-700" for="edit-password">
+                Password (leave blank to keep unchanged)
+              </label>
+              <input
+                id="edit-password"
+                type="password"
+                v-model="selectedAccount.password"
+                class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+              />
+            </div>
+            
+            <!-- Email -->
+            <div class="mb-4">
+              <label class="block mb-2 text-sm font-bold text-gray-700" for="edit-gmail">
+                Email*
+              </label>
+              <input
+                id="edit-gmail"
+                type="email"
+                v-model="selectedAccount.gmail"
+                class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                required
+              />
+            </div>
+            
+            <!-- Client-specific fields -->
+            <template v-if="activeTab === 'clients'">
+              <!-- Name -->
+              <div class="mb-4">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="edit-name">
+                  Full Name*
+                </label>
+                <input
+                  id="edit-name"
+                  type="text"
+                  v-model="selectedAccount.name"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                  required
+                />
+              </div>
+              
+              <!-- Age -->
+              <div class="mb-4">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="edit-age">
+                  Age*
+                </label>
+                <input
+                  id="edit-age"
+                  type="number"
+                  v-model="selectedAccount.age"
+                  min="1"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                  required
+                />
+              </div>
+              
+              <!-- Gender -->
+              <div class="mb-4">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="edit-gender">
+                  Gender*
+                </label>
+                <select
+                  id="edit-gender"
+                  v-model="selectedAccount.gender"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                  required
+                >
+                  <option value="">Select Gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              
+              <!-- Category -->
+              <div class="mb-4">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="edit-category">
+                  Category*
+                </label>
+                <select
+                  id="edit-category"
+                  v-model="selectedAccount.category"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                  required
+                >
+                  <option value="">Select Category</option>
+                  <option value="Student">Student</option>
+                  <option value="Faculty">Faculty</option>
+                  <option value="Staff">Staff</option>
+                </select>
+              </div>
+              
+              <!-- Grade -->
+              <div class="mb-4">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="edit-grade">
+                  Grade
+                </label>
+                <input
+                  id="edit-grade"
+                  type="number"
+                  v-model="selectedAccount.grade"
+                  min="1"
+                  max="12"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                />
+              </div>
+              
+              <!-- Section -->
+              <div class="mb-4">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="edit-section">
+                  Section*
+                </label>
+                <input
+                  id="edit-section"
+                  type="text"
+                  v-model="selectedAccount.section"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                  required
+                />
+              </div>
+            </template>
+            
+            <div class="flex items-center justify-between mt-6">
+              <button
+                type="button"
+                @click="closeModals"
+                class="px-4 py-2 text-gray-800 bg-gray-300 rounded-md hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="px-4 py-2 bg-[#2f4a71] text-white rounded-md hover:bg-blue-700"
+                :disabled="isLoading"
+              >
+                {{ isLoading ? 'Updating...' : 'Update Account' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+/* Add these styles to your accounts.vue component */
+
+/* Ensure the table container doesn't overflow the page */
+.overflow-x-auto {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+/* Make the component fit with sidebar */
+.p-6 {
+  margin-top: 1rem;
+  border-radius: 0.5rem;
+}
+
+/* Improve table styles */
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+
+th {
+  background-color: #f3f4f6;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+th, td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+}
+
+tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+/* Improve modal positioning */
+.fixed.inset-0 {
+  z-index: 50;
+}
+
+/* Animation for modals */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fixed.inset-0 > div {
+  animation: fadeIn 0.3s ease-out;
+}
+</style>
