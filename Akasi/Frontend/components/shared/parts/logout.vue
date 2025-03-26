@@ -2,7 +2,7 @@
   <div>
     <button
       @click="handleLogoutClick"
-      class="px-5 py-3 text-xl text-center rounded-full text-[#2F4A71] hover:bg-blue-900 hover:text-white"
+      class="px-5 py-1 text-xl text-center rounded-full text-[#2F4A71] hover:bg-blue-900 hover:text-white"
       :disabled="isLoading"
     >
       {{ isLoading ? 'Logging out...' : 'Logout' }}

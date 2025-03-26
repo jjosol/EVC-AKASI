@@ -1,8 +1,6 @@
 <script setup>
 import { ref } from 'vue'
 import moment from 'moment-timezone'
-import Calendar from '~/components/admin/parts/Home/Calendar.vue';
-import AddList from '~/components/admin/parts/Home/AddList.vue';
 
 const currentDay = ref({ 
   date: moment().tz("Asia/Manila").toDate()
@@ -48,6 +46,9 @@ definePageMeta({
 <template>
   <NuxtLayout>
     <Calendar @day-selected="handleDaySelected" @update-date="handleUpdateDate" :updateConfined="confinedCount" ref="calendarRef" />
-    <AddList :current-day="currentDay" @update-confined="updateConfinedCount" @consultation-saved="refreshCalendar" @consultation-deleted="refreshCalendar" />
+    <AddList :current-day="currentDay" 
+             @update-confined="updateConfinedCount" 
+             @consultation-saved="refreshCalendar" 
+             @consultation-deleted="refreshCalendar" />
   </NuxtLayout>
 </template>

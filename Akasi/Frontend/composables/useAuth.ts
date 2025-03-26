@@ -6,11 +6,11 @@ import { navigateTo, useRouter } from 'nuxt/app';
 export const useAuth = () => {
   const isAuthenticated = ref(false);
   const userRole = ref<string | null>(null);
-  const router = useRouter(); // Get the router instance
+  const router = useRouter();
   let tokenCheckInterval: ReturnType<typeof setInterval> | null = null;
 
   const checkToken = () => {
-    if (process.server) return true; // Skip token check on server-side
+    if (process.server) return true;
 
     const token = localStorage.getItem('token');
 
@@ -63,19 +63,21 @@ export const useAuth = () => {
 
   const setToken = (token: string) => {
     localStorage.setItem('token', token);
-    checkToken(); // Update isAuthenticated and userRole
+    checkToken();
   };
 
   const isAdmin = computed(() => userRole.value === 'admin');
   const isClient = computed(() => userRole.value === 'client');
+  const isManager = computed(() => userRole.value === 'manager');
 
-  startTokenCheck(); // Start token check immediately
+  startTokenCheck();
 
   return {
     isAuthenticated,
     userRole,
     isAdmin,
     isClient,
+    isManager,
     checkToken,
     handleLogout,
     startTokenCheck,

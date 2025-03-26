@@ -10,6 +10,8 @@ const links = [
   { path: '/reports', label: 'Reports' },
   { path: '/inventory', label: 'Inventory' },
   { path: '/profile', label: 'Profile' },
+
+
 ];
 
 const isActive = (path) => computed(() => {
@@ -36,7 +38,7 @@ onMounted(() => {
       <ul v-for="link in links" :key="link.path">
         <router-link
           :to="link.path"
-          class="px-5 py-3 text-xl text-center rounded-full"
+          class="px-5 py-2 text-xl text-center rounded-full"
           :class="isActive(link.path).value ? 'bg-blue-900  text-white' : 'text-[#2F4A71] hover:bg-blue-900 hover:text-white '"
         >
           {{ link.label }}

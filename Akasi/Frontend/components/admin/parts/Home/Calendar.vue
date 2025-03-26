@@ -1,5 +1,6 @@
 <script setup>
 import moment from 'moment-timezone';
+import { fetchConfinedCount, fetchMonthlyConsultationCount, fetchYearlyConsultationCount } from '~/services/calendarService';
 
 // Initialize with current date in Manila timezone
 const today = moment().tz("Asia/Manila");
@@ -71,36 +72,21 @@ const updateCalendar = async () => {
 
   // Fetch confined count
   try {
-    const response = await fetch(`http://localhost:3001/consultation-records/count?year=${selectedYear.value}&month=${selectedMonth.value}&confined=true`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch confined count');
-    }
-    const data = await response.json();
-    confinedCount.value = data;
+    confinedCount.value = await fetchConfinedCount(selectedYear.value, selectedMonth.value);
   } catch (error) {
     console.error('Error fetching confined count:', error);
   }
 
   // Fetch monthly consultation count
   try {
-    const response = await fetch(`http://localhost:3001/consultation-records/count?year=${selectedYear.value}&month=${selectedMonth.value}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch monthly consultation count');
-    }
-    const data = await response.json();
-    monthlyConsultationCount.value = data;
+    monthlyConsultationCount.value = await fetchMonthlyConsultationCount(selectedYear.value, selectedMonth.value);
   } catch (error) {
     console.error('Error fetching monthly consultation count:', error);
   }
 
   // Fetch yearly consultation count
   try {
-    const response = await fetch(`http://localhost:3001/consultation-records/year-count?year=${selectedYear.value}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch yearly consultation count');
-    }
-    const data = await response.json();
-    yearlyConsultationCount.value = data;
+    yearlyConsultationCount.value = await fetchYearlyConsultationCount(selectedYear.value);
   } catch (error) {
     console.error('Error fetching yearly consultation count:', error);
   }

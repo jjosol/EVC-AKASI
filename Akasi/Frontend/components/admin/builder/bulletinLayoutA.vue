@@ -1,20 +1,28 @@
 <script setup>
 import { ref, onMounted } from 'vue';
+import { fetchPosts as fetchPostsAPI, deletePost as deletePostAPI } from '~/services/bulletinService';
 
 const posts = ref([]);
 const isModalVisible = ref(false);
 const currentPost = ref(null);
+const isLoading = ref(true);
 
-// Add fetchPosts function to make it reusable
-async function fetchPosts() {
-  const response = await fetch('http://localhost:3001/posts');
-  posts.value = await response.json();
+// Load posts from API
+async function loadPosts() {
+  try {
+    isLoading.value = true;
+    posts.value = await fetchPostsAPI();
+  } catch (error) {
+    console.error('Error fetching posts:', error);
+  } finally {
+    isLoading.value = false;
+  }
 }
 
-onMounted(fetchPosts);
+onMounted(loadPosts);
 
-// Modify addPost to properly handle the new post
-async function addPost(newPost) {
+// Handle adding or updating a post
+async function handleAddPost(newPost) {
   if (currentPost.value) {
     // Handle edit case
     const index = posts.value.findIndex(post => post.post_id === newPost.post_id);
@@ -22,16 +30,15 @@ async function addPost(newPost) {
       posts.value[index] = newPost;
     }
   } else {
-    // For new posts, fetch all posts again to ensure we have the latest data
-    await fetchPosts();
+    // For new posts, add it to the top of the list
+    posts.value.unshift(newPost);
   }
   closeModal();
 }
 
-async function deletePost(id) {
-  await fetch(`http://localhost:3001/posts/${id}`, {
-    method: 'DELETE'
-  });
+// Handle post deletion
+async function handleDeletePost(id) {
+  // Simply remove the post from the array - the API call is already handled in Post component
   posts.value = posts.value.filter(post => post.post_id !== id);
 }
 
@@ -49,15 +56,12 @@ function closeModal() {
   currentPost.value = null;
   isModalVisible.value = false;
 }
-
-
 </script>
 
 <template>
   <NuxtLayout>
-    <div class="container mx-auto mt-5">
+    <div class="container flex flex-col h-full mx-auto mt-5">
       <div class="flex items-center justify-center space-x-4 border-[#2f4a71] border-b-2"> 
-        <!-- Align items in the center but don't force the button to match the logo height -->
         <PisayLogo alt="Avatar" class="rounded-full w-25 h-25" />
         <button 
           @click="openCreateModal" 
@@ -65,12 +69,23 @@ function closeModal() {
           Write a New Post...
         </button>
       </div>
-      <br>
-      <br>
-      <div>
-        <PostModal v-if="isModalVisible" :post="currentPost" @add-post="addPost" @close="closeModal" />
-        <div v-for="post in posts" :key="post.post_id" class="p-5 mt-5 bg-white rounded shadow">
-          <Post :post="post" @delete-post="deletePost" @edit-post="openEditModal" />
+      
+      <!-- Posts container with scrollable area -->
+      <div class="flex-grow pb-6 mt-6 overflow-y-auto">
+        <PostModal v-if="isModalVisible" :post="currentPost" @add-post="handleAddPost" @close="closeModal" />
+        
+        <div v-if="isLoading" class="flex items-center justify-center h-40">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2f4a71]"></div>
+        </div>
+        
+        <div v-else-if="posts.length === 0" class="py-10 text-center text-gray-500">
+          No posts available. Create your first post!
+        </div>
+        
+        <div v-else>
+          <div v-for="post in posts" :key="post.post_id" class="mb-5">
+            <PostA :post="post" @delete-post="handleDeletePost" @edit-post="openEditModal" />
+          </div>
         </div>
       </div>
     </div>
@@ -80,5 +95,17 @@ function closeModal() {
 <style scoped>
 .container {
   max-width: 800px;
+  height: calc(100vh - 2rem);
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.overflow-y-auto::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.overflow-y-auto {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 }
 </style>
