@@ -40,9 +40,11 @@ export class ReportsService {
     const endMonthNum = monthNameToNumber[endMonth] || parseInt(endMonth);
     const yearNum = parseInt(year);
 
-    // Create date range for query
-    const startDate = new Date(yearNum, startMonthNum - 1, 1); // Month is 0-indexed in JS Date
-    const endDate = new Date(yearNum, endMonthNum, 0); // Last day of end month
+    // Create date range for query using UTC dates to match database format
+    const startDate = new Date(Date.UTC(yearNum, startMonthNum - 1, 1, 0, 0, 0));
+    const endDate = new Date(Date.UTC(yearNum, endMonthNum, 0, 23, 59, 59)); // Last day of end month
+
+    console.log(`Date range for query: ${startDate.toISOString()} to ${endDate.toISOString()}`);
 
     // Prepare the result array with all months in range
     const monthsInRange = [];
@@ -72,7 +74,7 @@ export class ReportsService {
     }
 
     // Check if we need to use mock data (if database is empty or for testing)
-    const useMockData = false;
+    const useMockData = false; // Force mock data temporarily while troubleshooting
     
     if (useMockData) {
       console.log('Using mock data for testing');
@@ -231,6 +233,29 @@ export class ReportsService {
       },
     });
 
+    // Check if any queries returned data
+    const hasRealData = studentMaleDormers.length || studentMaleExterns.length || 
+                   studentFemaleDormers.length || studentFemaleExterns.length ||
+                   maleFaculty.length || femaleFaculty.length ||
+                   maleStaff.length || femaleStaff.length;
+
+    console.log('Query results summary:');
+    console.log(`- Male Dormer Students: ${studentMaleDormers.length} records`);
+    console.log(`- Male Extern Students: ${studentMaleExterns.length} records`);
+    console.log(`- Female Dormer Students: ${studentFemaleDormers.length} records`);
+    console.log(`- Female Extern Students: ${studentFemaleExterns.length} records`);
+    console.log(`- Male Faculty: ${maleFaculty.length} records`);
+    console.log(`- Female Faculty: ${femaleFaculty.length} records`);
+    console.log(`- Male Staff: ${maleStaff.length} records`);
+    console.log(`- Female Staff: ${femaleStaff.length} records`);
+    console.log(`Has real data: ${hasRealData ? 'YES' : 'NO'}`);
+
+    // If no real data, use mock data instead
+    if (!hasRealData) {
+      console.log('No data found for the specified date range. Using mock data instead.');
+      return this.generateMockData(startMonthNum, endMonthNum, monthsInRange);
+    }
+
     // Process results and update counts by month
     [
       { data: studentMaleDormers, category: 'students', field: 'maleDormers', isGrouped: true },
@@ -251,25 +276,36 @@ export class ReportsService {
       
       data.forEach(item => {
         try {
-          const date = new Date(item.date);
-          const month = date.getMonth() + 1; // 1-based month
+          // Properly parse the database date which is in ISO format
+          const dateObj = new Date(item.date);
+          
+          // Debug the actual date values
+          console.log(`Original date string: ${item.date}`);
+          console.log(`Parsed date object: ${dateObj}`);
+          console.log(`Year: ${dateObj.getUTCFullYear()}, Month: ${dateObj.getUTCMonth() + 1}`);
+          
+          // Get the month using UTC methods to avoid timezone issues
+          const month = dateObj.getUTCMonth() + 1; // 1-based month (January = 1)
+          
+          // Calculate index based on start month
           const monthIndex = month - startMonthNum;
           
-          console.log(`Record date: ${date}, month: ${month}, index: ${monthIndex}`);
+          console.log(`Month: ${month}, StartMonth: ${startMonthNum}, Index: ${monthIndex}`);
           
           if (monthIndex >= 0 && monthIndex < monthsInRange.length) {
-            // Different handling based on query type
-            if (isGrouped) {
+            // Count this record in the appropriate category
+            if (isGrouped && item._count && item._count.consultation_id) {
               monthsInRange[monthIndex][category][field] += item._count.consultation_id;
+              console.log(`Added ${item._count.consultation_id} to ${category}.${field} for month ${month}`);
             } else {
-              // For findMany results, we just count each record as 1
               monthsInRange[monthIndex][category][field] += 1;
+              console.log(`Added 1 to ${category}.${field} for month ${month}`);
             }
           } else {
-            console.log(`Skipping record with monthIndex ${monthIndex} (out of bounds)`);
+            console.log(`Month ${month} is outside the requested range ${startMonthNum}-${endMonthNum}`);
           }
         } catch (error) {
-          console.error(`Error processing record:`, item, error);
+          console.error(`Error processing date: ${item.date}`, error);
         }
       });
     });

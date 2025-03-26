@@ -551,4 +551,65 @@ const onIframeLoad = (event) => {
     });
   }
 }
+
+// Update the fetchReport method:
+async function fetchReport() {
+  if (!this.selectedYear || !this.startMonth) {
+    this.error = "Please select a school year and start month.";
+    return;
+  }
+  
+  try {
+    this.fetchingData = true;
+    this.fetchError = null;
+    
+    // Debug values being sent to API
+    console.log(`Fetching report with: year=${this.selectedYear}, startMonth=${this.startMonth}, endMonth=${this.endMonth || "Same as start"}`);
+    
+    // Format the parameters properly
+    const params = {
+      startMonth: this.startMonth,
+      year: this.selectedYear
+    };
+    
+    // Only add endMonth if it's different from startMonth and not 'null'
+    if (this.endMonth && this.endMonth !== 'null' && this.endMonth !== this.startMonth) {
+      params.endMonth = this.endMonth;
+    }
+    
+    // Make the API request
+    const response = await fetch(`/api/reports/illness-summary?${new URLSearchParams(params)}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API error: ${response.status} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    
+    // Debug the received data structure
+    console.log('API response:', data);
+    
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    
+    this.reportData = data;
+    
+    // Check if data actually contains values or is empty
+    const hasValues = data.months.some(month => 
+      month.students.total > 0 || month.faculty.total > 0 || month.staff.total > 0
+    );
+    
+    if (!hasValues) {
+      console.warn('Report contains no data - all values are zero');
+    }
+    
+  } catch (error) {
+    console.error('Error fetching report:', error);
+    this.fetchError = error.message || "Failed to fetch report data";
+  } finally {
+    this.fetchingData = false;
+  }
+}
 </script>

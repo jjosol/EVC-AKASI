@@ -17,7 +17,21 @@ export class ReportsController {
 
     // If endMonth is not provided, use startMonth
     const actualEndMonth = endMonth || startMonth;
-
-    return this.reportsService.getIllnessSummary(startMonth, actualEndMonth, year);
+    
+    // Add logging to see what's being passed in
+    console.log(`Controller received: startMonth=${startMonth}, endMonth=${actualEndMonth}, year=${year}`);
+    
+    try {
+      const result = await this.reportsService.getIllnessSummary(startMonth, actualEndMonth, year);
+      return result;
+    } catch (error) {
+      console.error('Error generating report:', error);
+      return { 
+        error: 'Failed to generate report', 
+        details: error.message,
+        months: [],
+        totals: {} 
+      };
+    }
   }
 }
