@@ -95,7 +95,7 @@ const fetchFaculty = async () => {
             const token = localStorage.getItem('token');
             
             if (token) {
-              const pendingResponse = await fetch(`${apiBaseUrl}/faculty-with-pending-files`, {
+              const pendingResponse = await fetch(`${apiBaseUrl}/students-with-pending-files`, {
                 headers: {
                   'Authorization': `Bearer ${token}`
                 }
@@ -147,7 +147,7 @@ const openFacultyModal = (faculty) => {
   selectedFaculty.value = faculty;
   showFacultyModal.value = true;
   document.body.classList.add('overflow-hidden');
-  
+  fetchFacultyFiles();
   facultyFiles.value = [];
 };
 
@@ -175,7 +175,7 @@ const fetchFacultyFiles = async () => {
     }
 
     // Make sure to include the token with the Bearer prefix
-    const response = await fetch(`${apiBaseUrl}/fetch-client-files-admin?client_id=${clientId}`, {
+    const response = await fetch(`${apiBaseUrl}/fetch-staff-files-admin?client_id=${clientId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'

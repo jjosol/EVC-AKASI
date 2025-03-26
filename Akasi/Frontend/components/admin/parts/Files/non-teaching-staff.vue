@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
 
 // Initialize state
 const staff = ref([]);
-const filteredStaff = ref([]);
+const filteredFaculty = ref([]);
 const loading = ref(false);
 const error = ref(null);
 const debugInfo = ref('');
@@ -13,9 +13,9 @@ const showPendingOnly = ref(false);
 const searchQuery = ref('');
 
 // Staff modal state
-const showStaffModal = ref(false);
-const selectedStaff = ref(null);
-const staffFiles = ref([]);
+const showFacultyModal = ref(false);
+const selectedFaculty = ref(null);
+const facultyFiles = ref([]);
 const loadingFiles = ref(false);
 
 // File viewer modal state
@@ -37,7 +37,7 @@ const apiBaseUrl = process.env.NODE_ENV === 'production'
   : 'http://localhost:3001';
 
 // Staff with pending files
-const staffWithPendingFiles = computed(() => {
+const facultyWithPendingFiles = computed(() => {
   return staff.value.filter(staff => staff.hasPendingFiles);
 });
 
@@ -59,7 +59,7 @@ const applyFilters = () => {
     );
   }
   
-  filteredStaff.value = result;
+  filteredFaculty.value = result;
 };
 
 // Watch for filter changes
@@ -68,7 +68,7 @@ watch([showPendingOnly, searchQuery], () => {
 });
 
 // Fetch staff from API
-const fetchStaff = async () => {
+const fetchFaculty = async () => {
   loading.value = true;
   error.value = null;
   debugInfo.value = '';
@@ -95,7 +95,7 @@ const fetchStaff = async () => {
             const token = localStorage.getItem('token');
             
             if (token) {
-              const pendingResponse = await fetch(`${apiBaseUrl}/staff-with-pending-files`, {
+              const pendingResponse = await fetch(`${apiBaseUrl}/students-with-pending-files`, {
                 headers: {
                   'Authorization': `Bearer ${token}`
                 }
@@ -103,18 +103,18 @@ const fetchStaff = async () => {
               
               if (pendingResponse.ok) {
                 const pendingResult = await pendingResponse.json();
-                const pendingStaffIds = new Set(pendingResult.data.map(s => s.client_id));
+                const pendingFacultyIds = new Set(pendingResult.data.map(s => s.client_id));
                 
                 // Mark staff with pending files
                 result.data.forEach(staff => {
-                  staff.hasPendingFiles = pendingStaffIds.has(staff.client_id);
+                  staff.hasPendingFiles = pendingFacultyIds.has(staff.client_id);
                 });
               }
             }
             
             staff.value = result.data;
             // Initialize filtered staff
-            filteredStaff.value = [...staff.value];
+            filteredFaculty.value = [...staff.value];
             debugInfo.value += `SUCCESS with ${path}`;
             console.log(`Successfully fetched from: ${path}`);
             loading.value = false;
@@ -143,28 +143,28 @@ const fetchStaff = async () => {
 };
 
 // Modal functions
-const openStaffModal = (staff) => {
-  selectedStaff.value = staff;
-  showStaffModal.value = true;
+const openFacultyModal = (staff) => {
+  selectedFaculty.value = staff;
+  showFacultyModal.value = true;
   document.body.classList.add('overflow-hidden');
-  
-  staffFiles.value = [];
+  fetchFacultyFiles();
+  facultyFiles.value = [];
 };
 
-const closeStaffModal = () => {
-  showStaffModal.value = false;
-  selectedStaff.value = null;
+const closeFacultyModal = () => {
+  showFacultyModal.value = false;
+  selectedFaculty.value = null;
   document.body.classList.remove('overflow-hidden');
-  staffFiles.value = [];
+  facultyFiles.value = [];
 };
 
 // Fetch staff files for selected grade
-const fetchStaffFiles = async () => {
-  if (!selectedStaff.value) return;
+const fetchFacultyFiles = async () => {
+  if (!selectedFaculty.value) return;
   
   loadingFiles.value = true;
-  staffFiles.value = [];
-  const clientId = selectedStaff.value.client_id;
+  facultyFiles.value = [];
+  const clientId = selectedFaculty.value.client_id;
   
   try {
     // Get the token from localStorage
@@ -175,7 +175,7 @@ const fetchStaffFiles = async () => {
     }
 
     // Make sure to include the token with the Bearer prefix
-    const response = await fetch(`${apiBaseUrl}/fetch-client-files-admin?client_id=${clientId}`, {
+    const response = await fetch(`${apiBaseUrl}/fetch-staff-files-admin?client_id=${clientId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -205,7 +205,7 @@ const fetchStaffFiles = async () => {
       const fileStatuses = statusResult.success ? statusResult.data : [];
       
       // Merge file data with status information
-      staffFiles.value = result.data.map(file => {
+      facultyFiles.value = result.data.map(file => {
         const statusInfo = fileStatuses.find(s => 
           s.file_id === file.id && s.file_type === file.type
         );
@@ -217,7 +217,7 @@ const fetchStaffFiles = async () => {
         };
       });
       
-      console.log(`Successfully fetched ${staffFiles.value.length} files for client ${clientId}`);
+      console.log(`Successfully fetched ${facultyFiles.value.length} files for client ${clientId}`);
     } else {
       throw new Error('Invalid response format');
     }
@@ -391,7 +391,7 @@ const closeFileViewerModal = () => {
 const openReviewModal = (file) => {
   selectedReviewFile.value = {
     ...file,
-    clientName: selectedStaff?.value?.name || 'Unknown',
+    clientName: selectedFaculty?.value?.name || 'Unknown',
     category: 'staff'
   };
   showReviewModal.value = true;
@@ -426,7 +426,7 @@ const submitReview = async () => {
     const fileData = {
       fileId: selectedReviewFile.value.id,
       fileType: selectedReviewFile.value.type,
-      clientId: selectedStaff.value.client_id,
+      clientId: selectedFaculty.value.client_id,
       status: updateStatus.value,
       notes: updateNotes.value || null
     };
@@ -448,13 +448,13 @@ const submitReview = async () => {
     
     if (result && result.success) {
       // Update the file in the UI
-      const fileIndex = staffFiles.value.findIndex(f => 
+      const fileIndex = facultyFiles.value.findIndex(f => 
         f.id === selectedReviewFile.value.id && f.type === selectedReviewFile.value.type
       );
       
       if (fileIndex !== -1) {
-        staffFiles.value[fileIndex] = {
-          ...staffFiles.value[fileIndex],
+        facultyFiles.value[fileIndex] = {
+          ...facultyFiles.value[fileIndex],
           status: updateStatus.value,
           notes: updateNotes.value || null
         };
@@ -478,7 +478,7 @@ const submitReview = async () => {
       alert('File status updated successfully');
       
       // Refresh the staff list to update the pending status (client status will be updated by the API)
-      fetchStaff();
+      fetchFaculty();
     } else {
       throw new Error('Invalid response format');
     }
@@ -523,13 +523,13 @@ const formatFileType = (fileType) => {
 
 // Add these computed properties after the other state variables
 const medicalFiles = computed(() => {
-  return staffFiles.value.filter(file => 
+  return facultyFiles.value.filter(file => 
     ['medical', 'dental', 'physical', 'opthal'].includes(file.type)
   );
 });
 
 const confinementFiles = computed(() => {
-  return staffFiles.value.filter(file => 
+  return facultyFiles.value.filter(file => 
     ['admission', 'discharge', 'treatment', 'confinement'].includes(file.type)
   );
 });
@@ -539,7 +539,7 @@ const activeTab = ref('medicalRecords');
 
 // Set up event listeners
 onMounted(() => {
-  fetchStaff();
+  fetchFaculty();
 });
 
 // Clean up
@@ -588,7 +588,7 @@ onUnmounted(() => {
         <p>{{ error }}</p>
       </div>
       
-      <div v-else-if="filteredStaff.length === 0" class="text-center py-8 text-gray-500">
+      <div v-else-if="filteredFaculty.length === 0" class="text-center py-8 text-gray-500">
         <p v-if="showPendingOnly">No staff with pending files found</p>
         <p v-else>No staff found</p>
       </div>
@@ -596,10 +596,10 @@ onUnmounted(() => {
       <div v-else>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div 
-            v-for="staff in filteredStaff" 
+            v-for="staff in filteredFaculty" 
             :key="staff.client_id"
             class="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow cursor-pointer"
-            @click="openStaffModal(staff)"
+            @click="openFacultyModal(staff)"
           >
             <div class="flex justify-between">
               <h3 class="font-semibold text-lg text-gray-800">{{ staff.name }}</h3>
@@ -627,15 +627,15 @@ onUnmounted(() => {
 
   <!-- Staff Detail Modal -->
   <div 
-    v-if="showStaffModal" 
+    v-if="showFacultyModal" 
     class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto"
-    @click.self="closeStaffModal"
+    @click.self="closeFacultyModal"
   >
     <div class="bg-white rounded-lg shadow-xl w-full max-w-5xl mx-4 my-8 overflow-hidden">
       <!-- Modal Header -->
       <div class="bg-[#2f4a71] text-white p-5 flex justify-between items-center">
         <h3 class="text-xl font-bold">Staff Information</h3>
-        <button @click="closeStaffModal" class="text-white hover:text-gray-200">
+        <button @click="closeFacultyModal" class="text-white hover:text-gray-200">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -643,19 +643,19 @@ onUnmounted(() => {
       </div>
 
       <!-- Staff Details -->
-      <div class="p-6 border-b border-gray-200" v-if="selectedStaff">
+      <div class="p-6 border-b border-gray-200" v-if="selectedFaculty">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <h4 class="text-sm font-medium text-gray-500">Name</h4>
-            <p class="text-lg">{{ selectedStaff.name }}</p>
+            <p class="text-lg">{{ selectedFaculty.name }}</p>
           </div>
           <div>
             <h4 class="text-sm font-medium text-gray-500">E-mail</h4>
-            <p class="text-lg">{{ selectedStaff.gmail }}</p>
+            <p class="text-lg">{{ selectedFaculty.gmail }}</p>
           </div>
           <div>
             <h4 class="text-sm font-medium text-gray-500">Department</h4>
-            <p class="text-lg">{{ selectedStaff.section }}</p>
+            <p class="text-lg">{{ selectedFaculty.section }}</p>
           </div>
         </div>
       </div>

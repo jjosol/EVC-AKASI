@@ -10,19 +10,19 @@ export class FetchStaffFilesAdminController {
     @Get()
     @UseGuards(JwtAuthGuard)
     async getStaffFiles(
-        @Query('staff_id') staffId: string,
+        @Query('client_id') clientId: string,
     ) {
-        if (!staffId) {
-            throw new NotFoundException('Staff ID are required');
+        if (!clientId) {
+            throw new NotFoundException('Client ID is required');
         }
 
-        const staffIdNum = parseInt(staffId, 10);
+        const clientIdNum = parseInt(clientId, 10);
 
-        if (isNaN(staffIdNum)) {
-            throw new NotFoundException('Staff ID must be numbers');
+        if (isNaN(clientIdNum)) {
+            throw new NotFoundException('Client ID must be a number');
         }
 
-        const files = await this.fetchStaffFilesAdmin.getStaffFiles(staffIdNum);
+        const files = await this.fetchStaffFilesAdmin.getStaffFiles(clientIdNum);
         return {
             success: true,
             data: files,
