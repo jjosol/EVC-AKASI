@@ -16,6 +16,7 @@ import {
   hashAllPasswords
 } from '~/services/dashboardServices';
 import { useBackupEvents } from '../../../../composables/useBackupEvents';
+import * as XLSX from 'xlsx'; 
 
 // Tabs state
 const activeTab = ref('admins'); // 'admins', 'clients', or 'managers'
@@ -269,6 +270,23 @@ const hashAllAccountPasswords = async () => {
   }
 };
 
+// Add these after your existing state variables
+
+// Mass import state
+const showMassImportModal = ref(false);
+const massImportType = ref(''); // 'clients', 'admins', or 'managers'
+const excelFile = ref(null);
+const importResults = ref({
+  total: 0,
+  success: 0,
+  failed: 0,
+  inProgress: false,
+  logs: []
+});
+
+// File input ref
+const fileInputRef = ref(null);
+
 // UI Handlers
 const openCreateModal = () => {
   resetForm();
@@ -365,6 +383,274 @@ watch(lastBackupRestored, async (newVal, oldVal) => {
     ]);
   }
 });
+
+// Add these functions
+
+// Open mass import modal
+const openMassImportModal = (type) => {
+  massImportType.value = type;
+  importResults.value = {
+    total: 0,
+    success: 0,
+    failed: 0,
+    inProgress: false,
+    logs: []
+  };
+  showMassImportModal.value = true;
+};
+
+// Close mass import modal
+const closeMassImportModal = () => {
+  showMassImportModal.value = false;
+  massImportType.value = '';
+  excelFile.value = null;
+  if (fileInputRef.value) {
+    fileInputRef.value.value = '';
+  }
+};
+
+// Handle file selection
+const handleFileUpload = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    excelFile.value = file;
+  }
+};
+
+// Inside processExcelImport function, fix the incomplete reader.onload function:
+
+// Process Excel file and create accounts
+const processExcelImport = async () => {
+  if (!excelFile.value) {
+    errorMessage.value = 'Please select an Excel file first';
+    return;
+  }
+
+  try {
+    importResults.value.inProgress = true;
+    importResults.value.logs = [];
+    importResults.value.success = 0;
+    importResults.value.failed = 0;
+    
+    // Read the Excel file
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        // Get first sheet
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        // Convert to JSON
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        importResults.value.total = jsonData.length;
+        
+        console.log("Parsed Excel data:", jsonData);
+        
+        // Process each row based on the type
+        for (const row of jsonData) {
+          try {
+            // Validate required fields before sending to API
+            const validationError = validateExcelRow(row, massImportType.value);
+            if (validationError) {
+              throw new Error(validationError);
+            }
+            
+            if (massImportType.value === 'clients') {
+              const clientData = {
+                username: String(row.username || '').trim(),
+                password: String(row.password || '').trim(),
+                name: String(row.name || '').trim(),
+                gmail: String(row.gmail || '').trim(),
+                age: typeof row.age === 'number' ? row.age : parseInt(row.age) || 0,
+                gender: String(row.gender || '').trim(),
+                category: String(row.category || '').trim(),
+                grade: row.grade ? (typeof row.grade === 'number' ? row.grade : parseInt(row.grade)) : null,
+                section: String(row.section || '').trim()
+              };
+              
+              console.log("Creating client with data:", clientData);
+              await createClientAccount(clientData);
+              importResults.value.success++;
+              importResults.value.logs.push(`✅ Created client: ${clientData.name || clientData.username}`);
+            } 
+            else if (massImportType.value === 'admins') {
+              const adminData = {
+                username: String(row.username || '').trim(),
+                password: String(row.password || '').trim(),
+                gmail: String(row.gmail || '').trim(),
+                name: String(row.name || row.username || '').trim() // Add name with fallback to username
+              };
+              
+              console.log("Creating admin with data:", adminData);
+              
+              try {
+                // Check for duplicate before creating
+                const existingAdmins = await fetchAdminAccounts();
+                const isDuplicate = existingAdmins.some(a => 
+                  a.username === adminData.username || a.gmail === adminData.gmail
+                );
+                
+                if (isDuplicate) {
+                  throw new Error(`Username or email already exists for ${adminData.username}`);
+                }
+                
+                await createAdminAccount(adminData);
+                importResults.value.success++;
+                importResults.value.logs.push(`✅ Created admin: ${adminData.username}`);
+              } catch (error) {
+                importResults.value.failed++;
+                const errorMsg = error.message || 'Unknown error';
+                importResults.value.logs.push(`❌ Error creating admin: ${adminData.username} - ${errorMsg}`);
+                console.error(`Error creating admin account:`, error);
+              }
+            }
+            else if (massImportType.value === 'managers') {
+              const managerData = {
+                username: String(row.username || '').trim(),
+                password: String(row.password || '').trim(),
+                gmail: String(row.gmail || '').trim()
+              };
+              
+              console.log("Creating manager with data:", managerData);
+              await createManagerAccount(managerData);
+              importResults.value.success++;
+              importResults.value.logs.push(`✅ Created manager: ${managerData.username}`);
+            }
+          } catch (error) {
+            importResults.value.failed++;
+            importResults.value.logs.push(`❌ Error creating ${massImportType.value.slice(0, -1)}: ${row.name || row.username} - ${error.message}`);
+            console.error(`Error creating account:`, error);
+          }
+        }
+        
+        // Refresh the accounts lists
+        if (massImportType.value === 'clients') {
+          await loadClientAccounts();
+        } else if (massImportType.value === 'admins') {
+          await loadAdminAccounts();
+        } else if (massImportType.value === 'managers') {
+          await loadManagerAccounts();
+        }
+        
+        successMessage.value = `Import complete: ${importResults.value.success} accounts created, ${importResults.value.failed} failed`;
+        
+      } catch (error) {
+        errorMessage.value = `Error processing Excel file: ${error.message}`;
+        console.error('Excel processing error:', error);
+      } finally {
+        importResults.value.inProgress = false;
+      }
+    };
+    
+    reader.readAsArrayBuffer(excelFile.value);
+    
+  } catch (error) {
+    errorMessage.value = `Error: ${error.message}`;
+    importResults.value.inProgress = false;
+    console.error('File reading error:', error);
+  }
+};
+
+// Add this new validation function
+const validateExcelRow = (row, type) => {
+  // Common validation for all account types
+  if (!row.username || String(row.username).trim() === '') {
+    return 'Username is required';
+  }
+  
+  if (!row.password || String(row.password).trim() === '') {
+    return 'Password is required';
+  }
+  
+  if (!row.gmail || String(row.gmail).trim() === '') {
+    return 'Email is required';
+  }
+  
+  // Client-specific validation
+  if (type === 'clients') {
+    if (!row.name || String(row.name).trim() === '') {
+      return 'Name is required for client accounts';
+    }
+    
+    if (!row.age) {
+      return 'Age is required for client accounts';
+    }
+    
+    if (!row.gender || String(row.gender).trim() === '') {
+      return 'Gender is required for client accounts';
+    }
+    
+    if (!row.category || String(row.category).trim() === '') {
+      return 'Category is required for client accounts';
+    }
+    
+    if (!row.section || String(row.section).trim() === '') {
+      return 'Section is required for client accounts';
+    }
+  }
+  
+  return null; // No validation error
+};
+
+// Complete the downloadSampleTemplate function
+
+// Download sample template
+const downloadSampleTemplate = () => {
+  // Create sample data based on the type
+  let sampleData = [];
+  
+  if (massImportType.value === 'clients') {
+    sampleData = [
+      {
+        username: 'sample_student1',
+        password: 'password123',
+        name: 'John Doe',
+        gmail: 'john.doe@example.com',
+        age: 18,
+        gender: 'Male',
+        category: 'Student',
+        grade: 10,
+        section: 'A'
+      },
+      {
+        username: 'sample_faculty1',
+        password: 'password123',
+        name: 'Jane Smith',
+        gmail: 'jane.smith@example.com',
+        age: 35,
+        gender: 'Female',
+        category: 'Faculty',
+        section: 'Science'
+      }
+    ];
+  } else if (massImportType.value === 'admins' || massImportType.value === 'managers') {
+    sampleData = [
+      {
+        username: 'sample_admin1',
+        password: 'password123',
+        gmail: 'admin1@example.com',
+        name: 'Admin One'  // Add this field
+      },
+      {
+        username: 'sample_admin2',
+        password: 'password123',
+        gmail: 'admin2@example.com',
+        name: 'Admin Two'  // Add this field
+      }
+    ];
+  }
+  
+  // Create workbook and worksheet
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.json_to_sheet(sampleData);
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Accounts');
+  
+  // Generate Excel file and trigger download
+  XLSX.writeFile(workbook, `${massImportType.value}_template.xlsx`);
+};
 </script>
 
 <template>
@@ -381,13 +667,22 @@ watch(lastBackupRestored, async (newVal, oldVal) => {
       <div class="flex items-center justify-between mb-6">
         <h2 class="text-2xl font-bold text-[#2f4a71]">Account Management</h2>
         <div class="flex gap-2">
+          <!-- Mass Import Button -->
+          <button
+            @click="openMassImportModal(activeTab)"
+            class="flex items-center px-4 py-2 mr-2 text-white bg-green-600 rounded-md hover:bg-green-700"
+          >
+            <Icon icon="mdi:file-excel" class="mr-2" />
+            Mass Import
+          </button>
+          
           <!-- Add Account Button -->
           <button
             @click="openCreateModal"
             class="flex items-center px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700"
           >
-            <span class="mr-2 material-icons">add</span>
-            Add Account
+            <Icon icon="mdi:plus" class="mr-2" />
+            Add {{ activeTab === 'admins' ? 'Admin' : activeTab === 'clients' ? 'Client' : 'Manager' }}
           </button>
           
           <!-- Hash Passwords Button -->
@@ -396,7 +691,7 @@ watch(lastBackupRestored, async (newVal, oldVal) => {
             :disabled="isHashingPasswords"
             class="flex items-center px-4 py-2 text-white rounded-md bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300"
           >
-            <span class="mr-2 material-icons">lock</span>
+            <Icon icon="mdi:lock" class="mr-2" />
             {{ isHashingPasswords ? 'Hashing...' : 'Hash All Passwords' }}
           </button>
         </div>
@@ -422,7 +717,7 @@ watch(lastBackupRestored, async (newVal, oldVal) => {
         <button 
           @click="activeTab = 'clients'" 
           :class="[
-            'px-4 py-2 text-lg font-medium border-b-2 ml-8', 
+            'px-4 py-2 text-lg font-medium border-b-2 ml-8',  
             activeTab === 'clients' 
               ? 'border-[#2f4a71] text-[#2f4a71]' 
               : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -926,6 +1221,120 @@ watch(lastBackupRestored, async (newVal, oldVal) => {
         </div>
       </div>
     </div>
+
+    <!-- Add the Mass Import Modal -->
+    <div v-if="showMassImportModal" class="fixed inset-0 z-50 w-full h-full overflow-y-auto bg-gray-600 bg-opacity-50">
+      <div class="relative max-w-2xl p-5 mx-auto bg-white border rounded-md shadow-lg top-20">
+        <div class="mt-3">
+          <h3 class="text-lg font-medium leading-6 text-center text-gray-900">
+            Mass Import {{ massImportType === 'admins' ? 'Admin' : massImportType === 'clients' ? 'Client' : 'Manager' }} Accounts
+          </h3>
+          
+          <!-- Error Message -->
+          <div v-if="errorMessage" class="px-4 py-3 mt-2 text-left text-red-700 bg-red-100 border border-red-400 rounded">
+            {{ errorMessage }}
+          </div>
+          
+          <!-- File Upload Section -->
+          <div class="mt-6" v-if="!importResults.inProgress && importResults.logs.length === 0">
+            <div class="mb-6">
+              <p class="mb-2 text-sm text-gray-600">
+                Upload an Excel file (.xlsx) with the following columns:
+                <template v-if="massImportType === 'clients'">
+                  username, password, name, gmail, age, gender, category, grade (optional), section
+                </template>
+                <template v-else>
+                  username, password, gmail
+                </template>
+              </p>
+              
+              <div class="flex items-center mt-4 space-x-4">
+                <button 
+                  @click="downloadSampleTemplate"
+                  class="px-4 py-2 text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50"
+                >
+                  <Icon icon="mdi:download" class="mr-1" />
+                  Download Template
+                </button>
+                
+                <label class="flex items-center px-4 py-2 text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700">
+                  <Icon icon="mdi:upload" class="mr-1" />
+                  Choose File
+                  <input 
+                    ref="fileInputRef"
+                    type="file" 
+                    class="hidden" 
+                    accept=".xlsx, .xls" 
+                    @change="handleFileUpload"
+                  />
+                </label>
+              </div>
+              
+              <div v-if="excelFile" class="p-3 mt-4 text-sm text-green-700 bg-green-100 border border-green-400 rounded">
+                Selected file: {{ excelFile.name }}
+              </div>
+            </div>
+            
+            <div class="flex items-center justify-between mt-6">
+              <button
+                type="button"
+                @click="closeMassImportModal"
+                class="px-4 py-2 text-gray-800 bg-gray-300 rounded-md hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                @click="processExcelImport"
+                :disabled="!excelFile"
+                class="px-4 py-2 text-white bg-green-600 rounded-md hover:bg-green-700 disabled:bg-green-300"
+              >
+                Import Accounts
+              </button>
+            </div>
+          </div>
+          
+          <!-- Progress Section -->
+          <div class="my-4" v-if="importResults.inProgress">
+            <div class="w-full h-4 mb-4 bg-gray-200 rounded-full">
+              <div 
+                class="h-4 bg-blue-600 rounded-full" 
+                :style="`width: ${importResults.total ? ((importResults.success + importResults.failed) / importResults.total * 100) : 0}%`"
+              ></div>
+            </div>
+            <p class="text-center text-gray-700">
+              Processing... {{ importResults.success + importResults.failed }} of {{ importResults.total }}
+            </p>
+          </div>
+          
+          <!-- Results Section -->
+          <div v-if="importResults.logs.length > 0" class="mt-4">
+            <div class="flex justify-between mb-4">
+              <h4 class="font-medium">Import Results:</h4>
+              <div class="text-sm">
+                <span class="mr-4 text-green-600">Success: {{ importResults.success }}</span>
+                <span class="text-red-600">Failed: {{ importResults.failed }}</span>
+              </div>
+            </div>
+            
+            <div class="h-64 p-3 overflow-y-auto text-sm border rounded">
+              <div v-for="(log, index) in importResults.logs" :key="index" class="mb-1">
+                <div v-html="log"></div>
+              </div>
+            </div>
+            
+            <div class="flex items-center justify-end mt-6">
+              <button
+                type="button"
+                @click="closeMassImportModal"
+                class="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -980,5 +1389,25 @@ tbody tr:hover {
 
 .fixed.inset-0 > div {
   animation: fadeIn 0.3s ease-out;
+}
+
+/* Add these styles to your existing styles */
+
+/* Import logs styling */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 8px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 </style>

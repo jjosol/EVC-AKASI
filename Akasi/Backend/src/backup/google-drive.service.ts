@@ -129,4 +129,24 @@ export class GoogleDriveService {
       throw new Error(`Failed to create Drive folder: ${error.message}`);
     }
   }
+
+  async deleteFile(fileId: string): Promise<void> {
+    try {
+      // Check if client is initialized
+      if (!this.drive) {
+        throw new Error('Google Drive client not initialized');
+      }
+
+      // Delete the file by ID
+      await this.drive.files.delete({
+        fileId: fileId,
+      });
+      
+      this.logger.log(`Successfully deleted file from Google Drive: ${fileId}`);
+      return;
+    } catch (error) {
+      this.logger.error(`Failed to delete file from Google Drive: ${error.message}`);
+      throw new Error(`Failed to delete file from Google Drive: ${error.message}`);
+    }
+  }
 }

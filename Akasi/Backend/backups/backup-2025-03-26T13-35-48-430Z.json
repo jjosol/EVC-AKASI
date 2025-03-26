@@ -1,0 +1,115 @@
+{
+  "manager": [
+    {
+      "manager_id": 1,
+      "username": "manager",
+      "password": "$2b$10$JnIiIE/yDlax5uGw7jP.fOvjXvTyAiicNhSbY4VZAtPE621TZqU4m",
+      "gmail": "jjosol@evc.pshs.edu.ph"
+    }
+  ],
+  "admin": [],
+  "client": [
+    {
+      "client_id": 1,
+      "username": "client",
+      "password": "$2b$10$a.Rbtb3NLdG5XNPYfn8cN.X8GNV1WDwYYaYnXU9YbUQU8rmmHkYJC",
+      "name": "John Josol",
+      "gmail": "jjosol@evc.pshs.edu.ph",
+      "age": 18,
+      "gender": "Male",
+      "category": "Student",
+      "grade": 10,
+      "section": "A"
+    },
+    {
+      "client_id": 2,
+      "username": "fnadine",
+      "password": "$2b$10$jMA9DMPjV79KL9p5vEBF8ecA32gQgvYZ0mmMgIVe9Q8Zl7kDz/yBy",
+      "name": "Fiona Nadine Macalalag",
+      "gmail": "fnadine@evc.pshs.edu.ph",
+      "age": 18,
+      "gender": "Male",
+      "category": "Student",
+      "grade": 12,
+      "section": "A"
+    },
+    {
+      "client_id": 3,
+      "username": "stong",
+      "password": "$2b$10$GSsObFTkDNJdvl8V2zxPd.HcGh8ePJgl7o8S7cfgL6Odhq8BVCNEG",
+      "name": "Sebastian Theo Ong",
+      "gmail": "stong@evc.pshs.edu.ph",
+      "age": 18,
+      "gender": "Male",
+      "category": "Student",
+      "grade": 12,
+      "section": "A"
+    }
+  ],
+  "consultation_records": [],
+  "diagnosis": [],
+  "diagnosis_category": [],
+  "consultation_diagnosis": [],
+  "inventory": [],
+  "medicineCategory": [],
+  "equipment": [],
+  "medAdministration": [],
+  "dental_certificates": [],
+  "medical_certificates": [],
+  "opthal_certificates": [],
+  "physical_exam": [],
+  "appointment": [],
+  "editsInverntory": [],
+  "hSU_bulletin": [],
+  "hSU_bulletin_files": [],
+  "_metadata": {
+    "version": "1.0",
+    "timestamp": "2025-03-26T13:35:48.505Z",
+    "models": [
+      "manager",
+      "admin",
+      "client",
+      "consultation_records",
+      "diagnosis",
+      "diagnosis_category",
+      "consultation_diagnosis",
+      "inventory",
+      "medicineCategory",
+      "equipment",
+      "medAdministration",
+      "dental_certificates",
+      "medical_certificates",
+      "opthal_certificates",
+      "physical_exam",
+      "appointment",
+      "editsInverntory",
+      "hSU_bulletin",
+      "hSU_bulletin_files"
+    ],
+    "recordCounts": {
+      "manager": 1,
+      "admin": 0,
+      "client": 3,
+      "consultation_records": 0,
+      "diagnosis": 0,
+      "diagnosis_category": 0,
+      "consultation_diagnosis": 0,
+      "inventory": 0,
+      "medicineCategory": 0,
+      "equipment": 0,
+      "medAdministration": 0,
+      "dental_certificates": 0,
+      "medical_certificates": 0,
+      "opthal_certificates": 0,
+      "physical_exam": 0,
+      "appointment": 0,
+      "editsInverntory": 0,
+      "hSU_bulletin": 0,
+      "hSU_bulletin_files": 0
+    },
+    "errors": [
+      "$metrics: this.prisma[modelName].findMany is not a function",
+      "$parent: this.prisma[modelName].findMany is not a function"
+    ]
+  }
+}

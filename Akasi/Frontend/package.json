@@ -21,6 +21,7 @@
     "moment-timezone": "^0.5.45",
     "nuxt": "^3.13.2",
     "vue": "latest",
+    "vue-pdf-embed": "^2.1.2",
     "vue-router": "latest",
     "vue3-pdfjs": "^0.0.1"
   },

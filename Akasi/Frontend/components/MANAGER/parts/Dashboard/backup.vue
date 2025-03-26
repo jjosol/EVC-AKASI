@@ -12,300 +12,300 @@
 
     <!-- Loading State -->
     <div v-if="isLoading" class="flex flex-col items-center justify-center py-8">
-      <div class="w-16 h-16 mb-4 border-b-2 border-[#2f4a71] rounded-full animate-spin"></div>
-      <p class="text-[#2f4a71]">{{ loadingMessage }}</p>
+      <div class="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-[#2f4a71]"></div>
+      <p class="mt-4 text-gray-600">{{ loadingMessage }}</p>
     </div>
 
     <div v-else class="grid grid-cols-1 gap-8 md:grid-cols-2">
-      <!-- Backup Section -->
-      <div class="p-6 border rounded-lg shadow-sm">
-        <h3 class="mb-4 text-xl font-semibold">Create Backup</h3>
+      <!-- Manual Backup Section -->
+      <div class="p-5 border rounded-lg shadow-sm">
+        <h3 class="mb-4 text-xl font-semibold text-[#2f4a71]">Manual Backup</h3>
+        <p class="mb-4 text-gray-600">Create a backup of your entire database with one click.</p>
         
-        <!-- Model Selection -->
-        <div>
-          <h4 class="mb-2 font-medium">Select database models to backup:</h4>
-          
-          <div class="mb-4 overflow-y-auto max-h-60">
-            <div v-for="model in availableModels" :key="model.name" class="flex items-center mb-2">
-              <input 
-                type="checkbox" 
-                :id="`backup-${model.name}`" 
-                v-model="model.selected"
-                @change="handleModelSelection(model.name)"
-                class="w-5 h-5 text-[#2f4a71] rounded border-gray-300 focus:ring-[#2f4a71]"
-              >
-              <label :for="`backup-${model.name}`" class="ml-2 text-gray-700">
-                {{ model.name }}
-              </label>
-            </div>
-          </div>
-          <div class="flex items-center mb-6">
-            <input 
-              type="checkbox" 
-              id="selectAllBackup" 
-              v-model="selectAll"
-              class="w-5 h-5 text-[#2f4a71] rounded border-gray-300 focus:ring-[#2f4a71]"
-              @change="toggleSelectAll"
-            >
-            <label for="selectAllBackup" class="ml-2 text-sm font-medium text-gray-700">Select All</label>
-          </div>
+        <div class="flex flex-col space-y-4">
           <button 
-            @click="createBackup" 
-            :disabled="isLoading || !hasSelectedModels"
-            :class="[
-              'w-full px-4 py-2 text-white rounded-md',
-              hasSelectedModels ? 'bg-[#2f4a71] hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'
-            ]"
+            @click="createFullBackupHandler" 
+            class="px-4 py-2 text-white transition-colors rounded bg-[#2f4a71] hover:bg-[#1d3050] disabled:bg-gray-400 disabled:cursor-not-allowed"
+            :disabled="isBackingUp"
           >
-            <Icon v-if="!isBackingUp" icon="mdi:database-export" class="mr-2" />
-            <span v-else class="inline-block w-4 h-4 mr-2 border-2 border-white rounded-full border-t-transparent animate-spin"></span>
-            Create Backup
+            <span v-if="isBackingUp">Creating Backup...</span>
+            <span v-else>Create Full Backup</span>
           </button>
         </div>
       </div>
 
       <!-- Restore Section -->
-      <div class="p-6 border rounded-lg shadow-sm">
-        <h3 class="mb-4 text-xl font-semibold">Restore Database</h3>
-        <!-- Restoration Options -->
-        <div>
-          <h4 class="mb-2 font-medium">Select restore method:</h4>
-          
-          <div class="mb-6 space-y-3">
-            <div class="flex items-center">
-              <input 
-                type="radio" 
-                id="restoreFromFile" 
-                v-model="restoreMethod" 
-                value="file"
-                class="w-5 h-5 text-[#2f4a71] border-gray-300 focus:ring-[#2f4a71]"
-              >
-              <label for="restoreFromFile" class="ml-2 text-sm font-medium text-gray-700">
-                Upload backup file
-              </label>
-            </div>
-            <div class="flex items-center">
-              <input 
-                type="radio" 
-                id="restoreFromServer" 
-                v-model="restoreMethod" 
-                value="server"
-                class="w-5 h-5 text-[#2f4a71] border-gray-300 focus:ring-[#2f4a71]">
-              <label for="restoreFromServer" class="ml-2 text-sm font-medium text-gray-700">
-                Restore from existing backup
-              </label>
-            </div>
-          </div>
-
-          <!-- File Upload -->
-          <div v-if="restoreMethod === 'file'" class="mb-6">
-            <label for="backupFile" class="block mb-2 text-sm font-medium text-gray-700">
-              Select backup file (.json)
+      <div class="p-5 border rounded-lg shadow-sm">
+        <h3 class="mb-4 text-xl font-semibold text-[#2f4a71]">Restore Database</h3>
+        
+        <div class="mb-4">
+          <label class="block mb-2 text-sm font-medium text-gray-700">Restore Method</label>
+          <div class="flex gap-4">
+            <label class="flex items-center">
+              <input type="radio" v-model="restoreMethod" value="server" class="mr-2">
+              From Server Backup
             </label>
-            <input
-              type="file"
-              id="backupFile"
-              accept=".json"
-              @change="handleFileUpload"
-              class="block w-full px-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-[#2f4a71] focus:border-[#2f4a71]"
+            <label class="flex items-center">
+              <input type="radio" v-model="restoreMethod" value="file" class="mr-2">
+              Upload Backup File
+            </label>
+          </div>
+        </div>
+
+        <!-- Restore from server backup -->
+        <div v-if="restoreMethod === 'server'" class="mb-4">
+          <label class="block mb-2 text-sm font-medium text-gray-700">Select Backup</label>
+          <select 
+            v-model="selectedServerBackup" 
+            class="w-full p-2 border rounded"
+            id="restoreFromServer"
+          >
+            <option value="">-- Select a backup --</option>
+            <option v-for="backup in backups" :key="backup.filename" :value="backup.filename">
+              {{ backup.filename }} ({{ formatDate(backup.date) }})
+            </option>
+          </select>
+        </div>
+
+        <!-- Restore from uploaded file -->
+        <div v-else class="mb-4">
+          <label class="block mb-2 text-sm font-medium text-gray-700">Upload Backup File</label>
+          <input 
+            type="file"
+            id="backupFile"
+            @change="handleFileUpload"
+            accept=".json"
+            class="w-full p-2 border rounded"
+          >
+        </div>
+
+        <!-- Confirm warning -->
+        <div class="mb-4">
+          <label class="flex items-center text-sm text-red-600">
+            <input type="checkbox" v-model="confirmRestore" class="mr-2">
+            I understand this will replace existing data
+          </label>
+        </div>
+
+        <button 
+          @click="restoreBackup" 
+          class="px-4 py-2 text-white transition-colors rounded bg-[#2f4a71] hover:bg-[#1d3050] disabled:bg-gray-400 disabled:cursor-not-allowed"
+          :disabled="!canRestore || isRestoring"
+        >
+          <span v-if="isRestoring">Restoring...</span>
+          <span v-else>Restore Database</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Automatic Backup Settings -->
+    <div class="p-5 mt-8 border rounded-lg shadow-sm">
+      <h3 class="mb-4 text-xl font-semibold">Automatic Backup Settings</h3>
+      
+      <!-- Settings form -->
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div class="col-span-2">
+          <div class="flex items-center mb-4">
+            <input 
+              type="checkbox" 
+              id="enableBackup" 
+              v-model="autoConfig.enabled" 
+              class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label for="enableBackup" class="ml-2 text-sm font-medium text-gray-700">Enable automatic backups</label>
+          </div>
+        </div>
+        
+        <div>
+          <label for="frequency" class="block text-sm font-medium text-gray-700">Frequency</label>
+          <select 
+            id="frequency" 
+            v-model="autoConfig.frequency" 
+            class="block w-full px-3 py-2 mt-1 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            :disabled="!autoConfig.enabled"
+          >
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+        
+        <div>
+          <label for="backupTime" class="block text-sm font-medium text-gray-700">Time (24h format)</label>
+          <input 
+            type="time" 
+            id="backupTime" 
+            v-model="autoConfig.time" 
+            class="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            :disabled="!autoConfig.enabled"
+          />
+        </div>
+        
+        <div>
+          <label for="retention" class="block text-sm font-medium text-gray-700">Keep backups for (days)</label>
+          <input 
+            type="number" 
+            id="retention" 
+            v-model="autoConfig.retention" 
+            min="1" 
+            max="90" 
+            class="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            :disabled="!autoConfig.enabled"
+          />
+        </div>
+        
+        <!-- Google Drive Integration -->
+        <div class="col-span-2 p-4 mt-2 border border-gray-200 rounded-md bg-gray-50">
+          <div class="flex items-center mb-3">
+            <h4 class="font-medium text-gray-700 text-md">Google Drive Integration</h4>
+            <span class="px-2 py-1 ml-2 text-xs font-medium text-white bg-blue-500 rounded-full">Recommended</span>
+          </div>
+          
+          <p class="mb-3 text-sm text-gray-600">
+            Store your backups securely in Google Drive. 
+            <strong class="font-medium">How to setup:</strong>
+          </p>
+          
+          <ol class="mb-4 ml-5 text-sm text-gray-600 list-decimal">
+            <li class="mb-1">Go to <a href="https://drive.google.com" target="_blank" class="text-blue-600 underline">Google Drive</a></li>
+            <li class="mb-1">Create a folder for your backups</li>
+            <li class="mb-1">Right-click on the folder and select "Get link"</li>
+            <li class="mb-1">Copy the ID from the URL (the long string between /folders/ and ?)</li>
+            <li class="mb-1">Paste that ID in the field below</li>
+          </ol>
+          
+          <div class="mb-4">
+            <label for="driveFolderId" class="block mb-1 text-sm font-medium text-gray-700">Google Drive Folder ID</label>
+            <input 
+              type="text" 
+              id="driveFolderId" 
+              v-model="autoConfig.driveFolderId" 
+              class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              placeholder="1AbCdEfGhIjKlMnOpQrStUvWxYz"
+              :disabled="!autoConfig.enabled"
             />
           </div>
-
-          <!-- Server Backup Selection -->
-          <div v-if="restoreMethod === 'server'" class="mb-6">
-            <label for="serverBackup" class="block mb-2 text-sm font-medium text-gray-700">
-              Select backup from server
-            </label>
-            <select
-              id="serverBackup"
-              v-model="selectedServerBackup"
-              class="block w-full px-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-[#2f4a71] focus:border-[#2f4a71]"
-              :disabled="!backups.length"
-            >
-              <option value="" disabled selected>Select a backup</option>
-              <option 
-                v-for="backup in backups" 
-                :key="backup.filename" 
-                :value="backup.filename"
-              >
-                {{ backup.filename }} ({{ formatDate(backup.date) }})
-              </option>
-            </select>
-          </div>
-          <!-- Warning and Confirmation -->
-          <div class="p-3 mb-4 text-yellow-800 bg-yellow-100 border border-yellow-400 rounded">
-            <p class="font-medium">Warning:</p>
-            <p class="text-sm">Restoring will replace all current data in the selected models. This action cannot be undone.</p>
-          </div>
-          <div class="mb-4">
-            <div class="flex items-center">
-              <input 
-                type="checkbox" 
-                id="confirmRestore" 
-                v-model="confirmRestore"
-                class="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500"
-              >
-              <label for="confirmRestore" class="ml-2 text-sm font-medium text-gray-700">
-                I understand this will overwrite existing data
-              </label>
-            </div>
-          </div>
-          <button 
-            @click="restoreBackup" 
-            :disabled="isLoading || !canRestore"
-            :class="[
-              'w-full px-4 py-2 text-white rounded-md',
-              canRestore ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-400 cursor-not-allowed'
-            ]"
+          
+          <p class="text-xs italic text-gray-500">
+            Example folder URL: https://drive.google.com/drive/folders/<strong>1AbCdEfGhIjKlMnOpQrStUvWxYz</strong>?usp=sharing
+          </p>
+        </div>
+        
+        <div class="flex justify-between col-span-2 mt-2">
+          <button
+            type="button"
+            @click="saveAutoConfig"
+            class="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
-            <Icon v-if="!isRestoring" icon="mdi:database-import" class="mr-2" />
-            <span v-else class="inline-block w-4 h-4 mr-2 border-2 border-white rounded-full border-t-transparent animate-spin"></span>
-            Restore Database
+            Save Settings
+          </button>
+          <button
+            type="button"
+            @click="toggleBackupState"
+            class="px-4 py-2 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2"
+            :class="isBackupRunning ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700'"
+          >
+            {{ isBackupRunning ? 'Pause Backup' : 'Run Backup Now' }}
           </button>
         </div>
       </div>
     </div>
+    
     <!-- Previous Backups -->
     <div v-if="backups.length > 0" class="mt-8">
-      <h3 class="mb-4 text-xl font-semibold">Previous Backups</h3>
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Filename</th>
-              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Date</th>
-              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Size</th>
-              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Models</th>
-              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Actions</th>
+      <h3 class="mb-4 text-xl font-semibold text-[#2f4a71]">Previous Backups</h3>
+      
+      <div class="overflow-auto">
+        <table class="w-full border-collapse">
+          <thead>
+            <tr class="text-left text-gray-700 bg-gray-100">
+              <th class="p-2">Filename</th>
+              <th class="p-2">Date</th>
+              <th class="p-2">Size</th>
+              <th class="p-2 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="backup in backups" :key="backup.filename">
-              <td class="px-6 py-4 whitespace-nowrap">{{ backup.filename }}</td>
-              <td class="px-6 py-4 whitespace-nowrap">{{ formatDate(backup.date) }}</td>
-              <td class="px-6 py-4 whitespace-nowrap">{{ formatSize(backup.size) }}</td>
-              <td class="px-6 py-4">
+          <tbody>
+            <tr v-for="backup in backups" :key="backup.filename" class="border-b hover:bg-gray-50">
+              <td class="p-2">
+                <div>{{ backup.filename }}</div>
                 <button 
-                  @click="toggleModelsList(backup)"
-                  class="text-blue-600 hover:text-blue-800"
+                  @click="toggleModelsList(backup)" 
+                  class="text-xs text-blue-500 underline hover:text-blue-700"
                 >
                   {{ expandedBackups.has(backup.filename) ? 'Hide Models' : 'Show Models' }}
                 </button>
-                <div v-if="expandedBackups.has(backup.filename)" class="mt-2 text-sm">
-                  <span v-for="(model, index) in backup.models" :key="model">
-                    {{ model }}{{ index < backup.models.length - 1 ? ', ' : '' }}
-                  </span>
+                <div v-if="expandedBackups.has(backup.filename)" class="pl-4 mt-1 text-xs text-gray-500">
+                  <div v-for="(model, index) in backup.models" :key="index">
+                    • {{ model }}
+                  </div>
                 </div>
               </td>
-              <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
+              <td class="p-2">{{ formatDate(backup.date) }}</td>
+              <td class="p-2">{{ formatSize(backup.size) }}</td>
+              <td class="flex justify-end gap-2 p-2">
                 <button 
                   @click="downloadBackup(backup)" 
-                  class="p-1 mr-2 text-indigo-600 hover:text-indigo-900"
-                  title="Download backup file"
+                  class="px-2 py-1 text-xs text-white bg-blue-500 rounded hover:bg-blue-600"
                 >
-                  <Icon icon="mdi:download" class="w-5 h-5" />
+                  Download
                 </button>
                 <button 
-                  @click="exportToGoogleDrive(backup)"
-                  class="mr-2 text-green-600 hover:text-green-900"
-                  title="Export to Google Drive"
+                  @click="exportToGoogleDrive(backup)" 
+                  class="px-2 py-1 text-xs text-white bg-green-600 rounded hover:bg-green-700"
                 >
-                  <Icon icon="mdi:google-drive" class="w-5 h-5" />
+                  To Drive
                 </button>
-                <button
-                  @click="deleteBackup(backup)"
-                  class="text-red-600 hover:text-red-900"
-                  title="Delete backup"
+                <button 
+                  @click="selectBackupForRestore(backup)" 
+                  class="px-2 py-1 text-xs text-white rounded bg-amber-500 hover:bg-amber-600"
                 >
-                  <Icon icon="mdi:delete" class="w-5 h-5" />
+                  Restore
                 </button>
-                <button
-                  @click="selectBackupForRestore(backup)"
-                  class="ml-2 text-blue-600 hover:text-blue-800"
-                  title="Restore this backup"
+                <button 
+                  @click="deleteBackup(backup)" 
+                  class="px-2 py-1 text-xs text-white bg-red-500 rounded hover:bg-red-600"
                 >
-                  <Icon icon="mdi:database-import" class="w-5 h-5" />
+                  Delete
                 </button>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <!-- Add this somewhere near your backup list -->
-      <div class="mt-2 text-xs text-gray-500">
-        <p><Icon icon="mdi:information-outline" class="inline w-4 h-4" /> Tip: To choose where to save backup files, right-click the download button and select "Save link as..."</p>
-      </div>
-      
-      <!-- Google Drive Export Modal -->
-      <div v-if="showDriveModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-        <div class="p-6 bg-white rounded-lg shadow-lg w-96">
-          <h3 class="mb-4 text-lg font-bold">Export to Google Drive</h3>
+    </div>
+    
+    <!-- Google Drive Modal -->
+    <div v-if="showDriveModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div class="w-full max-w-md p-6 bg-white rounded-lg shadow-xl">
+        <h3 class="mb-4 text-xl font-bold">Export to Google Drive</h3>
+        
+        <div v-if="isLoadingDrive" class="flex justify-center my-4">
+          <div class="w-10 h-10 border-4 border-dashed rounded-full animate-spin border-[#2f4a71]"></div>
+        </div>
+        
+        <div v-else>
+          <p class="mb-4">Export <strong>{{ selectedBackup?.filename }}</strong> to your configured Google Drive folder</p>
           
-          <div v-if="isLoadingDrive" class="flex justify-center my-4">
-            <div class="w-8 h-8 border-b-2 border-gray-600 rounded-full animate-spin"></div>
+          <div v-if="!autoConfig.driveFolderId" class="p-3 mb-3 border rounded text-amber-700 bg-amber-100 border-amber-400">
+            <strong>No Google Drive folder configured.</strong> Please set up a Google Drive folder ID in the Automatic Backup Settings section.
           </div>
-          
-          <div v-else>
-            <div class="mb-4">
-              <label class="block mb-1 text-sm font-medium text-gray-700">Select Folder</label>
-              <select 
-                v-model="selectedDriveFolder" 
-                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">Root folder</option>
-                <option v-for="folder in driveFolders" :key="folder.id" :value="folder.id">
-                  {{ folder.name }}
-                </option>
-              </select>
-            </div>
-            
-            <div class="mb-4">
-              <button 
-                @click="createNewFolder"
-                class="text-sm text-blue-600 hover:text-blue-800"
-              >
-                Create new folder
-              </button>
-            </div>
-            
-            <div v-if="showNewFolderInput" class="mb-4">
-              <label class="block mb-1 text-sm font-medium text-gray-700">New Folder Name</label>
-              <input 
-                v-model="newFolderName" 
-                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              <div class="flex mt-2 space-x-2">
-                <button 
-                  @click="confirmCreateFolder"
-                  class="px-3 py-1 text-sm text-white bg-blue-600 rounded hover:bg-blue-700"
-                >
-                  Create
-                </button>
-                <button 
-                  @click="showNewFolderInput = false"
-                  class="px-3 py-1 text-sm text-gray-800 bg-gray-200 rounded hover:bg-gray-300"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-          
-          <div class="flex justify-end mt-4 space-x-3">
-            <button 
-              @click="confirmExportToDrive"
-              class="px-4 py-2 text-white bg-green-600 rounded hover:bg-green-700"
-              :disabled="isLoadingDrive"
-            >
-              Export
-            </button>
-            <button 
-              @click="closeDriveModal"
-              class="px-4 py-2 text-gray-800 bg-gray-200 rounded hover:bg-gray-300"
-            >
-              Cancel
-            </button>
-          </div>
+        </div>
+        
+        <div class="flex justify-end gap-3 mt-6">
+          <button 
+            @click="closeDriveModal" 
+            class="px-4 py-2 text-gray-700 transition-colors bg-gray-200 rounded hover:bg-gray-300"
+          >
+            Cancel
+          </button>
+          <button 
+            @click="confirmExportToDrive" 
+            class="px-4 py-2 text-white transition-colors rounded bg-[#2f4a71] hover:bg-[#1d3050]"
+            :disabled="isLoadingDrive || !autoConfig.driveFolderId"
+          >
+            Export
+          </button>
         </div>
       </div>
     </div>
@@ -323,7 +323,12 @@ import {
   restoreFromUpload as restoreFromUploadService,
   exportBackupToDrive,
   listDriveFolders,
-  createDriveFolder
+  createDriveFolder,
+  // Import the new functions
+  createFullBackup,
+  getAutoBackupConfig,
+  updateAutoBackupConfig as updateAutoBackupConfigService,
+  runBackupNow as runBackupNowService
 } from '../../../../services/dashboardServices';
 import { useBackupEvents } from '../../../../composables/useBackupEvents';
 
@@ -335,64 +340,14 @@ const loadingMessage = ref('');
 const successMessage = ref('');
 const errorMessage = ref('');
 const backups = ref([]);
-const selectAll = ref(false);
 const expandedBackups = ref(new Set());
 const uploadedFile = ref(null);
 const restoreMethod = ref('server');
 const selectedServerBackup = ref('');
 const confirmRestore = ref(false);
-
-// Available models based on your Prisma schema
-const availableModels = ref([
-  { name: 'manager', selected: false },
-  { name: 'admin', selected: false },
-  { name: 'client', selected: false },
-  { name: 'consultation_records', selected: false },
-  { name: 'diagnosis', selected: false },
-  { name: 'diagnosis_category', selected: false },
-  { name: 'consultation_diagnosis', selected: false },
-  { name: 'inventory', selected: false },
-  { name: 'medicineCategory', selected: false },
-  { name: 'equipment', selected: false },
-  { name: 'EditsInverntory', selected: false },
-  { name: 'medAdministration', selected: false },
-  { name: 'dental_certificates', selected: false },
-  { name: 'medical_certificates', selected: false },
-  { name: 'opthal_certificates', selected: false },
-  { name: 'physical_exam', selected: false },
-  { name: 'appointment', selected: false },
-  { name: 'HSU_bulletin', selected: false },
-  { name: 'HSU_bulletin_files', selected: false },
-]);
-
-// Add this to your script setup section, after the availableModels definition
-const modelDependencies = {
-  admin: [
-    'consultation_records', 
-    'consultation_diagnosis',
-    'HSU_bulletin', 
-    'HSU_bulletin_files', 
-    'medAdministration', 
-    'diagnosis'
-  ],
-  client: [
-    'consultation_records', 
-    'consultation_diagnosis',
-    'medAdministration', 
-    'dental_certificates', 
-    'medical_certificates', 
-    'opthal_certificates', 
-    'physical_exam', 
-    'appointment'
-  ],
-  manager: []
-};
+const isBackupRunning = ref(false); // Add this state
 
 // Computed properties
-const hasSelectedModels = computed(() => {
-  return availableModels.value.some(model => model.selected);
-});
-
 const canRestore = computed(() => {
   if (!confirmRestore.value) return false;
   
@@ -403,13 +358,110 @@ const canRestore = computed(() => {
   }
 });
 
-// Methods
-const toggleSelectAll = () => {
-  availableModels.value.forEach(model => {
-    model.selected = selectAll.value;
-  });
+// New auto backup config state
+const autoConfig = ref({
+  enabled: false,
+  frequency: 'daily',
+  time: '03:00',
+  driveFolderId: '11b0xQ1To345xbGr6saObsC4FmevhpfJD',  // ← REPLACE THIS WITH YOUR FOLDER ID
+  retention: 7
+});
+const driveFolders = ref([]);
+
+// Methods for manual backup
+const createFullBackupHandler = async () => {
+  try {
+    isLoading.value = true;
+    isBackingUp.value = true;
+    loadingMessage.value = 'Creating full backup...';
+    errorMessage.value = '';
+    successMessage.value = '';
+    
+    const data = await createFullBackup();
+    successMessage.value = 'Full backup created successfully';
+    
+    // Refresh backup list
+    await fetchBackups();
+    
+    // Auto-clear the success message after 5 seconds
+    setTimeout(() => {
+      successMessage.value = '';
+    }, 5000);
+    
+  } catch (error) {
+    errorMessage.value = `Error: ${error.message}`;
+    console.error('Error creating backup:', error);
+  } finally {
+    isLoading.value = false;
+    isBackingUp.value = false;
+    loadingMessage.value = '';
+  }
 };
 
+// Methods for auto backup configuration
+const loadAutoConfig = async () => {
+  try {
+    isLoading.value = true;
+    loadingMessage.value = 'Loading auto backup settings...';
+    
+    const config = await getAutoBackupConfig();
+    autoConfig.value = config;
+    
+  } catch (error) {
+    console.error('Error loading auto backup settings:', error);
+    errorMessage.value = `Error: ${error.message}`;
+  } finally {
+    isLoading.value = false;
+    loadingMessage.value = '';
+  }
+};
+
+const saveAutoConfig = async () => {
+  try {
+    isLoading.value = true;
+    loadingMessage.value = 'Saving auto backup settings...';
+    errorMessage.value = '';
+    
+    const updatedConfig = await updateAutoBackupConfigService(autoConfig.value);
+    autoConfig.value = updatedConfig;
+    successMessage.value = 'Auto backup settings saved successfully';
+    
+    // Auto-clear the success message after 5 seconds
+    setTimeout(() => {
+      successMessage.value = '';
+    }, 5000);
+    
+  } catch (error) {
+    console.error('Error saving auto backup settings:', error);
+    errorMessage.value = `Error: ${error.message}`;
+  } finally {
+    isLoading.value = false;
+    loadingMessage.value = '';
+  }
+};
+
+const runBackupNow = async () => {
+  await toggleBackupState();
+};
+
+// Methods for Google Drive
+const loadDriveFolders = async () => {
+  try {
+    isLoading.value = true;
+    loadingMessage.value = 'Loading Google Drive folders...';
+    
+    driveFolders.value = await listDriveFolders();
+    
+  } catch (error) {
+    console.error('Error loading Google Drive folders:', error);
+    errorMessage.value = `Error: ${error.message}`;
+  } finally {
+    isLoading.value = false;
+    loadingMessage.value = '';
+  }
+};
+
+// Add the existing methods back
 const toggleModelsList = (backup) => {
   if (expandedBackups.value.has(backup.filename)) {
     expandedBackups.value.delete(backup.filename);
@@ -437,51 +489,11 @@ const handleFileUpload = (event) => {
   errorMessage.value = '';
 };
 
-const createBackup = async () => {
-  try {
-    isLoading.value = true;
-    isBackingUp.value = true;
-    loadingMessage.value = 'Creating backup...';
-    errorMessage.value = '';
-    successMessage.value = '';
-    
-    const selectedModels = availableModels.value
-      .filter(model => model.selected)
-      .map(model => model.name);
-    
-    if (selectedModels.length === 0) {
-      errorMessage.value = 'Please select at least one model to backup';
-      return;
-    }
-    
-    // Use the service instead of direct fetch
-    const result = await createBackupService(selectedModels);
-    successMessage.value = 'Backup created successfully';
-    
-    // Refresh backup list
-    await fetchBackups();
-    
-    // Auto-clear the success message after 5 seconds
-    setTimeout(() => {
-      successMessage.value = '';
-    }, 5000);
-    
-  } catch (error) {
-    errorMessage.value = `Error: ${error.message}`;
-    console.error('Error creating backup:', error);
-  } finally {
-    isLoading.value = false;
-    isBackingUp.value = false;
-    loadingMessage.value = '';
-  }
-};
-
 const fetchBackups = async () => {
   try {
     isLoading.value = true;
     loadingMessage.value = 'Loading backups...';
     
-    // Use the service instead of direct fetch
     backups.value = await listBackupsService();
     
   } catch (error) {
@@ -501,12 +513,10 @@ const downloadBackup = async (backup) => {
     const filename = backup.filename;
     console.log('Attempting to download backup:', filename);
     
-    // Use the updated service
     await downloadBackupService(filename);
     
     successMessage.value = 'Download initiated. If prompted, choose where to save the file.';
     
-    // Auto-clear the success message after 5 seconds
     setTimeout(() => {
       successMessage.value = '';
     }, 5000);
@@ -524,7 +534,6 @@ const selectBackupForRestore = (backup) => {
   restoreMethod.value = 'server';
   selectedServerBackup.value = backup.filename;
   
-  // Scroll to restore section
   document.getElementById('restoreFromServer').scrollIntoView({ behavior: 'smooth' });
 };
 
@@ -546,26 +555,14 @@ const restoreBackup = async () => {
     let result;
     
     if (restoreMethod.value === 'file') {
-      // Upload file and restore from it
-      if (!uploadedFile.value) {
-        throw new Error('Please select a backup file');
-      }
-      
       result = await restoreFromUploadService(uploadedFile.value);
     } else {
-      // Restore from existing backup on server
-      if (!selectedServerBackup.value) {
-        throw new Error('Please select a backup to restore');
-      }
-      
       result = await restoreFromServerService(selectedServerBackup.value);
     }
     
     successMessage.value = 'Database restored successfully';
-    // Notify other components that restoration is complete
     emitBackupRestored();
     
-    // Reset form
     uploadedFile.value = null;
     selectedServerBackup.value = '';
     confirmRestore.value = false;
@@ -574,7 +571,6 @@ const restoreBackup = async () => {
       document.getElementById('backupFile').value = '';
     }
     
-    // Auto-clear the success message after 5 seconds
     setTimeout(() => {
       successMessage.value = '';
     }, 5000);
@@ -598,20 +594,30 @@ const deleteBackup = async (backup) => {
     isLoading.value = true;
     loadingMessage.value = 'Deleting backup...';
     
-    // Use the service instead of direct fetch
     await deleteBackupService(backup.filename);
     
     successMessage.value = 'Backup deleted successfully';
     
-    // If the deleted backup was selected for restore, reset selection
     if (selectedServerBackup.value === backup.filename) {
       selectedServerBackup.value = '';
     }
     
-    // Refresh backup list
+    // Additionally delete from Google Drive
+    if (autoConfig.value.driveFolderId) {
+      try {
+        // Get file ID from Drive (you'd need to store this when uploading)
+        const driveFileId = getBackupDriveFileId(backup.filename);
+        if (driveFileId) {
+          await googleDriveService.deleteFile(driveFileId);
+          console.log(`Deleted old backup from Google Drive: ${backup.filename}`);
+        }
+      } catch (error) {
+        console.error(`Failed to delete backup from Drive: ${backup.filename}`, error);
+      }
+    }
+    
     await fetchBackups();
     
-    // Auto-clear the success message after 5 seconds
     setTimeout(() => {
       successMessage.value = '';
     }, 5000);
@@ -625,23 +631,89 @@ const deleteBackup = async (backup) => {
   }
 };
 
-// Add this method to handle model selection with dependencies
-const handleModelSelection = (modelName) => {
-  const model = availableModels.value.find(m => m.name === modelName);
+// Google Drive modal functions
+const showDriveModal = ref(false);
+const selectedBackup = ref(null);
+const selectedDriveFolder = ref('');
+const isLoadingDrive = ref(false);
+const showNewFolderInput = ref(false);
+const newFolderName = ref('');
+
+const exportToGoogleDrive = async (backup) => {
+  selectedBackup.value = backup;
+  showDriveModal.value = true;
   
-  // If this is admin, client, or manager and it's being selected
-  if (['admin', 'client', 'manager'].includes(modelName) && model.selected) {
-    // Auto-select dependent models
-    if (modelDependencies[modelName]) {
-      modelDependencies[modelName].forEach(dependentModel => {
-        const dependent = availableModels.value.find(m => m.name === dependentModel);
-        if (dependent) dependent.selected = true;
-      });
+  if (!autoConfig.value.driveFolderId) {
+    errorMessage.value = "Please configure a Google Drive Folder ID in settings first";
+  }
+};
+
+const closeDriveModal = () => {
+  showDriveModal.value = false;
+  selectedBackup.value = null;
+  selectedDriveFolder.value = '';
+  showNewFolderInput.value = false;
+  newFolderName.value = '';
+};
+
+const confirmExportToDrive = async () => {
+  if (!selectedBackup.value || !autoConfig.value.driveFolderId) return;
+  
+  try {
+    isLoadingDrive.value = true;
+    
+    const result = await exportBackupToDrive(
+      selectedBackup.value.filename, 
+      autoConfig.value.driveFolderId
+    );
+    
+    closeDriveModal();
+    successMessage.value = `Backup exported to Google Drive successfully`;
+    
+    setTimeout(() => {
+      successMessage.value = '';
+    }, 5000);
+    
+  } catch (error) {
+    errorMessage.value = `Error exporting to Google Drive: ${error.message}`;
+  } finally {
+    isLoadingDrive.value = false;
+  }
+};
+
+// Add toggle function for the backup state
+const toggleBackupState = async () => {
+  if (isBackupRunning.value) {
+    // If running, pause it
+    isBackupRunning.value = false;
+    successMessage.value = "Backup system paused";
+  } else {
+    // If not running, start it
+    try {
+      isLoading.value = true;
+      loadingMessage.value = 'Running backup now...';
+      errorMessage.value = '';
+      
+      const data = await runBackupNowService();
+      isBackupRunning.value = true;
+      successMessage.value = 'Backup started successfully';
+      
+      // Refresh backup list
+      await fetchBackups();
+      
+      // Auto-clear the success message after 5 seconds
+      setTimeout(() => {
+        successMessage.value = '';
+      }, 5000);
+      
+    } catch (error) {
+      console.error('Error running backup:', error);
+      errorMessage.value = `Error: ${error.message}`;
+    } finally {
+      isLoading.value = false;
+      loadingMessage.value = '';
     }
   }
-  
-  // Update selectAll status
-  selectAll.value = availableModels.value.every(model => model.selected);
 };
 
 // Helper functions
@@ -660,92 +732,28 @@ const formatSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-// Google Drive integration
-const showDriveModal = ref(false);
-const selectedBackup = ref(null);
-const selectedDriveFolder = ref('');
-const driveFolders = ref([]);
-const isLoadingDrive = ref(false);
-const showNewFolderInput = ref(false);
-const newFolderName = ref('');
-
-const exportToGoogleDrive = async (backup) => {
-  selectedBackup.value = backup;
-  showDriveModal.value = true;
-  
-  // Load folders from Google Drive
-  try {
-    isLoadingDrive.value = true;
-    driveFolders.value = await listDriveFolders();
-  } catch (error) {
-    errorMessage.value = `Error loading Google Drive folders: ${error.message}`;
-  } finally {
-    isLoadingDrive.value = false;
-  }
-};
-
-const closeDriveModal = () => {
-  showDriveModal.value = false;
-  selectedBackup.value = null;
-  selectedDriveFolder.value = '';
-  showNewFolderInput.value = false;
-  newFolderName.value = '';
-};
-
-const createNewFolder = () => {
-  showNewFolderInput.value = true;
-};
-
-const confirmCreateFolder = async () => {
-  if (!newFolderName.value.trim()) {
-    errorMessage.value = "Please enter a folder name";
-    return;
-  }
-  
-  try {
-    isLoadingDrive.value = true;
-    const folder = await createDriveFolder(newFolderName.value);
-    
-    // Add new folder to the list and select it
-    driveFolders.value.push(folder);
-    selectedDriveFolder.value = folder.id;
-    
-    // Reset UI
-    showNewFolderInput.value = false;
-    newFolderName.value = '';
-    
-  } catch (error) {
-    errorMessage.value = `Error creating folder: ${error.message}`;
-  } finally {
-    isLoadingDrive.value = false;
-  }
-};
-
-const confirmExportToDrive = async () => {
-  if (!selectedBackup.value) return;
-  
-  try {
-    isLoadingDrive.value = true;
-    errorMessage.value = '';
-    successMessage.value = '';
-    
-    const result = await exportBackupToDrive(
-      selectedBackup.value.filename, 
-      selectedDriveFolder.value || undefined
-    );
-    
-    successMessage.value = `Backup exported to Google Drive successfully. View at: ${result.driveLink}`;
-    closeDriveModal();
-    
-  } catch (error) {
-    errorMessage.value = `Error exporting to Google Drive: ${error.message}`;
-  } finally {
-    isLoadingDrive.value = false;
-  }
-};
-
 // Lifecycle hooks
 onMounted(() => {
   fetchBackups();
+  loadDriveFolders();
+  loadAutoConfig();
 });
+
+// New function for backing up a model
+async function backupModel(modelName) {
+  try {
+    // Check if the model exists in Prisma client
+    if (!this.prisma[modelName] || typeof this.prisma[modelName].findMany !== 'function') {
+      this.logger.warn(`Skipping model ${modelName}: Invalid or not accessible`);
+      return [];
+    }
+    
+    // Proceed with backup for valid models
+    const records = await this.prisma[modelName].findMany();
+    return records;
+  } catch (error) {
+    this.logger.error(`Error backing up model ${modelName}:`, error);
+    return [];
+  }
+}
 </script>

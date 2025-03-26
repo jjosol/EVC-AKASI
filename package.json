@@ -5,7 +5,8 @@
     "@prisma/client": "^6.5.0",
     "concurrently": "^9.1.0",
     "googleapis": "^148.0.0",
-    "vue3-pdfjs": "^0.0.1"
+    "vue3-pdfjs": "^0.0.1",
+    "xlsx": "^0.18.5"
   },
   "scripts": {
     "dev": "concurrently -n \"FRONTEND,BACKEND,PRISMA\" \"cd akasi/frontend && npm run dev\" \"cd akasi/backend && npm run start:dev\" \"cd akasi/backend && npx prisma studio\""

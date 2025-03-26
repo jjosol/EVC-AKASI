@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Delete, Param, Body, UseInterceptors, UploadedFile, Res, HttpStatus, HttpCode, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Param, Body, UseInterceptors, UploadedFile, Res, HttpStatus, HttpCode, BadRequestException, Put } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import * as fs from 'fs';
@@ -7,6 +7,26 @@ import { BackupService } from './backup.service';
 @Controller('backup')
 export class BackupController {
   constructor(private readonly backupService: BackupService) {}
+
+  @Post('create-all')
+  async createBackupAll() {
+    return this.backupService.createBackupAll();
+  }
+
+  @Get('auto-config')
+  async getAutoBackupConfig() {
+    return this.backupService.getAutoBackupConfig();
+  }
+
+  @Put('auto-config')
+  async updateAutoBackupConfig(@Body() config: any) {
+    return this.backupService.updateAutoBackupConfig(config);
+  }
+
+  @Post('run-now')
+  async runBackupNow() {
+    return this.backupService.runBackupNow();
+  }
 
   @Post('create')
   async createBackup(@Body() body: { models: string[] }) {

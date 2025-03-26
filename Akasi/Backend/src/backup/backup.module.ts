@@ -8,6 +8,7 @@ import { diskStorage } from 'multer';
 import * as path from 'path';
 import * as fs from 'fs';
 import { PrismaModule } from '../prisma.module';
+import { ScheduleModule } from '@nestjs/schedule'; // Add this import
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { PrismaModule } from '../prisma.module';
       }),
     }),
     PrismaModule,
+    ScheduleModule.forRoot(), // Add this line to import the ScheduleModule
   ],
   controllers: [BackupController],
   providers: [BackupService, GoogleDriveService],
