@@ -24,11 +24,37 @@ import { ProfileController } from './profile/profile.controller';
 import { ManagersModule } from './managers/managers.module';
 import { BackupModule } from './backup/backup.module';
 import { DiagnosisModule } from './diagnosis/diagnosis.module';
-
+import { ClientFilesModule } from './client-files/client-files.module';
+import { FetchClientFilesModule } from './fetch-client-files/fetch-client-files.module';
+import { FetchClientFilesAdminModule } from './fetch-client-files-admin/fetch-client-files-admin.module';
+import { FetchStaffFilesAdminModule } from './fetch-staff-files-admin/fetch-staff-files-admin.module';
+import { EnrollmentDocumentsModule } from './enrollment-documents/enrollment-documents.module';
+import { FetchAppointmentsClientModule } from './fetch-appointments-client/fetch-appointments-client.module';
 
 
 @Module({
-  imports: [PrismaModule, AdminsModule, AuthModule, ClientsModule, ConsultationRecordsModule, PostsModule, InventoryModule, MedAdministrationModule, StorageModule, FileModule, ProfileModule, ManagersModule, BackupModule, DiagnosisModule],
+  imports: [
+    PrismaModule, 
+    AdminsModule, 
+    AuthModule, 
+    ClientsModule, 
+    ConsultationRecordsModule, 
+    PostsModule, 
+    InventoryModule, 
+    MedAdministrationModule, 
+    StorageModule, 
+    FileModule, 
+    ProfileModule, 
+    ManagersModule, 
+    BackupModule, 
+    DiagnosisModule,
+    ClientFilesModule,
+    FetchClientFilesModule,
+    FetchClientFilesAdminModule,
+    FetchStaffFilesAdminModule,
+    EnrollmentDocumentsModule,
+    FetchAppointmentsClientModule
+  ],
   providers: [PostsService, MedAdministrationService, StorageService, FileService, ProfileService],
   controllers: [PostsController, MedAdministrationController, FileController, ProfileController],
 })

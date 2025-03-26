@@ -6,6 +6,8 @@ const route = useRoute();
 const links = [
   { path: '/bulletin', label: 'Bulletin' },
   { path: '/profile', label: 'Profile' },
+  { path: '/services', label: 'Services' },
+
 ];
 
 const isActive = (path) => computed(() => {
