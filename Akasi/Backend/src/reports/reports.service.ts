@@ -5,83 +5,74 @@ import { PrismaService } from '../prisma.service';
 export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getIllnessSummary(startMonth: string, endMonth: string, year: string) {
+  async getIllnessSummary(startMonth: string, endMonth: string, startYear: string, endYear: string = startYear) {
     // Convert month names to month numbers
     const monthNameToNumber = {
       'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
       'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
     };
 
-    console.log(`Processing request for ${startMonth} to ${endMonth}, ${year}`);
-  
-    // Add a diagnostic query to check actual data in the table
-    const diagnosticQuery = await this.prisma.consultation_records.findMany({
-      include: {
-        client: true
-      },
-      orderBy: {
-        date: 'desc'
-      },
-      take: 10 // Get just the latest 10 records to check
-    });
-    
-    console.log('Sample records from consultation_records:', 
-      diagnosticQuery.map(r => ({
-        id: r.consultation_id,
-        client_id: r.client_id,
-        date: r.date,
-        category: r.client?.category,
-        gender: r.client?.gender,
-        type: r.client?.type
-      }))
-    );
-
     const startMonthNum = monthNameToNumber[startMonth] || parseInt(startMonth);
     const endMonthNum = monthNameToNumber[endMonth] || parseInt(endMonth);
-    const yearNum = parseInt(year);
+    const startYearNum = parseInt(startYear);
+    const endYearNum = parseInt(endYear);
+
+    console.log(`Processing cross-year request: ${startMonth}(${startYear}) to ${endMonth}(${endYear})`);
 
     // Create date range for query using UTC dates to match database format
-    const startDate = new Date(Date.UTC(yearNum, startMonthNum - 1, 1, 0, 0, 0));
-    const endDate = new Date(Date.UTC(yearNum, endMonthNum, 0, 23, 59, 59)); // Last day of end month
+    const startDate = new Date(Date.UTC(startYearNum, startMonthNum - 1, 1, 0, 0, 0));
+    const endDate = new Date(Date.UTC(endYearNum, endMonthNum, 0, 23, 59, 59)); // Last day of end month
 
-    console.log(`Date range for query: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.log(`Query date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
 
-    // Prepare the result array with all months in range
+    // Prepare the result structure with all months in range
     const monthsInRange = [];
-    for (let i = startMonthNum; i <= endMonthNum; i++) {
-      const date = new Date(yearNum, i - 1, 1);
-      const monthName = date.toLocaleString('default', { month: 'long' });
-      monthsInRange.push({
-        month: monthName,
-        students: {
-          maleDormers: 0,
-          maleExterns: 0,
-          femaleDormers: 0,
-          femaleExterns: 0,
-          total: 0
-        },
-        faculty: {
-          male: 0,
-          female: 0,
-          total: 0
-        },
-        staff: {
-          male: 0,
-          female: 0,
-          total: 0
-        }
-      });
-    }
-
-    // Check if we need to use mock data (if database is empty or for testing)
-    const useMockData = false; // Force mock data temporarily while troubleshooting
     
-    if (useMockData) {
-      console.log('Using mock data for testing');
-      return this.generateMockData(startMonthNum, endMonthNum, monthsInRange);
+    // Logic to populate months array with all months in the range
+    // Special handling for cross-year ranges (e.g., Dec-Feb)
+    if (startYearNum === endYearNum || 
+        (startMonthNum <= endMonthNum && startYearNum === endYearNum)) {
+      // Same year or simple range within same year
+      for (let i = startMonthNum; i <= endMonthNum; i++) {
+        const monthName = new Date(startYearNum, i - 1, 1)
+                             .toLocaleString('default', { month: 'long' });
+        monthsInRange.push({
+          month: monthName,
+          students: this.createEmptyStudentsObject(),
+          faculty: this.createEmptyFacultyObject(),
+          staff: this.createEmptyStaffObject()
+        });
+      }
+    } else {
+      // Cross-year range (e.g. July to June)
+      // First add months from startMonth to December
+      for (let i = startMonthNum; i <= 12; i++) {
+        const monthName = new Date(startYearNum, i - 1, 1)
+                             .toLocaleString('default', { month: 'long' });
+        monthsInRange.push({
+          month: monthName,
+          students: this.createEmptyStudentsObject(),
+          faculty: this.createEmptyFacultyObject(),
+          staff: this.createEmptyStaffObject()
+        });
+      }
+      
+      // Then add months from January to endMonth of end year
+      for (let i = 1; i <= endMonthNum; i++) {
+        const monthName = new Date(endYearNum, i - 1, 1)
+                             .toLocaleString('default', { month: 'long' });
+        monthsInRange.push({
+          month: monthName,
+          students: this.createEmptyStudentsObject(),
+          faculty: this.createEmptyFacultyObject(),
+          staff: this.createEmptyStaffObject()
+        });
+      }
     }
 
-    // Run queries for each category and count
+    console.log(`Created ${monthsInRange.length} month entries for report`);
+
+    // Run the database queries for each category as you normally do
     // 1. Student Male Dormers
     const studentMaleDormers = await this.prisma.consultation_records.groupBy({
       by: ['date'],
@@ -250,12 +241,6 @@ export class ReportsService {
     console.log(`- Female Staff: ${femaleStaff.length} records`);
     console.log(`Has real data: ${hasRealData ? 'YES' : 'NO'}`);
 
-    // If no real data, use mock data instead
-    if (!hasRealData) {
-      console.log('No data found for the specified date range. Using mock data instead.');
-      return this.generateMockData(startMonthNum, endMonthNum, monthsInRange);
-    }
-
     // Process results and update counts by month
     [
       { data: studentMaleDormers, category: 'students', field: 'maleDormers', isGrouped: true },
@@ -286,9 +271,26 @@ export class ReportsService {
           
           // Get the month using UTC methods to avoid timezone issues
           const month = dateObj.getUTCMonth() + 1; // 1-based month (January = 1)
+          const year = dateObj.getUTCFullYear();
           
-          // Calculate index based on start month
-          const monthIndex = month - startMonthNum;
+          // Find the index in our monthsInRange array
+          let monthIndex = -1;
+          
+          if (startYearNum === endYearNum) {
+            // Same year case
+            monthIndex = month - startMonthNum;
+          } else {
+            // Cross-year case
+            if (year === startYearNum) {
+              // Data from start year (e.g., July-December)
+              monthIndex = month - startMonthNum;
+            } else if (year === endYearNum) {
+              // Data from end year (e.g., January-June)
+              // Calculate offset from start of year
+              const monthsInFirstYear = 13 - startMonthNum; // Count of months in first year
+              monthIndex = monthsInFirstYear + (month - 1);
+            }
+          }
           
           console.log(`Month: ${month}, StartMonth: ${startMonthNum}, Index: ${monthIndex}`);
           
@@ -329,45 +331,70 @@ export class ReportsService {
     };
   }
 
-  /**
-   * Generates mock data for testing the report
-   */
-  private generateMockData(startMonth: number, endMonth: number, monthsInRange: any[]) {
-    // Fill in mock data for each month
-    for (let i = 0; i < monthsInRange.length; i++) {
-      const month = monthsInRange[i];
-      
-      // Generate random numbers for each category
-      // Students
-      month.students.maleDormers = this.getRandomNumber(5, 15);
-      month.students.maleExterns = this.getRandomNumber(8, 20);
-      month.students.femaleDormers = this.getRandomNumber(6, 18);
-      month.students.femaleExterns = this.getRandomNumber(10, 25);
-      month.students.total = month.students.maleDormers + month.students.maleExterns + 
-                           month.students.femaleDormers + month.students.femaleExterns;
-      
-      // Faculty
-      month.faculty.male = this.getRandomNumber(2, 8);
-      month.faculty.female = this.getRandomNumber(3, 10);
-      month.faculty.total = month.faculty.male + month.faculty.female;
-      
-      // Staff
-      month.staff.male = this.getRandomNumber(1, 6);
-      month.staff.female = this.getRandomNumber(2, 7);
-      month.staff.total = month.staff.male + month.staff.female;
-    }
-
-    return {
-      months: monthsInRange,
-      totals: this.calculateTotals(monthsInRange)
+  async getConsultationMonitoring(startMonth: string, endMonth: string, startYear: string, endYear: string = startYear) {
+    // Convert month names to month numbers
+    const monthNameToNumber = {
+      'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+      'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
     };
-  }
-  
-  /**
-   * Generate a random integer between min and max (inclusive)
-   */
-  private getRandomNumber(min: number, max: number): number {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+
+    const startMonthNum = monthNameToNumber[startMonth] || parseInt(startMonth);
+    const endMonthNum = monthNameToNumber[endMonth] || parseInt(endMonth);
+    const startYearNum = parseInt(startYear);
+    const endYearNum = parseInt(endYear);
+
+    // Create date range for query with proper year handling
+    const startDate = new Date(Date.UTC(startYearNum, startMonthNum - 1, 1, 0, 0, 0));
+    const endDate = new Date(Date.UTC(endYearNum, endMonthNum, 0, 23, 59, 59)); // Last day of end month
+
+    console.log(`Fetching consultation monitoring data from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+
+    // Fetch consultation records with client information within the date range
+    const consultations = await this.prisma.consultation_records.findMany({
+      where: {
+        date: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      include: {
+        client: true
+      },
+      orderBy: {
+        date: 'asc'
+      }
+    });
+
+    console.log(`Found ${consultations.length} consultation records`);
+
+    // Format the data as required for the monitoring tool
+    return consultations.map(record => {
+      const formattedDate = new Date(record.date).toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      });
+      
+      let gradeSection = '';
+      if (record.client.category === 'Student') {
+        gradeSection = `${record.client.grade} - ${record.client.section}`;
+      } else {
+        gradeSection = record.client.category; // Faculty or Staff
+      }
+
+      let clientType = '';
+      if (record.client.category === 'Student') {
+        clientType = record.client.type; // Dormer or Extern
+      }
+
+      return {
+        clientName: record.client.name,
+        gradeSection: gradeSection,
+        consultationDate: formattedDate,
+        clientType: clientType,
+        remarks: record.remarks
+      };
+    });
   }
 
   private calculateTotals(months) {
@@ -415,5 +442,32 @@ export class ReportsService {
     totals.staff.total = totals.staff.male + totals.staff.female;
 
     return totals;
+  }
+
+  // Helper methods to create empty objects
+  private createEmptyStudentsObject() {
+    return {
+      maleDormers: 0,
+      maleExterns: 0,
+      femaleDormers: 0,
+      femaleExterns: 0,
+      total: 0
+    };
+  }
+
+  private createEmptyFacultyObject() {
+    return {
+      male: 0,
+      female: 0,
+      total: 0
+    };
+  }
+
+  private createEmptyStaffObject() {
+    return {
+      male: 0,
+      female: 0,
+      total: 0
+    };
   }
 }

@@ -87,15 +87,9 @@
           <div class="flex justify-between pt-4">
             <button 
               @click="previewReport" 
-              class="px-6 py-2 bg-blue-600 text-white font-medium rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transform transition-transform duration-200 hover:scale-105 disabled:opacity-50"
+              class="px-6 py-2 bg-[#394a6e] text-white font-medium rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-[#394a6e] focus:ring-offset-2 transform transition-transform duration-200 hover:scale-105 disabled:opacity-50"
               :disabled="!canGenerate">
               PREVIEW REPORT
-            </button>
-            <button 
-              @click="generateReport" 
-              class="px-6 py-2 bg-blue-600 text-white font-medium rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transform transition-transform duration-200 hover:scale-105 disabled:opacity-50"
-              :disabled="!canGenerate">
-              GENERATE REPORT
             </button>
           </div>
         </div>
@@ -126,7 +120,7 @@
           <button 
             @click="generateReport" 
             :disabled="fetchingData"
-            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+            class="bg-[#394a6e] hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
           >
             {{ fetchingData ? 'Loading...' : 'Generate PDF' }}
           </button>
@@ -307,6 +301,35 @@ const fetchReportData = async (startMonthName, endMonthName, year) => {
   }
 };
 
+const fetchConsultationMonitoring = async (startMonthName, endMonthName, year) => {
+  try {
+    const encodedStartMonth = encodeURIComponent(startMonthName);
+    const encodedEndMonth = encodeURIComponent(endMonthName || startMonthName);
+    
+    console.log(`Fetching monitoring data for: ${encodedStartMonth} to ${encodedEndMonth}, ${year}`);
+    
+    const response = await fetch(
+      `http://localhost:3001/reports/monitoring?startMonth=${encodedStartMonth}&endMonth=${encodedEndMonth}&year=${year}`
+    );
+    
+    if (!response.ok) {
+      console.error(`API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error(`Error details: ${errorText}`);
+      throw new Error(`API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log("Consultation monitoring data:", data);
+    return data;
+  } catch (error) {
+    console.error('Error fetching consultation monitoring data:', error);
+    return [];
+  }
+};
+
+// Update generateReport to handle async processTemplate
+
 const generateReport = async () => {
   // Validate selections before generating
   if (startMonth.value === "" || selectedYear.value === "") {
@@ -356,8 +379,8 @@ const generateReport = async () => {
     .replace(/{{startMonth}}/g, startMonthName)
     .replace(/{{selectedYear}}/g, year);
 
-  // Process tables with correct column counts and data
-  finalHtml = processTemplate(finalHtml, selectedMonths, data);
+  // Process tables with correct column counts and data (now async)
+  finalHtml = await processTemplate(finalHtml, selectedMonths, data);
 
   try {
     // Generate PDF with the final HTML
@@ -368,15 +391,15 @@ const generateReport = async () => {
   }
 };
 
-const processTemplate = (html, selectedMonths, data) => {
+const processTemplate = async (html, selectedMonths, data) => {
   let processedHtml = html;
   
   // Extract data from API response
   const { months, totals } = data;
   
-  console.log("API Response Data:", data); // Add this to debug
-  console.log("Months data:", months); // Add this to debug
-  console.log("Totals data:", totals); // Add this to debug
+  console.log("API Response Data:", data);
+  console.log("Months data:", months);
+  console.log("Totals data:", totals);
   
   // Create student rows with actual data
   const studentRows = months.map(month => `
@@ -387,6 +410,26 @@ const processTemplate = (html, selectedMonths, data) => {
       <td>${month.students.femaleDormers}</td>
       <td>${month.students.femaleExterns}</td>
       <td>${month.students.total}</td>
+    </tr>
+  `).join('');
+  
+  // Create teaching staff (faculty) rows
+  const teachingRows = months.map(month => `
+    <tr>
+      <td>${month.month}</td>
+      <td>${month.faculty.male}</td>
+      <td>${month.faculty.female}</td>
+      <td>${month.faculty.total}</td>
+    </tr>
+  `).join('');
+  
+  // Create non-teaching staff rows - make sure we're using staff data
+  const nonTeachingRows = months.map(month => `
+    <tr>
+      <td>${month.month}</td>
+      <td>${month.staff.male}</td>
+      <td>${month.staff.female}</td>
+      <td>${month.staff.total}</td>
     </tr>
   `).join('');
   
@@ -402,44 +445,42 @@ const processTemplate = (html, selectedMonths, data) => {
     `$1<td>${totals.students.maleDormers}</td><td>${totals.students.maleExterns}</td><td>${totals.students.femaleDormers}</td><td>${totals.students.femaleExterns}</td><td class="highlight">${totals.students.total}</td>`
   );
   
-  // Create teaching staff (faculty) rows
-  const teachingRows = months.map(month => `
-    <tr>
-      <td>${month.month}</td>
-      <td>${month.faculty.male}</td>
-      <td>${month.faculty.female}</td>
-      <td>${month.faculty.total}</td>
-    </tr>
-  `).join('');
-  
-  // Replace teaching staff table
-  processedHtml = processedHtml.replace(
-    /(Teaching Staff[\s\S]*?<\/tr>)\s*{{#each selectedMonths}}[\s\S]*?{{\/each}}/g,
-    `$1${teachingRows}`
+  // Use more specific patterns for the teaching staff table to avoid conflicts
+  let teachingStaffPattern = new RegExp(
+    '<h3>\\s*Teaching Staff\\s*</h3>[\\s\\S]*?<table[^>]*>[\\s\\S]*?<tr>\\s*<th[^>]*>Month</th>[\\s\\S]*?</tr>\\s*{{#each selectedMonths}}[\\s\\S]*?{{/each}}',
+    'g'
   );
   
-  // Create non-teaching staff rows
-  const nonTeachingRows = months.map(month => `
-    <tr>
-      <td>${month.month}</td>
-      <td>${month.staff.male}</td>
-      <td>${month.staff.female}</td>
-      <td>${month.staff.total}</td>
-    </tr>
-  `).join('');
-  
-  // Replace non-teaching staff table
+  // Replace teaching staff table with a more precise approach
   processedHtml = processedHtml.replace(
-    /(Non-Teaching Staff[\s\S]*?<\/tr>)\s*{{#each selectedMonths}}[\s\S]*?{{\/each}}/g,
-    `$1${nonTeachingRows}`
+    teachingStaffPattern,
+    (match) => {
+      const tableHeader = match.split('{{#each selectedMonths}}')[0];
+      return tableHeader + teachingRows;
+    }
+  );
+  
+  // Use more specific patterns for the non-teaching staff table
+  let nonTeachingStaffPattern = new RegExp(
+    '<h3>\\s*Non-Teaching Staff\\s*</h3>[\\s\\S]*?<table[^>]*>[\\s\\S]*?<tr>\\s*<th[^>]*>Month</th>[\\s\\S]*?</tr>\\s*{{#each selectedMonths}}[\\s\\S]*?{{/each}}',
+    'g'
+  );
+  
+  // Replace non-teaching staff table with a more precise approach
+  processedHtml = processedHtml.replace(
+    nonTeachingStaffPattern,
+    (match) => {
+      const tableHeader = match.split('{{#each selectedMonths}}')[0];
+      return tableHeader + nonTeachingRows;
+    }
   );
   
   // More precise replacement for Teaching Staff totals
   processedHtml = processedHtml.replace(
-    /<h3>Teaching Staff<\/h3>[\s\S]*?<td>Total<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="highlight">[^<]*<\/td>/g,
+    /<h3>\s*Teaching Staff\s*<\/h3>[\s\S]*?<td>\s*Total\s*<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="highlight">[^<]*<\/td>/g,
     (match) => {
       return match.replace(
-        /<td>Total<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="highlight">[^<]*<\/td>/,
+        /<td>\s*Total\s*<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="highlight">[^<]*<\/td>/,
         `<td>Total</td><td class="blue">${totals.faculty.male}</td><td class="blue">${totals.faculty.female}</td><td class="highlight">${totals.faculty.total}</td>`
       );
     }
@@ -447,23 +488,56 @@ const processTemplate = (html, selectedMonths, data) => {
   
   // More precise replacement for Non-Teaching Staff totals
   processedHtml = processedHtml.replace(
-    /<h3>Non-Teaching Staff<\/h3>[\s\S]*?<td>Total<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="highlight">[^<]*<\/td>/g,
+    /<h3>\s*Non-Teaching Staff\s*<\/h3>[\s\S]*?<td>\s*Total\s*<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="highlight">[^<]*<\/td>/g,
     (match) => {
       return match.replace(
-        /<td>Total<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="highlight">[^<]*<\/td>/,
+        /<td>\s*Total\s*<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="blue">[^<]*<\/td>\s*<td class="highlight">[^<]*<\/td>/,
         `<td>Total</td><td class="blue">${totals.staff.male}</td><td class="blue">${totals.staff.female}</td><td class="highlight">${totals.staff.total}</td>`
       );
     }
   );
   
-  // Replace the conclusion placeholder
-  processedHtml = processedHtml.replace(
-    /<textarea id="conclusion"[^>]*>.*?<\/textarea>/g,
-    `<textarea id="conclusion" name="conclusion" rows="4">${conclusionText.value}</textarea>`
-  );
+  // Rest of your code for consultation monitoring data...
+  const startMonthName = months.length > 0 ? months[0].month : "";
+  const endMonthName = months.length > 1 ? months[months.length - 1].month : startMonthName;
+  const year = selectedYear.value.split('-')[0];
+  
+  // Fetch the consultation monitoring data
+  const monitoringData = await fetchConsultationMonitoring(startMonthName, endMonthName, year);
+  
+  // Replace the consultation monitoring rows in the template
+  if (monitoringData && monitoringData.length > 0) {
+    // Create all the rows for monitoring data
+    const monitoringRows = monitoringData.map(record => `
+      <tr>
+        <td>${record.clientName || 'N/A'}</td>
+        <td>${record.gradeSection || 'N/A'}</td>
+        <td>${record.consultationDate || 'N/A'}</td>
+        <td>${record.clientType || 'N/A'}</td>
+        <td>${record.remarks || 'N/A'}</td>
+      </tr>
+    `).join('');
+    
+    // Replace the placeholder rows with actual data
+    processedHtml = processedHtml.replace(
+      /{{#each consultationRecords}}[\s\S]*?{{\/each}}/g,
+      monitoringRows
+    );
+    
+    console.log("Added consultation monitoring table with", monitoringData.length, "records");
+  } else {
+    // If no data, just show a message
+    processedHtml = processedHtml.replace(
+      /{{#each consultationRecords}}[\s\S]*?{{\/each}}/g,
+      '<tr><td colspan="5" style="text-align: center;">No consultation records found for the selected period.</td></tr>'
+    );
+    console.log("No consultation monitoring data found or empty array returned");
+  }
   
   return processedHtml;
 };
+
+// Update previewReport to handle async processTemplate
 
 const previewReport = async () => {
   if (startMonth.value === "" || selectedYear.value === "") {
@@ -513,12 +587,14 @@ const previewReport = async () => {
     .replace(/{{startMonth}}/g, startMonthName)
     .replace(/{{selectedYear}}/g, year);
 
-  // Process tables with correct column counts and data
-  finalHtml = processTemplate(finalHtml, selectedMonths, data);
+  // Process tables with correct column counts and data (now async)
+  finalHtml = await processTemplate(finalHtml, selectedMonths, data);
 
   try {
-    // Create a blob URL for the preview
+    // Create a blob from the HTML content
     const blob = new Blob([finalHtml], { type: 'text/html' });
+    
+    // Create a URL from the blob
     pdfPreviewUrl.value = URL.createObjectURL(blob);
 
     // Show the modal

@@ -15,6 +15,8 @@ export class ReportsController {
       return { error: 'Start month and year are required' };
     }
 
+
+    
     // If endMonth is not provided, use startMonth
     const actualEndMonth = endMonth || startMonth;
     
@@ -33,5 +35,14 @@ export class ReportsController {
         totals: {} 
       };
     }
+  }
+
+  @Get('monitoring')
+  async getConsultationMonitoring(
+    @Query('startMonth') startMonth: string = 'January', 
+    @Query('endMonth') endMonth: string = 'December', 
+    @Query('year') year: string = new Date().getFullYear().toString()
+  ) {
+    return this.reportsService.getConsultationMonitoring(startMonth, endMonth, year);
   }
 }

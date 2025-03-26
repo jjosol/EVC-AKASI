@@ -45,6 +45,7 @@
             background: white;
             position: relative;
             z-index: 1;
+            margin-top: 2cm; 
             margin-bottom: 2cm; /* Add space to avoid footer overlap */
         }
         
@@ -99,7 +100,7 @@
         }
 
         /* Reset styling for the common illnesses table */
-        .content h2:contains("SUMMARY OF PERCENTAGE OF THE PSHS-EVC COMMUNITY THAT ACQUIRED ILLNESSES") + table tr:last-child {
+        .content h2:contains("SUMMARY OF PERCENTAGE OF THE PSHS-EVC COMMUNITY THAT ACQUIRED ILLNESSES and INJURIES") + table tr:last-child {
             font-weight: bold;
             background-color: #eef4fa;
         }
@@ -152,7 +153,6 @@
             page-break-before: always; 
             clear: both;
             height: 0;
-            margin-top: 3cm; /* Add space after break for header */
         }
         
         /* Print-specific adjustments */
@@ -161,7 +161,6 @@
                 width: 210mm;
                 height: 297mm;
                 margin: 0;
-                padding-top: 1cm; 
                 padding-bottom: 1cm;
             }
             
@@ -205,7 +204,7 @@
     <div class="page-container">
             <!--summary of illnesses-->
             <div class="content">
-                <h2>SUMMARY OF PERCENTAGE OF THE PSHS-EVC COMMUNITY THAT ACQUIRED ILLNESSES</h2>
+                <h2>SUMMARY OF PERCENTAGE OF THE PSHS-EVC COMMUNITY THAT ACQUIRED ILLNESSES and INJURIES</h2>
                 <h2>{{dateRange}}</h2>
 
                 <div class="section">
@@ -271,7 +270,6 @@
                         </table>
                     </div>
                     
-                    <br><br>
                 <div class="content">
                     <div class="section">
                         <h3>Non-Teaching Staff</h3>
@@ -327,28 +325,17 @@
                         </tr>
                     </thead>
                     <tbody>
+                        {{#each consultationRecords}}
                         <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
+                          <td>{{clientName}}</td>
+                          <td>{{gradeSection}}</td>
+                          <td>{{consultationDate}}</td>
+                          <td>{{clientType}}</td>
+                          <td>{{remarks}}</td>
                         </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
+                      {{/each}}
                     </tbody>
                 </table>
-            </div>
-            <!--PAGE BREAKKK-->
-            <div class="pagebreak"></div>
-            <!--charts/graphs-->
-            <div class="content">
-
             </div>
     </div>
 </body>

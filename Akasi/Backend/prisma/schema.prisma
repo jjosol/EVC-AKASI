@@ -65,7 +65,6 @@ model consultation_records {
   complaint          String   @db.VarChar(225)
   remarks            String   @db.VarChar(500)
   intervention       String   @db.VarChar(500)
-  fatality           Boolean
   confined           Boolean
   medAdministration  Boolean
 
