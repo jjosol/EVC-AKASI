@@ -3,9 +3,14 @@ import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
 
 // Initialize state
 const students = ref([]);
+const filteredStudents = ref([]);
 const loading = ref(false);
 const error = ref(null);
 const debugInfo = ref('');
+
+// Filter state
+const showPendingOnly = ref(false);
+const searchQuery = ref('');
 
 // Student modal state
 const showStudentModal = ref(false);
@@ -21,6 +26,13 @@ const selectedFile = ref(null);
 const fileLoading = ref(false);
 const fileError = ref(null);
 
+// Review modal state
+const showReviewModal = ref(false);
+const selectedReviewFile = ref(null);
+const updateStatus = ref('');
+const updateNotes = ref('');
+const isSubmitting = ref(false);
+
 // Constants
 const grades = [
   'Grade 7',
@@ -35,6 +47,38 @@ const grades = [
 const apiBaseUrl = process.env.NODE_ENV === 'production'
   ? '/api'
   : 'http://localhost:3001';
+
+// Students with pending files
+const studentsWithPendingFiles = computed(() => {
+  return students.value.filter(student => student.hasPendingFiles);
+});
+
+// Apply filters to students
+const applyFilters = () => {
+  let result = [...students.value];
+  
+  // Filter by pending files
+  if (showPendingOnly.value) {
+    result = result.filter(student => student.hasPendingFiles);
+  }
+  
+  // Filter by search query
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.trim().toLowerCase();
+    result = result.filter(student => 
+      student.name.toLowerCase().includes(query) || 
+      student.section.toLowerCase().includes(query) ||
+      (student.grade && student.grade.toString().includes(query))
+    );
+  }
+  
+  filteredStudents.value = result;
+};
+
+// Watch for filter changes
+watch([showPendingOnly, searchQuery], () => {
+  applyFilters();
+});
 
 // Fetch students from API
 const fetchStudents = async () => {
@@ -60,7 +104,30 @@ const fetchStudents = async () => {
         if (response.ok) {
           const result = await response.json();
           if (result && result.success) {
+            // Fetch pending file information
+            const token = localStorage.getItem('token');
+            
+            if (token) {
+              const pendingResponse = await fetch(`${apiBaseUrl}/students-with-pending-files`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              });
+              
+              if (pendingResponse.ok) {
+                const pendingResult = await pendingResponse.json();
+                const pendingStudentIds = new Set(pendingResult.data.map(s => s.client_id));
+                
+                // Mark students with pending files
+                result.data.forEach(student => {
+                  student.hasPendingFiles = pendingStudentIds.has(student.client_id);
+                });
+              }
+            }
+            
             students.value = result.data;
+            // Initialize filtered students
+            filteredStudents.value = [...students.value];
             debugInfo.value += `SUCCESS with ${path}`;
             console.log(`Successfully fetched from: ${path}`);
             loading.value = false;
@@ -150,7 +217,30 @@ const fetchStudentFiles = async () => {
     const result = await response.json();
     
     if (result && result.success) {
-      studentFiles.value = result.data;
+      // Fetch file statuses from the file_status table
+      const statusResponse = await fetch(`${apiBaseUrl}/fetch-file-statuses?client_id=${clientId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const statusResult = statusResponse.ok ? await statusResponse.json() : { success: false, data: [] };
+      const fileStatuses = statusResult.success ? statusResult.data : [];
+      
+      // Merge file data with status information
+      studentFiles.value = result.data.map(file => {
+        const statusInfo = fileStatuses.find(s => 
+          s.file_id === file.id && s.file_type === file.type
+        );
+        
+        return {
+          ...file,
+          status: statusInfo ? statusInfo.status : 'pending',
+          notes: statusInfo ? statusInfo.notes : null
+        };
+      });
+      
       console.log(`Successfully fetched ${studentFiles.value.length} files for client ${clientId}, grade ${gradeNumber}`);
     } else {
       throw new Error('Invalid response format');
@@ -328,6 +418,106 @@ const closeFileViewerModal = () => {
   fileError.value = null;
 };
 
+// Review modal functions
+const openReviewModal = (file) => {
+  selectedReviewFile.value = {
+    ...file,
+    clientName: selectedStudent?.value?.name || 'Unknown',
+    category: 'student'
+  };
+  showReviewModal.value = true;
+  updateStatus.value = file.status || 'pending';
+  updateNotes.value = file.notes || '';
+};
+
+// Close review modal function
+const closeReviewModal = () => {
+  showReviewModal.value = false;
+  selectedReviewFile.value = null;
+  updateStatus.value = '';
+  updateNotes.value = '';
+};
+
+// Submit review function
+const submitReview = async () => {
+  if (!selectedReviewFile.value || !updateStatus.value) return;
+  
+  isSubmitting.value = true;
+  
+  try {
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('Authentication token not found. Please log in again.');
+    }
+
+    const fileData = {
+      fileId: selectedReviewFile.value.id,
+      fileType: selectedReviewFile.value.type,
+      clientId: selectedStudent.value.client_id,
+      status: updateStatus.value,
+      notes: updateNotes.value || null
+    };
+
+    const response = await fetch(`${apiBaseUrl}/update-file-status`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(fileData)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to update status: ${response.status} ${response.statusText}`);
+    }
+    
+    const result = await response.json();
+    
+    if (result && result.success) {
+      // Update the file in the UI
+      const fileIndex = studentFiles.value.findIndex(f => 
+        f.id === selectedReviewFile.value.id && f.type === selectedReviewFile.value.type
+      );
+      
+      if (fileIndex !== -1) {
+        studentFiles.value[fileIndex] = {
+          ...studentFiles.value[fileIndex],
+          status: updateStatus.value,
+          notes: updateNotes.value || null
+        };
+      }
+      
+      // Also update the selectedFile if it's the same file
+      if (selectedFile.value && 
+          selectedFile.value.id === selectedReviewFile.value.id && 
+          selectedFile.value.type === selectedReviewFile.value.type) {
+        selectedFile.value = {
+          ...selectedFile.value,
+          status: updateStatus.value,
+          notes: updateNotes.value || null
+        };
+      }
+      
+      // Close the modal
+      closeReviewModal();
+      
+      // Show success notification (you can implement a toast notification system here)
+      alert('File status updated successfully');
+      
+      // Refresh the students list to update the pending status
+      fetchStudents();
+    } else {
+      throw new Error('Invalid response format');
+    }
+  } catch (err) {
+    console.error('Error updating file status:', err);
+    alert('Error updating file status: ' + (err.message || 'Unknown error'));
+  } finally {
+    isSubmitting.value = false;
+  }
+};
+
 // Helper functions
 const formatDate = (dateString) => {
   if (!dateString) return '';
@@ -358,6 +548,7 @@ const formatFileType = (fileType) => {
   
   return types[fileType] || fileType;
 };  
+
 // Add these computed properties after the other state variables
 const medicalFiles = computed(() => {
   return studentFiles.value.filter(file => 
@@ -400,6 +591,30 @@ watch(selectedGrade, (newGrade) => {
   <NavBar/>
   <div class="students-container">
     <ClientOnly>
+      <!-- Filter Controls -->
+      <div class="mb-6 p-4 bg-white rounded-lg shadow">
+        <div class="flex flex-col sm:flex-row gap-3 items-center">
+          <div class="w-full sm:w-1/2">
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search by name, section, or grade..."
+              class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2f4a71]"
+            />
+          </div>
+          <div class="flex items-center">
+            <label class="inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                v-model="showPendingOnly"
+                class="form-checkbox h-4 w-4 text-[#2f4a71] border-gray-300 rounded focus:ring-[#2f4a71]"
+              >
+              <span class="ml-2 text-gray-700">Show only students with pending files</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      
       <!-- Wrap dynamic content in ClientOnly to prevent hydration mismatches -->
       <div v-if="loading" class="flex justify-center py-8">
         <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -409,19 +624,28 @@ watch(selectedGrade, (newGrade) => {
         <p>{{ error }}</p>
       </div>
       
-      <div v-else-if="students.length === 0" class="text-center py-8 text-gray-500">
-        No students found
+      <div v-else-if="filteredStudents.length === 0" class="text-center py-8 text-gray-500">
+        <p v-if="showPendingOnly">No students with pending files found</p>
+        <p v-else>No students found</p>
       </div>
       
       <div v-else>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div 
-            v-for="student in students" 
+            v-for="student in filteredStudents" 
             :key="student.client_id"
             class="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow cursor-pointer"
             @click="openStudentModal(student)"
           >
-            <h3 class="font-semibold text-lg text-gray-800">{{ student.name }}</h3>
+            <div class="flex justify-between">
+              <h3 class="font-semibold text-lg text-gray-800">{{ student.name }}</h3>
+              <span 
+                v-if="student.hasPendingFiles" 
+                class="inline-block bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full"
+              >
+                Pending
+              </span>
+            </div>
             <div class="mt-2 flex items-center justify-between">
               <span 
                 class="inline-block bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded"
@@ -504,152 +728,291 @@ watch(selectedGrade, (newGrade) => {
             <div class="tab-content">
               <!-- Medical Records Tab -->
               <div v-if="activeTab === 'medicalRecords'" class="tab-panel">
-                
-
-
                 <!-- Files Section -->
-              <div class="p-6">
-                <div class="flex items-center justify-between mb-6">
-                  <!-- Grade Dropdown -->
-                  <div class="relative inline-block text-left">
-                    <div>
-                      <button 
-                        @click="isGradeDropdownOpen = !isGradeDropdownOpen" 
-                        type="button" 
-                        class="inline-flex justify-between items-center w-44 rounded-md border border-gray-200 px-4 py-2 bg-white text-sm font-medium text-[#2f4a71] hover:bg-[#f8f4ff] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
-                      >
-                        {{ selectedGrade || 'Select Grade' }}
-                        <svg class="-mr-1 ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                          <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                        </svg>
-                      </button>
-                    </div>
-
-                    <div 
-                      v-if="isGradeDropdownOpen" 
-                      class="origin-top-right absolute right-0 mt-2 w-44 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10"
-                    >
-                      <div class="py-1">
-                        <a 
-                          v-for="grade in grades" 
-                          :key="grade"
-                          @click="selectGrade(grade)" 
-                          class="block px-4 py-2 text-sm hover:bg-[#f8f4ff] cursor-pointer"
-                          :class="selectedGrade === grade ? 'bg-[#f8f4ff] text-[#2f4a71] font-medium' : 'text-gray-700'"
-                        >
-                          {{ grade }}
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Loading State -->
-                <div v-if="loadingFiles" class="flex justify-center py-8">
-                  <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2f4a71]"></div>
-                </div>
-
-                <!-- No Files State -->
-                <div v-else-if="!selectedGrade || studentFiles.length === 0" class="text-center py-12">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <p class="mt-3 text-gray-500">
-                    {{ !selectedGrade ? 'Please select a grade to view files' : 'No medical records available for this grade' }}
-                  </p>
-                </div>
-
-                <!-- Files Grid -->
-                <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div 
-                    v-for="file in studentFiles" 
-                    :key="`${file.type}-${file.id}`" 
-                    class="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-                  >
-                    <div class="p-4">
-                      <div class="flex items-start">
-                        <!-- File Type Icon -->
-                        <div class="flex-shrink-0 mr-3">
-                          <span 
-                            :class="[
-                              file.type === 'dental' ? 'bg-blue-100 text-blue-700' :
-                              file.type === 'medical' ? 'bg-green-100 text-green-700' :
-                              file.type === 'opthal' ? 'bg-purple-100 text-purple-700' :
-                              file.type === 'physical' ? 'bg-orange-100 text-orange-700' :
-                              'bg-gray-100 text-gray-700',
-                              'inline-block p-2 rounded-md'
-                            ]"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                            </svg>
-                          </span>
-                        </div>
-                        
-                        <!-- File Info -->
-                        <div class="flex-1 min-w-0">
-                          <h3 class="text-sm font-medium text-gray-900 truncate">{{ formatFileType(file.type) }}</h3>
-                          <p class="text-xs text-gray-400 mt-1">
-                            {{ formatDate(file.date) }}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <!-- Actions -->
-                      <div class="mt-3 flex justify-end">
+                <div class="p-6">
+                  <div class="flex items-center justify-between mb-6">
+                    <!-- Grade Dropdown -->
+                    <div class="relative inline-block text-left">
+                      <div>
                         <button 
-                          @click="viewFile(file)"
-                          class="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
+                          @click="isGradeDropdownOpen = !isGradeDropdownOpen" 
+                          type="button" 
+                          class="inline-flex justify-between items-center w-44 rounded-md border border-gray-200 px-4 py-2 bg-white text-sm font-medium text-[#2f4a71] hover:bg-[#f8f4ff] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          {{ selectedGrade || 'Select Grade' }}
+                          <svg class="-mr-1 ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                           </svg>
-                          View
                         </button>
                       </div>
+
+                      <div 
+                        v-if="isGradeDropdownOpen" 
+                        class="origin-top-right absolute right-0 mt-2 w-44 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10"
+                      >
+                        <div class="py-1">
+                          <a 
+                            v-for="grade in grades" 
+                            :key="grade"
+                            @click="selectGrade(grade)" 
+                            class="block px-4 py-2 text-sm hover:bg-[#f8f4ff] cursor-pointer"
+                            :class="selectedGrade === grade ? 'bg-[#f8f4ff] text-[#2f4a71] font-medium' : 'text-gray-700'"
+                          >
+                            {{ grade }}
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Loading State -->
+                  <div v-if="loadingFiles" class="flex justify-center py-8">
+                    <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2f4a71]"></div>
+                  </div>
+
+                  <!-- No Files State -->
+                  <div v-else-if="!selectedGrade || medicalFiles.length === 0" class="text-center py-12">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p class="mt-3 text-gray-500">
+                      {{ !selectedGrade ? 'Please select a grade to view files' : 'No medical records available for this grade' }}
+                    </p>
+                  </div>
+
+                  <!-- Files Grid -->
+                  <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- File Card with Status -->
+                    <div 
+                      v-for="file in medicalFiles" 
+                      :key="`${file.type}-${file.id}`" 
+                      class="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      <div class="p-4">
+                        <div class="flex items-start">
+                          <!-- File Type Icon -->
+                          <div class="flex-shrink-0 mr-3">
+                            <span 
+                              :class="[
+                                file.type === 'dental' ? 'bg-blue-100 text-blue-700' :
+                                file.type === 'medical' ? 'bg-green-100 text-green-700' :
+                                file.type === 'opthal' ? 'bg-purple-100 text-purple-700' :
+                                file.type === 'physical' ? 'bg-orange-100 text-orange-700' :
+                                'bg-gray-100 text-gray-700',
+                                'inline-block p-2 rounded-md'
+                              ]"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                              </svg>
+                            </span>
+                          </div>
+                          
+                          <!-- File Info -->
+                          <div class="flex-1 min-w-0">
+                            <div class="flex justify-between items-start">
+                              <h3 class="text-sm font-medium text-gray-900 truncate">{{ formatFileType(file.type) }}</h3>
+                              
+                              <!-- Status Badge -->
+                              <span 
+                                :class="[
+                                  file.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                  file.status === 'complete' ? 'bg-green-100 text-green-800' :
+                                  file.status === 'pending' ? 'bg-blue-100 text-blue-800' :
+                                  file.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800',
+                                  'px-2 py-1 text-xs rounded-full ml-2'
+                                ]"
+                              >
+                                {{ file.status ? (file.status.charAt(0).toUpperCase() + file.status.slice(1)) : 'Pending' }}
+                              </span>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1">
+                              {{ formatDate(file.date) }}
+                            </p>
+                            
+                            <!-- Notes (if any) -->
+                            <p v-if="file.notes" class="text-xs italic text-gray-500 mt-1 truncate">
+                              Note: {{ file.notes }}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <!-- Actions -->
+                        <div class="mt-3 flex justify-end">
+                          <button 
+                            @click.stop="viewFile(file)"
+                            class="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71] mr-2"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            View
+                          </button>
+                          
+                          <!-- Review Button -->
+                          <button 
+                            @click.stop="openReviewModal(file)"
+                            class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-[#2f4a71] hover:bg-[#1d2e47] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Review
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                     </div>
                   </div>
                 </div>
-
-
               </div>
 
               <!-- Confinement Records Tab -->
               <div v-if="activeTab === 'confinementRecords'" class="tab-panel">
-                <div class="p-6 flex items-center justify-between">
-                  <!-- Grade Dropdown (shared between tabs) -->
-                  <div class="relative inline-block text-left">
-                    <!-- Copy your existing dropdown code here -->
+                <div class="p-6">
+                  <div class="flex items-center justify-between mb-6">
+                    <!-- Grade Dropdown (reused) -->
+                    <div class="relative inline-block text-left">
+                      <div>
+                        <button 
+                          @click="isGradeDropdownOpen = !isGradeDropdownOpen" 
+                          type="button" 
+                          class="inline-flex justify-between items-center w-44 rounded-md border border-gray-200 px-4 py-2 bg-white text-sm font-medium text-[#2f4a71] hover:bg-[#f8f4ff] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
+                        >
+                          {{ selectedGrade || 'Select Grade' }}
+                          <svg class="-mr-1 ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      <div 
+                        v-if="isGradeDropdownOpen" 
+                        class="origin-top-right absolute right-0 mt-2 w-44 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10"
+                      >
+                        <div class="py-1">
+                          <a 
+                            v-for="grade in grades" 
+                            :key="grade"
+                            @click="selectGrade(grade)" 
+                            class="block px-4 py-2 text-sm hover:bg-[#f8f4ff] cursor-pointer"
+                            :class="selectedGrade === grade ? 'bg-[#f8f4ff] text-[#2f4a71] font-medium' : 'text-gray-700'"
+                          >
+                            {{ grade }}
+                          </a>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                <!-- Loading State -->
-                <div v-if="loadingFiles" class="flex justify-center py-8">
-                  <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2f4a71]"></div>
-                </div>
+                  <!-- Loading State -->
+                  <div v-if="loadingFiles" class="flex justify-center py-8">
+                    <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2f4a71]"></div>
+                  </div>
 
-                <!-- No Files State -->
-                <div v-else-if="!selectedGrade || confinementFiles.length === 0" class="text-center py-12">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <p class="mt-3 text-gray-500">
-                    {{ !selectedGrade ? 'Please select a grade to view files' : 'No confinement records available for this grade' }}
-                  </p>
-                </div>
+                  <!-- No Files State -->
+                  <div v-else-if="!selectedGrade || confinementFiles.length === 0" class="text-center py-12">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p class="mt-3 text-gray-500">
+                      {{ !selectedGrade ? 'Please select a grade to view files' : 'No confinement records available for this grade' }}
+                    </p>
+                  </div>
 
-                <!-- Confinement Files Grid -->
-                <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4 p-6">
-                  <!-- Copy your existing file cards code but use confinementFiles instead of studentFiles -->
+                  <!-- Confinement Files Grid -->
+                  <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Confinement File Card with Status -->
+                    <div 
+                      v-for="file in confinementFiles" 
+                      :key="`${file.type}-${file.id}`" 
+                      class="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      <div class="p-4">
+                        <div class="flex items-start">
+                          <!-- File Type Icon -->
+                          <div class="flex-shrink-0 mr-3">
+                            <span 
+                              :class="[
+                                file.type === 'admission' ? 'bg-indigo-100 text-indigo-700' :
+                                file.type === 'discharge' ? 'bg-teal-100 text-teal-700' :
+                                file.type === 'treatment' ? 'bg-amber-100 text-amber-700' :
+                                file.type === 'confinement' ? 'bg-rose-100 text-rose-700' :
+                                'bg-gray-100 text-gray-700',
+                                'inline-block p-2 rounded-md'
+                              ]"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                              </svg>
+                            </span>
+                          </div>
+                          
+                          <!-- File Info -->
+                          <div class="flex-1 min-w-0">
+                            <div class="flex justify-between items-start">
+                              <h3 class="text-sm font-medium text-gray-900 truncate">{{ formatFileType(file.type) }}</h3>
+                              
+                              <!-- Status Badge -->
+                              <span 
+                                :class="[
+                                  file.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                  file.status === 'complete' ? 'bg-green-100 text-green-800' :
+                                  file.status === 'pending' ? 'bg-blue-100 text-blue-800' :
+                                  file.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800',
+                                  'px-2 py-1 text-xs rounded-full ml-2'
+                                ]"
+                              >
+                                {{ file.status ? (file.status.charAt(0).toUpperCase() + file.status.slice(1)) : 'Pending' }}
+                              </span>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1">
+                              {{ formatDate(file.date) }}
+                            </p>
+                            
+                            <!-- Notes (if any) -->
+                            <p v-if="file.notes" class="text-xs italic text-gray-500 mt-1 truncate">
+                              Note: {{ file.notes }}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <!-- Actions -->
+                        <div class="mt-3 flex justify-end">
+                          <button 
+                            @click.stop="viewFile(file)"
+                            class="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71] mr-2"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            View
+                          </button>
+                          
+                          <!-- Review Button -->
+                          <button 
+                            @click.stop="openReviewModal(file)"
+                            class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-[#2f4a71] hover:bg-[#1d2e47] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Review
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  </div>
 
   <!-- File Viewer Modal -->
   <div 
@@ -665,6 +1028,21 @@ watch(selectedGrade, (newGrade) => {
           <span class="ml-2 px-2 py-1 bg-gray-100 text-xs rounded">
             {{ getFileExtension(selectedFile?.mimeType) }}
           </span>
+          
+          <!-- Status Badge in Header -->
+          <span 
+            v-if="selectedFile?.status"
+            :class="[
+              selectedFile.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+              selectedFile.status === 'complete' ? 'bg-green-100 text-green-800' :
+              selectedFile.status === 'pending' ? 'bg-blue-100 text-blue-800' :
+              selectedFile.status === 'rejected' ? 'bg-red-100 text-red-800' :
+              'bg-gray-100 text-gray-800',
+              'ml-2 px-2 py-1 text-xs rounded-full'
+            ]"
+          >
+            {{ selectedFile.status.charAt(0).toUpperCase() + selectedFile.status.slice(1) }}
+          </span>
         </div>
         <div class="flex items-center">
           <!-- Download Button -->
@@ -678,6 +1056,19 @@ watch(selectedGrade, (newGrade) => {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
           </button>
+          
+          <!-- Review Button -->
+          <button
+            v-if="selectedFile"
+            @click="openReviewModal(selectedFile)"
+            class="mr-3 text-[#2f4a71] hover:text-[#1d2e47] focus:outline-none"
+            title="Review File"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
+          
           <!-- Close Button -->
           <button 
             @click="closeFileViewerModal" 
@@ -688,6 +1079,13 @@ watch(selectedGrade, (newGrade) => {
             </svg>
           </button>
         </div>
+      </div>
+      
+      <!-- File Information section - notes -->
+      <div v-if="selectedFile?.notes" class="px-4 py-2 bg-gray-50 border-b">
+        <p class="text-sm text-gray-600">
+          <span class="font-medium">Note:</span> {{ selectedFile.notes }}
+        </p>
       </div>
       
       <!-- File Display -->
@@ -744,6 +1142,112 @@ watch(selectedGrade, (newGrade) => {
           </svg>
           <p class="text-red-500 mb-2">Failed to load file</p>
           <p class="text-gray-500 text-sm">{{ fileError }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Review Status Modal -->
+  <div 
+    v-if="showReviewModal" 
+    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+    @click.self="closeReviewModal"
+  >
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
+      <!-- Modal Header -->
+      <div class="bg-[#2f4a71] text-white p-4 flex justify-between items-center">
+        <h3 class="text-xl font-bold">Update File Status</h3>
+        <button @click="closeReviewModal" class="text-white hover:text-gray-200">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Content -->
+      <div class="p-6" v-if="selectedReviewFile">
+        <div class="mb-4">
+          <p class="text-sm text-gray-600">File type</p>
+          <p class="font-medium">{{ formatFileType(selectedReviewFile.type) }}</p>
+        </div>
+        
+        <div class="mb-4">
+          <p class="text-sm text-gray-600">Student</p>
+          <p class="font-medium">{{ selectedReviewFile.clientName || 'Unknown' }}</p>
+          <p v-if="selectedStudent" class="text-sm text-gray-500">
+            Grade {{ selectedStudent.grade }} - {{ selectedStudent.section }}
+          </p>
+        </div>
+
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            Set Status
+          </label>
+          <div class="grid grid-cols-3 gap-2">
+            <button 
+              @click="updateStatus = 'complete'"
+              class="py-2 px-3 rounded-md border flex items-center justify-center text-sm focus:outline-none"
+              :class="updateStatus === 'complete' ? 'bg-green-50 border-green-500 text-green-700' : 'border-gray-300 hover:bg-gray-50'"
+            >
+              <svg v-if="updateStatus === 'complete'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+              <span>Complete</span>
+            </button>
+            <button 
+              @click="updateStatus = 'pending'"
+              class="py-2 px-3 rounded-md border flex items-center justify-center text-sm focus:outline-none"
+              :class="updateStatus === 'pending' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'border-gray-300 hover:bg-gray-50'"
+            >
+              <svg v-if="updateStatus === 'pending'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+              </svg>
+              <span>Pending</span>
+            </button>
+            <button 
+              @click="updateStatus = 'rejected'"
+              class="py-2 px-3 rounded-md border flex items-center justify-center text-sm focus:outline-none"
+              :class="updateStatus === 'rejected' ? 'bg-red-50 border-red-500 text-red-700' : 'border-gray-300 hover:bg-gray-50'"
+            >
+              <svg v-if="updateStatus === 'rejected'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+              </svg>
+              <span>Rejected</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="mb-6">
+          <label for="notes" class="block text-sm font-medium text-gray-700 mb-2">
+            Notes (Optional)
+          </label>
+          <textarea
+            id="notes"
+            v-model="updateNotes"
+            rows="3"
+            class="shadow-sm block w-full focus:ring-[#2f4a71] focus:border-[#2f4a71] sm:text-sm border border-gray-300 rounded-md"
+            placeholder="Add any notes about this file review..."
+          ></textarea>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+          <button 
+            @click="closeReviewModal"
+            class="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
+          >
+            Cancel
+          </button>
+          <button 
+            @click="submitReview"
+            :disabled="!updateStatus || isSubmitting"
+            class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#2f4a71] hover:bg-[#1d2e47] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg v-if="isSubmitting" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Save
+          </button>
         </div>
       </div>
     </div>

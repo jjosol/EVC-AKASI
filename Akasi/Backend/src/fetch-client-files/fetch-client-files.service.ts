@@ -1,8 +1,6 @@
 // src/fetch-client-files/fetch-client-files.service.ts
 import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-// Import the fileTypeFromBuffer function from file-type using dynamic import
-// We'll implement this in the method where it's used
 
 @Injectable()
 export class FetchClientFilesService {
@@ -11,22 +9,21 @@ export class FetchClientFilesService {
     constructor(private prisma: PrismaService) { }
 
     /**
-     * Fetch certificate files ONLY for the current user and specified grade
+     * Fetch ALL certificate files for the current user
      */
-    async fetchClientFiles(currentUserId: number, grade: number, userRole: string) {
-        if (!currentUserId || !grade) {
-            throw new NotFoundException('User ID and grade are required');
+    async fetchAllClientFiles(currentUserId: number, userRole: string) {
+        if (!currentUserId) {
+            throw new NotFoundException('User ID is required');
         }
 
         try {
             // CRITICAL: For all queries, we ONLY select files where client_id equals currentUserId
             // This ensures that only the current user's files are ever returned
 
-            // Fetch dental certificates for current user ONLY
+            // Fetch dental certificates for current user ONLY (without grade filter)
             const dentalCertificates = await this.prisma.dental_certificates.findMany({
                 where: {
                     client_id: currentUserId, // ONLY current user's files
-                    grade: grade,
                 },
                 select: {
                     dental_id: true,
@@ -36,11 +33,10 @@ export class FetchClientFilesService {
                 },
             });
 
-            // Fetch medical certificates for current user ONLY
+            // Fetch medical certificates for current user ONLY (without grade filter)
             const medicalCertificates = await this.prisma.medical_certificates.findMany({
                 where: {
                     client_id: currentUserId, // ONLY current user's files
-                    grade: grade,
                 },
                 select: {
                     medical_id: true,
@@ -50,11 +46,10 @@ export class FetchClientFilesService {
                 },
             });
 
-            // Fetch ophthalmological certificates for current user ONLY
+            // Fetch ophthalmological certificates for current user ONLY (without grade filter)
             const opthalCertificates = await this.prisma.opthal_certificates.findMany({
                 where: {
                     client_id: currentUserId, // ONLY current user's files
-                    grade: grade,
                 },
                 select: {
                     opthal_id: true,
@@ -64,11 +59,10 @@ export class FetchClientFilesService {
                 },
             });
 
-            // Fetch physical exam certificates for current user ONLY
+            // Fetch physical exam certificates for current user ONLY (without grade filter)
             const physicalExams = await this.prisma.physical_exam.findMany({
                 where: {
                     client_id: currentUserId, // ONLY current user's files
-                    grade: grade,
                 },
                 select: {
                     physical_id: true,
@@ -127,7 +121,7 @@ export class FetchClientFilesService {
                 this.logger.error(`SECURITY ERROR: Found files not belonging to user ${currentUserId}`);
             }
 
-            this.logger.log(`User ${currentUserId} retrieved ${verifiedOwnFiles.length} files for grade ${grade}`);
+            this.logger.log(`User ${currentUserId} retrieved ${verifiedOwnFiles.length} total files`);
 
             // Only return files that belong to the current user
             return verifiedOwnFiles;
@@ -138,9 +132,31 @@ export class FetchClientFilesService {
     }
 
     /**
-     * Get file info with strict ownership validation
+     * Filters client files by grade (to be used after fetchAllClientFiles)
      */
+    filterFilesByGrade(files: any[], grade: number) {
+        if (!grade) {
+            return files; // If no grade specified, return all files
+        }
+
+        return files.filter(file => file.grade === grade);
+    }
+
+    /**
+     * Backward compatibility method - now just gets all files and filters by grade
+     */
+    async fetchClientFiles(currentUserId: number, grade: number, userRole: string) {
+        const allFiles = await this.fetchAllClientFiles(currentUserId, userRole);
+        const filteredFiles = this.filterFilesByGrade(allFiles, grade);
+
+        this.logger.log(`Filtered ${allFiles.length} files to ${filteredFiles.length} files for grade ${grade}`);
+
+        return filteredFiles;
+    }
+
+    // Remaining methods (getFileInfo, getFileData) stay the same
     async getFileInfo(fileType: string, fileId: number, currentUserId: number, userRole: string) {
+        // Implementation unchanged
         try {
             let clientId: number | null = null;
             let id: number | null = null;
@@ -203,9 +219,7 @@ export class FetchClientFilesService {
             }
 
             // If file doesn't exist or doesn't belong to current user, return null (not found)
-            // This prevents information disclosure about the existence of other users' files
             if (clientId === null || id === null || !fileData || clientId !== currentUserId) {
-                // Don't log sensitive details if not found - prevents information disclosure
                 this.logger.warn(`File not found or not authorized: ${fileType} ID ${fileId}`);
                 return null;
             }
@@ -251,10 +265,8 @@ export class FetchClientFilesService {
         }
     }
 
-    /**
-     * Get file data with ownership validation
-     */
     async getFileData(fileType: string, fileId: number, currentUserId: number, userRole: string) {
+        // Implementation unchanged
         try {
             // First check file info and ownership
             const fileInfo = await this.getFileInfo(fileType, fileId, currentUserId, userRole);
@@ -263,7 +275,7 @@ export class FetchClientFilesService {
                 throw new NotFoundException('File not found');
             }
 
-            // If getFileInfo succeeds, ownership is already validated (it only returns files owned by current user)
+            // If getFileInfo succeeds, ownership is already validated
             let fileData;
 
             switch (fileType) {

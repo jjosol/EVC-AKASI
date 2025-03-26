@@ -225,7 +225,7 @@
             uploadForm.value.file;
     });
 
-    // View file function with proper authorization
+    // Updated viewFile function to use the correct endpoint
     async function viewFile(file) {
         try {
             fileLoading.value = true;
@@ -242,7 +242,8 @@
             console.log(`Requesting file: ${file.type}/${file.id}`);
             
             // The backend will verify that this file belongs to the current user
-            const response = await fetch(`http://localhost:3001/client-files/file/${file.type}/${file.id}`, {
+            // Use the CORRECT endpoint for file viewing - note that we're using fetch-client-files now
+            const response = await fetch(`http://localhost:3001/fetch-client-files/file/${file.type}/${file.id}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -285,8 +286,7 @@
             fileLoading.value = false;
         }
     }
-
-    // Add this function to detect MIME type from file signature
+        // Add this function to detect MIME type from file signature
         async function detectMimeType(blob) {
         // Only read the first few bytes to check the file signature
         const firstBytes = await blob.slice(0, 4).arrayBuffer();
@@ -520,7 +520,8 @@
     }
 
     // Fetch files for a grade
-    async function fetchFiles(grade) {
+    // Fixed fetchFiles function with updated endpoint URL to match backend controller
+        async function fetchFiles(grade) {
         try {
             loadingFiles.value = true;
             fileError.value = '';
@@ -534,14 +535,10 @@
             return;
             }
             
-            // Get grade number
-            const gradeNumber = getGradeNumber(grade);
+            // Use the CORRECT endpoint which is 'fetch-client-files/all' as defined in the controller
+            console.log('Fetching all client files first');
             
-            // The backend will use the JWT token to identify the current user
-            // No need to pass client_id - only need the grade
-            console.log(`Fetching files for grade ${grade} (${gradeNumber})`);
-            
-            const response = await fetch(`http://localhost:3001/client-files?grade=${gradeNumber}`, {
+            const response = await fetch('http://localhost:3001/fetch-client-files/all', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -560,13 +557,20 @@
             throw new Error(`Failed to fetch files: ${response.status} ${response.statusText}`);
             }
             
-            const data = await response.json();
+            const allFiles = await response.json();
+            console.log(`Fetched ${allFiles.length} total files for the current user`);
             
-            // The backend only returns files belonging to the current user
-            // So we can safely display all files that are returned
-            clientFiles.value = data;
+            // Now filter the files by grade on the client side
+            if (grade) {
+            const gradeNumber = getGradeNumber(grade);
+            console.log(`Filtering files for grade ${grade} (${gradeNumber})`);
             
-            console.log(`Fetched ${clientFiles.value.length} files for grade ${grade}`);
+            clientFiles.value = allFiles.filter(file => file.grade === gradeNumber);
+            console.log(`Filtered to ${clientFiles.value.length} files for grade ${grade}`);
+            } else {
+            // If no grade specified, show all files
+            clientFiles.value = allFiles;
+            }
             
             // If we have files, clear any previous error
             if (clientFiles.value.length > 0) {

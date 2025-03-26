@@ -3,26 +3,22 @@ import { Controller, Get, Query, UseGuards, Param, Res, UnauthorizedException, R
 import { FetchClientFilesService } from './fetch-client-files.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { Response } from 'express';
-// Remove static import of file-type and use dynamic import instead
 
-@Controller('client-files')
+@Controller('fetch-client-files')
 export class FetchClientFilesController {
     private readonly logger = new Logger(FetchClientFilesController.name);
 
     constructor(private readonly fetchClientFilesService: FetchClientFilesService) { }
 
+    /**
+     * Get all client files with optional grade filtering
+     */
     @UseGuards(JwtAuthGuard)
     @Get()
     async fetchClientFiles(
         @Query('grade') grade: string,
         @Request() req
     ) {
-        if (!grade) {
-            throw new NotFoundException('Grade is required');
-        }
-
-        const gradeNum = parseInt(grade, 10);
-
         // Extract the requesting user's ID and role from the JWT payload
         const currentUserId = req.user.client_id || req.user.id;
         const userRole = req.user.role;
@@ -31,12 +27,26 @@ export class FetchClientFilesController {
             throw new UnauthorizedException('User identification not found in token');
         }
 
-        this.logger.log(`User ${currentUserId} (${userRole}) requesting files for grade ${gradeNum}`);
+        // First, get all files for the user
+        this.logger.log(`User ${currentUserId} (${userRole}) requesting all files`);
+        const allFiles = await this.fetchClientFilesService.fetchAllClientFiles(currentUserId, userRole);
 
-        // The service will fetch ONLY the current user's files, filtered by grade
-        return this.fetchClientFilesService.fetchClientFiles(currentUserId, gradeNum, userRole);
+        // If grade is specified, filter the results
+        if (grade) {
+            const gradeNum = parseInt(grade, 10);
+            if (!isNaN(gradeNum)) {
+                this.logger.log(`Filtering files by grade ${gradeNum}`);
+                return this.fetchClientFilesService.filterFilesByGrade(allFiles, gradeNum);
+            }
+        }
+
+        // If no valid grade specified, return all files
+        return allFiles;
     }
 
+    /**
+     * Get a specific file by type and ID
+     */
     @UseGuards(JwtAuthGuard)
     @Get('file/:type/:id')
     async getFileData(
@@ -159,5 +169,22 @@ export class FetchClientFilesController {
             this.logger.error('Error serving file:', error);
             throw new NotFoundException('File not found');
         }
+    }
+
+    /**
+     * Add a new endpoint to get all files without any filtering
+     */
+    @UseGuards(JwtAuthGuard)
+    @Get('all')
+    async getAllClientFiles(@Request() req) {
+        const currentUserId = req.user.client_id || req.user.id;
+        const userRole = req.user.role;
+
+        if (!currentUserId) {
+            throw new UnauthorizedException('User identification not found in token');
+        }
+
+        this.logger.log(`User ${currentUserId} (${userRole}) requesting all files without filtering`);
+        return this.fetchClientFilesService.fetchAllClientFiles(currentUserId, userRole);
     }
 }

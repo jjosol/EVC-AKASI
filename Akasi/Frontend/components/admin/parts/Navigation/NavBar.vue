@@ -32,16 +32,6 @@ onMounted(() => {
           </router-link>
         </li>
       </ul>
-      <div class="flex items-center">
-        <input
-          type="text"
-          placeholder="Search..."
-          class="border border-[#2F4A71] rounded-full px-4 py-2 text-black focus:outline-none"
-        />
-        <button class="ml-5 text-[#2F4A71] focus:outline-none">
-          <Icon icon="ion:search-sharp" class="text-[#2f4a71] text-4xl" />
-        </button>
-      </div>
     </div>
   </nav>
 </template>
