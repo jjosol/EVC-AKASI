@@ -28,7 +28,8 @@
     "ohmyfetch": "^0.4.21",
     "puppeteer": "^24.4.0",
     "vue": "latest",
-    "vue-router": "latest"
+    "vue-router": "latest",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@iconify/vue": "^4.1.2",
