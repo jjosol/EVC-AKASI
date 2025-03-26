@@ -17,10 +17,9 @@ onMounted(() => {
 </script>
 
 <template>
-  <nav class="bg-[#F6F6F6] font-inter">
+  <nav class="font-inter border-b border-[#2F4A71]">
     <div class="flex flex-wrap items-center justify-between max-w-screen-xl p-3 mx-auto">
       <ul class="flex text-xl rounded-lg md:p-0 md:space-x-8 md:flex-row md:mt-0 md:border-0">
-        <PisayLogo width="100" height="100" />
         <li v-for="link in links" :key="link.path">
           <router-link
             :to="link.path"
@@ -33,16 +32,6 @@ onMounted(() => {
           </router-link>
         </li>
       </ul>
-      <div class="flex items-center">
-        <input
-          type="text"
-          placeholder="Search..."
-          class="border border-[#2F4A71] rounded-full px-4 py-2 text-black focus:outline-none"
-        />
-        <button class="ml-5 text-[#2F4A71] focus:outline-none">
-          <Icon icon="ion:search-sharp" class="text-[#2f4a71] text-4xl" />
-        </button>
-      </div>
     </div>
   </nav>
 </template>

@@ -76,7 +76,7 @@
           </span>
           <div>
             <p class="text-xs text-gray-500">Email</p>
-            <p class="font-medium">{{ profile.email }}</p>
+            <p class="font-medium">{{ profile.gmail }}</p>
           </div>
         </div>
       </div>

@@ -53,6 +53,13 @@ export default defineNuxtConfig({
         route: '/api/generate-pdf',
         handler: '~/server/api/generate-pdf.post'
       }
-    ]
-  },
+    ],
+    // Add API proxy configuration to route /api requests to your NestJS backend
+    devProxy: {
+      '/api': {
+        target: 'http://localhost:3001', // Adjust to your NestJS backend port
+        changeOrigin: true,
+      }
+    }
+  }
 })

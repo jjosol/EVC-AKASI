@@ -237,7 +237,7 @@ const selectedDate = computed(() => {
 
 // Form validation
 const validateForm = () => {
-  if (!profile.value || !profile.value.id) {
+  if (!profile.value || !profile.value.client_id) {
     statusMessage.value = 'Profile not loaded properly. Please refresh.';
     statusType.value = 'error';
     return false;
@@ -288,7 +288,7 @@ const submitAppointment = async () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        client_id: profile.value.id,
+        client_id: profile.value.client_id,
         date: moment(dateObj).tz("Asia/Manila").format('YYYY-MM-DD'), // Format as YYYY-MM-DD
         hour: selectedHour.value,
         minute: selectedMinute.value,

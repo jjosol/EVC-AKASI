@@ -1,5 +1,5 @@
 <template>
-    <div class="min-h-screen p-8 bg-gray-100">
+    <div class="min-h-screen p-8 bg-white">
       <div class="max-w-4xl mx-auto">
         <div v-if="loading" class="text-center">
           Loading profile... 

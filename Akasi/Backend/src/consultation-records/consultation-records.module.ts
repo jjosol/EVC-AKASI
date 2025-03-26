@@ -7,5 +7,6 @@ import { ConsultationRecordsController } from './consultation-records.controller
 @Module({
   controllers: [ConsultationRecordsController],
   providers: [ConsultationRecordsService, PrismaService],
+  exports: [ConsultationRecordsService],
 })
-export class ConsultationRecordsModule {}
+export class ConsultationRecordsModule { }
