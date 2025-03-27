@@ -301,4 +301,68 @@ export class ConsultationRecordsService {
       throw new BadRequestException(`Failed to remove diagnosis from consultation: ${error.message}`);
     }
   }
+
+  /**
+   * Get consultation records for a specific client
+   */
+  /**
+ * Get consultation records for a specific client
+ */
+  async getClientConsultations(clientId: number) {
+    try {
+      const clientIdInt = typeof clientId === 'string' ? parseInt(clientId, 10) : clientId;
+
+      const consultations = await this.prisma.consultation_records.findMany({
+        where: {
+          client_id: clientIdInt,
+        },
+        include: {
+          diagnoses: {
+            include: {
+              diagnosis: true
+            }
+          },
+          admin: {
+            select: {
+              name: true,
+            }
+          },
+          // Include medication administration records
+          medAdministrations: true
+        },
+        orderBy: {
+          date: 'desc',
+        },
+      });
+
+      return consultations.map(record => ({
+        id: record.consultation_id,
+        date: record.date,
+        doctor: record.doctor,
+        complaint: record.complaint,
+        remarks: record.remarks,
+        action: record.action,
+        disposition: record.disposition,
+        confined: record.confined,
+        medAdministration: record.medAdministration,
+        intern: record.intern,
+        // Format diagnoses from related records
+        diagnoses: record.diagnoses?.map(d => d.diagnosis?.name).filter(Boolean).join(', ') || record.complaint,
+        // Include medication administration details
+        medications: record.medAdministrations?.map(med => ({
+          id: med.med_administration_id,
+          name: med.medName,
+          count: med.count,
+          schedule: med.schedule,
+          startDate: med.start_date,
+          endDate: med.end_date,
+          remarks: med.remarks
+        })) || [],
+        adminName: record.admin?.name || 'Unknown'
+      }));
+    } catch (error) {
+      console.error('Error fetching client consultations:', error);
+      throw new Error('Failed to fetch consultation records');
+    }
+  }
 }

@@ -4,7 +4,7 @@ import { MedAdministrationService } from './med-administration.service';
 
 @Controller('med-administration')
 export class MedAdministrationController {
-  constructor(private service: MedAdministrationService) {}
+  constructor(private service: MedAdministrationService) { }
 
   @Get('consultation/:id')
   async getByConsultation(@Param('id') id: string) {

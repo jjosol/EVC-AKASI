@@ -18,6 +18,8 @@ export class MedAdministrationService {
     }
   }
 
+  // Update the med-administration.service.ts file
+
   async createMedAdministration(data: any) {
     return await this.prisma.$transaction(async (prisma) => {
       try {
@@ -30,33 +32,7 @@ export class MedAdministrationService {
           throw new BadRequestException('Consultation record not found');
         }
 
-        // 2. Check if record already exists
-        const existingRecord = await prisma.medAdministration.findFirst({
-          where: {
-            consultation_id: data.consultation_id,
-            med_id: data.med_id,
-            medName: data.medName
-          }
-        });
-
-        if (existingRecord) {
-          // If updating existing record, restore old quantity first
-          await prisma.inventory.update({
-            where: {
-              med_id_medName: {
-                med_id: data.med_id,
-                medName: data.medName
-              }
-            },
-            data: {
-              count: {
-                increment: existingRecord.count // Return old quantity
-              }
-            }
-          });
-        }
-
-        // 3. Check inventory availability
+        // 2. Check inventory availability
         const inventory = await prisma.inventory.findFirst({
           where: {
             med_id: data.med_id,
@@ -72,7 +48,7 @@ export class MedAdministrationService {
           throw new BadRequestException(`Insufficient inventory. Available: ${inventory.count}`);
         }
 
-        // 4. Update inventory (reduce quantity)
+        // 3. Update inventory (reduce quantity)
         await prisma.inventory.update({
           where: {
             med_id_medName: {
@@ -85,39 +61,27 @@ export class MedAdministrationService {
           },
         });
 
-        // 5. Create or update med administration record
-        if (existingRecord) {
-          return await prisma.medAdministration.update({
-            where: { consultation_id: existingRecord.consultation_id },
-            data: {
-              count: data.count,
-              schedule: data.schedule,
-              start_date: new Date(data.start_date),
-              end_date: new Date(data.end_date),
-              remarks: data.remarks,
-              date: new Date(data.date)
-            }
-          });
-        } else {
-          return await prisma.medAdministration.create({
-            data: {
-              client_id: data.client_id,
-              admin_id: data.admin_id,
-              med_id: data.med_id,
-              medName: data.medName,
-              count: data.count,
-              schedule: data.schedule,
-              start_date: new Date(data.start_date),
-              end_date: new Date(data.end_date),
-              remarks: data.remarks || null,
-              date: new Date(data.date),
-              patient: data.patient,
-              consultation_id: data.consultation_id
-            }
-          });
-        }
+        // 4. Create new med administration record
+        // Now we create a new record for each medicine
+        return await prisma.medAdministration.create({
+          data: {
+            consultation_id: data.consultation_id,
+            client_id: data.client_id,
+            admin_id: data.admin_id,
+            med_id: data.med_id,
+            medName: data.medName,
+            count: data.count,
+            schedule: data.schedule,
+            start_date: new Date(data.start_date),
+            end_date: new Date(data.end_date),
+            remarks: data.remarks || null,
+            date: new Date(data.date),
+            patient: data.patient
+          }
+        });
       } catch (error) {
         // All operations will be rolled back if any error occurs
+        console.error('Transaction error:', error);
         throw new BadRequestException(error.message);
       }
     });
@@ -126,8 +90,9 @@ export class MedAdministrationService {
   async updateMedAdministration(id: number, data: any) {
     return await this.prisma.$transaction(async (prisma) => {
       try {
+        // Find by med_administration_id instead of consultation_id
         const currentRecord = await prisma.medAdministration.findUnique({
-          where: { consultation_id: id }
+          where: { med_administration_id: id }
         });
 
         if (!currentRecord) {
@@ -162,7 +127,7 @@ export class MedAdministrationService {
         }
 
         return await prisma.medAdministration.update({
-          where: { consultation_id: id },
+          where: { med_administration_id: id }, // Use med_administration_id as the PK
           data,
           include: {
             inventory: true
@@ -177,8 +142,9 @@ export class MedAdministrationService {
   async deleteMedAdministration(id: number) {
     return await this.prisma.$transaction(async (prisma) => {
       try {
+        // Find by med_administration_id instead of consultation_id
         const record = await prisma.medAdministration.findUnique({
-          where: { consultation_id: id }
+          where: { med_administration_id: id }
         });
 
         if (!record) {
@@ -200,11 +166,12 @@ export class MedAdministrationService {
         });
 
         return await prisma.medAdministration.delete({
-          where: { consultation_id: id }
+          where: { med_administration_id: id }
         });
       } catch (error) {
         throw new BadRequestException(error.message);
       }
     });
   }
+
 }
