@@ -10,6 +10,7 @@
     "concurrently": "^9.1.0",
     "cron": "^4.1.1",
     "dotenv": "^16.4.7",
+    "express": "^5.0.1",
     "file-type": "^18.5.0"
   },
   "scripts": {

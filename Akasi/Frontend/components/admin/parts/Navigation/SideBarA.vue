@@ -7,7 +7,7 @@ const links = [
   { path: '/home', label: 'Home' },
   { path: '/bulletin', label: 'Bulletin' },
   { path: '/files/student', label: 'Files' },
-  //{ path: '/reports', label: 'Reports' },
+  { path: '/reports', label: 'Reports' },
   { path: '/inventory', label: 'Inventory' },
   { path: '/profile', label: 'Profile' },
 ];

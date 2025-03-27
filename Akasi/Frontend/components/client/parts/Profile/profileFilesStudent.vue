@@ -22,6 +22,7 @@
     const fileError = ref('');
     const fileLoading = ref(false);
     const showAccessDeniedModal = ref(false);
+    const imageLoadError = ref(false);
 
     // Status definitions with colors
     const statusColors = {
@@ -104,25 +105,59 @@
         }
     }
 
-    function downloadFile(file) {
-        if (!file || !file.url) {
-            showToast({
+    // Improved downloadFile function
+function downloadFile(file) {
+    if (!file || !file.url) {
+        showToast({
             message: 'No file available to download',
             type: 'error'
-            });
-            return;
-        }
-
-        // Create an anchor element and set the download attribute
-        const a = document.createElement('a');
-        a.href = file.url;
-        a.download = file.fileName || `${file.type}_${file.id}.${getFileExtension(file)}`;
-        document.body.appendChild(a);
-        a.click();
-        
-        // Clean up
-        document.body.removeChild(a);
+        });
+        return;
     }
+
+    try {
+        // If we have a blob, create a direct download from it
+        if (file.blob) {
+            const a = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+
+            console.log(url)
+            console.log(file.blob)
+            a.href = url;
+            a.download = file.fileName || `${file.type}_${file.id}.${getFileExtension(file)}`;
+            document.body.appendChild(a);
+            a.click();
+            
+            // Clean up
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+        } else {
+            // Fallback to the existing URL
+            const a = document.createElement('a');
+            a.href = file.url;
+            a.download = file.fileName || `${file.type}_${file.id}.${getFileExtension(file)}`;
+            document.body.appendChild(a);
+            a.click();
+            
+            // Clean up
+            document.body.removeChild(a);
+        }
+        
+        showToast({
+            message: 'File download started',
+            type: 'success'
+        });
+        
+    } catch (error) {
+        console.error('Download error:', error);
+        showToast({
+            message: 'Failed to download file: ' + error.message,
+            type: 'error'
+        });
+    }
+}
 
     // Function to format status text for display
     function formatStatus(status) {
@@ -379,70 +414,155 @@
     });
 
     // Updated viewFile function to use the correct endpoint
-    async function viewFile(file) {
-        try {
-            fileLoading.value = true;
-            selectedFile.value = { ...file }; // Set initial file info
-            showViewerModal.value = true;
-            document.body.classList.add('overflow-hidden');
-            
-            const token = localStorage.getItem('token');
-            
-            if (!token) {
-                throw new Error('Authentication token not found');
+    // Updated viewFile function with better error handling and proper object URL management
+async function viewFile(file) {
+    try {
+        fileLoading.value = true;
+        fileError.value = '';
+        imageLoadError.value = false;
+
+        // Initialize with basic file info
+        selectedFile.value = { 
+            ...file,
+            isImage: false,
+            isLoading: true
+        };
+        
+        showViewerModal.value = true;
+        document.body.classList.add('overflow-hidden');
+        
+        const token = localStorage.getItem('token');
+        if (!token) throw new Error('Authentication token not found');
+
+        console.log(`Requesting file: ${file.type}/${file.id}`);
+        
+        // Make the request with proper authorization
+        const response = await fetch(`http://localhost:3001/fetch-client-files/file/${file.type}/${file.id}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
             }
+        });
 
-            console.log(`Requesting file: ${file.type}/${file.id}`);
-            
-            // The backend will verify that this file belongs to the current user
-            // Use the CORRECT endpoint for file viewing - note that we're using fetch-client-files now
-            const response = await fetch(`http://localhost:3001/fetch-client-files/file/${file.type}/${file.id}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (!response.ok) {
-                // If file is not found or not authorized, backend returns 404
-                throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
-            }
-            
-            // Get file content as blob
-            const blob = await response.blob();
-            console.log('Received blob size:', blob.size, 'type:', blob.type);
-
-            // Create URL for the blob
-            const url = URL.createObjectURL(blob);
-
-            // Always detect the mime type to ensure accuracy
-            let mimeType = await detectMimeType(blob);
-            
-            console.log('Detected MIME type:', mimeType);
-            
-            // Update the component state with the URL and detected mime type
-            selectedFile.value = {
-                ...file,
-                url: url,
-                mimeType: mimeType,
-                fileName: getFileNameFromType(file.type, file.id, mimeType),
-                isImage: mimeType.startsWith('image/')
-            };
-
-        } catch (error) {
-            console.error('Error viewing file:', error);
-            showToast({
-                message: 'Failed to load file: ' + error.message,
-                type: 'error'
-            });
-            closeViewerModal();
-        } finally {
-            fileLoading.value = false;
+        if (!response.ok) {
+            throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
         }
+        
+        // Retrieve the blob data
+        const blob = await response.blob();
+        console.log('Received blob size:', blob.size, 'type:', blob.type);
+        
+        if (blob.size === 0) {
+            throw new Error('Received empty file data');
+        }
+
+        // Generate a unique URL for this blob
+        const url = URL.createObjectURL(blob);
+        
+        // Detect the MIME type
+        const mimeType = await detectMimeType(blob);
+        console.log('Detected MIME type:', mimeType);
+        
+        // For very large image files, create a downsized version for preview
+        let previewUrl = url;
+        if (mimeType.startsWith('image/') && blob.size > 5000000) { // 5MB
+            try {
+                previewUrl = await createImagePreview(blob, 1200); // Max width 1200px
+            } catch (previewError) {
+                console.error('Failed to create preview:', previewError);
+                // Fall back to original URL
+                previewUrl = url;
+            }
+        }
+
+        console.log('File details:', {
+            isImage: mimeType.startsWith('image/'),
+            mimeType,
+            size: blob.size,
+            url
+        });
+        
+        // Update with file details
+        selectedFile.value = {
+            ...file,
+            url: url,
+            previewUrl: previewUrl,
+            mimeType: mimeType,
+            fileName: getFileNameFromType(file.type, file.id, mimeType),
+            isImage: mimeType.startsWith('image/'),
+            isPdf: mimeType === 'application/pdf',
+            isVideo: mimeType.startsWith('video/'),
+            size: blob.size,
+            blob: blob,
+            isLoading: false
+        };
+
+    } catch (error) {
+        console.error('Error viewing file:', error);
+        fileError.value = error.message || 'Failed to load file';
+        
+        if (selectedFile.value?.url) {
+            URL.revokeObjectURL(selectedFile.value.url);
+        }
+        
+        if (selectedFile.value?.previewUrl && selectedFile.value.previewUrl !== selectedFile.value?.url) {
+            URL.revokeObjectURL(selectedFile.value.previewUrl);
+        }
+        
+        selectedFile.value = null;
+    } finally {
+        fileLoading.value = false;
     }
+}
+
+// Add this helper function to create smaller image previews for large images
+async function createImagePreview(blob, maxWidth) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(blob);
+        
+        img.onload = () => {
+            // Calculate new dimensions
+            let width = img.width;
+            let height = img.height;
+            
+            if (width > maxWidth) {
+                height = (height * maxWidth) / width;
+                width = maxWidth;
+            }
+            
+            // Create canvas and resize
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Get resized image as blob
+            canvas.toBlob((resizedBlob) => {
+                // Cleanup
+                URL.revokeObjectURL(url);
+                
+                if (resizedBlob) {
+                    resolve(URL.createObjectURL(resizedBlob));
+                } else {
+                    reject(new Error('Failed to create preview'));
+                }
+            }, 'image/jpeg', 0.8);
+        };
+        
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error('Failed to load image for preview'));
+        };
+        
+        img.src = url;
+    });
+}
         // Add this function to detect MIME type from file signature
         async function detectMimeType(blob) {
         // Only read the first few bytes to check the file signature
-        const firstBytes = await blob.slice(0, 4).arrayBuffer();
+        const firstBytes = await blob.slice(0, 8).arrayBuffer(); // Read 8 bytes instead of 4
         const signature = new Uint8Array(firstBytes);
         
         // Check for PDF signature: %PDF (25 50 44 46)
@@ -462,8 +582,8 @@
             return 'image/jpeg';
         }
         
-        // Default to PDF if we can't determine the type
-        return 'application/pdf';
+        // Use the blob's type instead of defaulting to PDF
+        return blob.type || 'application/octet-stream';
     }
 
 
@@ -486,6 +606,7 @@
         showViewerModal.value = false;
         document.body.classList.remove('overflow-hidden');
         selectedFile.value = null;
+        imageLoadError.value = false;
     }
 
     function formatDate(dateString) {
@@ -1159,8 +1280,6 @@ async function deleteFile() {
                         <div class="mt-3 ml-2 text-sm">
                             <!-- Complaint section -->
                             <div v-if="record.complaint" class="mb-2">
-                                <p class="font-medium text-gray-700">Complaint:</p>
-                                <p class="text-gray-600">{{ record.complaint }}</p>
                             </div>
                             
                             <!-- Medication section - show if there are any medications -->
@@ -1246,82 +1365,119 @@ async function deleteFile() {
 </div>
 
 <!-- File Viewer Modal -->
-<div 
-    v-if="showViewerModal" 
-    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-    @click.self="closeViewerModal"
->
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 overflow-hidden h-5/6 flex flex-col">
-    <!-- Modal Header -->
-    <div class="flex justify-between items-center p-4 border-b">
-        <h3 class="text-lg font-medium text-gray-900">{{ selectedFile?.typeLabel }}</h3>
-        <div class="flex items-center space-x-2">
-            <!-- Download button -->
-            <button 
-            @click="downloadFile(selectedFile)" 
-            class="text-gray-600 hover:text-gray-700 focus:outline-none"
-            title="Download file"
-            >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            </button>
-            
-            <!-- Close button -->
-            <button 
-            @click="closeViewerModal" 
-            class="text-gray-400 hover:text-gray-500 focus:outline-none"
-            >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-            </button>
-        </div>
+<!-- In your template section, replace the file viewer modal with this improved version -->
+<div v-if="showViewerModal" class="fixed inset-0 z-50 overflow-hidden bg-black bg-opacity-75 flex items-center justify-center">
+  <div class="bg-white rounded-lg w-11/12 md:w-4/5 max-w-4xl h-5/6 flex flex-col relative overflow-hidden">
+    <!-- Modal header -->
+    <div class="p-4 border-b flex justify-between items-center">
+      <h3 class="text-lg font-medium">{{ selectedFile?.fileName || 'File Viewer' }}</h3>
+      <div class="space-x-2">
+        <button 
+          v-if="selectedFile && !fileLoading" 
+          @click="downloadFile(selectedFile)" 
+          class="px-3 py-1 bg-blue-500 text-white rounded text-sm"
+        >
+          Download
+        </button>
+        <button @click="closeViewerModal" class="text-gray-500 hover:text-gray-800">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
     </div>
-
     
-    <!-- Modal Body - File Viewer -->
-    <div class="flex-grow p-2 overflow-hidden">
-        <!-- Loading indicator -->
-        <div v-if="fileLoading" class="flex items-center justify-center h-full">
-            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2f4a71]"></div>
+    <!-- Modal body with viewer -->
+    <div class="flex-1 overflow-auto p-4 bg-gray-50">
+      <!-- Loading state -->
+      <div v-if="fileLoading || selectedFile?.isLoading" class="h-full flex items-center justify-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+        <p class="ml-3 text-gray-600">Loading file...</p>
+      </div>
+      
+      <!-- Error state -->
+      <div v-else-if="fileError" class="h-full flex items-center justify-center">
+        <div class="text-center p-6 bg-red-50 rounded-lg max-w-md">
+          <svg class="w-12 h-12 text-red-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <h3 class="text-lg font-medium text-red-800 mt-2">Failed to load file</h3>
+          <p class="mt-1 text-red-600">{{ fileError }}</p>
         </div>
-        
-        <!-- File content -->
-        <template v-else-if="selectedFile && selectedFile.url">
-            <!-- PDF viewer -->
-            <iframe 
-            v-if="selectedFile.mimeType === 'application/pdf'" 
-            :src="selectedFile.url" 
-            class="w-full h-full border-0"
-            title="PDF Viewer"
-            ></iframe>
-            
-            <!-- Image viewer -->
-            <div 
-            v-else-if="selectedFile.isImage" 
-            class="flex items-center justify-center h-full"
+      </div>
+      
+      <!-- Image viewer -->
+      <div 
+        v-else-if="selectedFile?.isImage" 
+        class="h-full flex items-center justify-center"
+      >
+        <div v-if="imageLoadError" class="text-center p-4 bg-red-50 rounded-lg">
+          <p class="text-red-600 mb-2">Error displaying image. The file may be too large ({{ formatFileSize(selectedFile?.size || 0) }}).</p>
+          <button 
+            @click="downloadFile(selectedFile)"
+            class="px-3 py-1 bg-blue-500 text-white rounded"
+          >
+            Download Instead
+          </button>
+        </div>
+        <img 
+          v-else
+          :src="selectedFile.previewUrl || selectedFile.url" 
+          :alt="selectedFile.fileName" 
+          class="max-w-full max-h-full object-contain"
+          @error="imageLoadError = true"
+        />
+      </div>
+      
+      <!-- PDF viewer -->
+      <div v-else-if="selectedFile?.isPdf" class="h-full">
+        <object 
+          :data="selectedFile.url" 
+          type="application/pdf" 
+          class="w-full h-full"
+          @error="fileError = 'PDF viewer not supported in this browser'"
+        >
+          <div class="flex flex-col items-center justify-center h-full text-center p-6 bg-gray-100 rounded-lg">
+            <p class="mb-3">Your browser doesn't support PDF viewing.</p>
+            <button 
+              @click="downloadFile(selectedFile)"
+              class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
             >
-            <img 
-                :src="selectedFile.url" 
-                :alt="selectedFile.fileName" 
-                class="max-w-full max-h-full object-contain"
-            />
-            </div>
-            
-            <!-- Unsupported file type -->
-            <div 
-            v-else 
-            class="flex flex-col items-center justify-center h-full"
-            >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <p class="mt-3 text-gray-600">Unsupported file type</p>
-            </div>
-        </template>
+              Download PDF
+            </button>
+          </div>
+        </object>
+      </div>
+      
+      <!-- Video viewer -->
+      <div v-else-if="selectedFile?.isVideo" class="h-full flex items-center justify-center">
+        <video 
+          :src="selectedFile.url" 
+          controls 
+          class="max-w-full max-h-full"
+          @error="fileError = 'Video playback failed'"
+        >
+          Your browser doesn't support video playback.
+        </video>
+      </div>
+      
+      <!-- Generic file (download only) -->
+      <div v-else class="h-full flex items-center justify-center">
+        <div class="text-center p-6 bg-gray-100 rounded-lg">
+          <svg class="w-16 h-16 text-gray-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <p class="mt-3 mb-4">This file type can't be previewed in the browser.</p>
+          <button 
+            @click="downloadFile(selectedFile)"
+            class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Download File
+          </button>
+        </div>
+      </div>
     </div>
-    </div>
+  </div>
 </div>
 
 <!-- Modal for uploading files (kept for reference) -->
