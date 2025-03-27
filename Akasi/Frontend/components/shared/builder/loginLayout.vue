@@ -43,6 +43,8 @@ const handleLogin = async () => {
         router.push('/home');
       } else if (role === 'client') {
         router.push('/bulletin');
+      } else if (role === 'manager') {
+        router.push('/dashboard');
       } else {
         router.push('/login');
       }

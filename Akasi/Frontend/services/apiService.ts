@@ -4,7 +4,7 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 const fetchWithTimeout = async (url: string, options: RequestInit, timeout = 30000) => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
-
+  
   try {
     const response = await fetch(url, {
       ...options,
@@ -80,7 +80,7 @@ export async function put(endpoint: string, data: any) {
 
 export async function del(endpoint: string) {
   const token = localStorage.getItem('authToken');
-
+  
   try {
     const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {
       method: 'DELETE',
@@ -88,11 +88,11 @@ export async function del(endpoint: string) {
         'Authorization': `Bearer ${token}`
       }
     });
-
+    
     if (!response.ok) {
       // Clone the response to use it twice
       const clonedResponse = response.clone();
-
+      
       // Try to parse error message from JSON response
       try {
         const errorData = await clonedResponse.json();
@@ -102,7 +102,7 @@ export async function del(endpoint: string) {
         throw new Error(`DELETE ${endpoint} failed: ${response.statusText}`);
       }
     }
-
+    
     const text = await response.text();
     if (text && text.length > 0) {
       try {
@@ -111,7 +111,7 @@ export async function del(endpoint: string) {
         return text;
       }
     }
-
+    
     return { success: true };
   } catch (error) {
     console.error(`Network error during DELETE ${endpoint}:`, error);
@@ -122,7 +122,7 @@ export async function del(endpoint: string) {
 // Add this new function to your apiService.ts
 export async function uploadFile(endpoint: string, formData: FormData) {
   const token = localStorage.getItem('authToken');
-
+  
   try {
     const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {
       method: 'POST',
@@ -131,12 +131,12 @@ export async function uploadFile(endpoint: string, formData: FormData) {
       },
       body: formData
     }, 60000); // Use longer timeout for uploads
-
+    
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || `Upload to ${endpoint} failed: ${response.statusText}`);
     }
-
+    
     return response.json();
   } catch (error) {
     console.error(`Network error during upload to ${endpoint}:`, error);

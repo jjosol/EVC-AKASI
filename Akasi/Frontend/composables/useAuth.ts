@@ -68,6 +68,8 @@ export const useAuth = () => {
 
   const isAdmin = computed(() => userRole.value === 'admin');
   const isClient = computed(() => userRole.value === 'client');
+  const isManager = computed(() => userRole.value === 'manager');
+
 
   startTokenCheck(); // Start token check immediately
 
@@ -76,6 +78,7 @@ export const useAuth = () => {
     userRole,
     isAdmin,
     isClient,
+    isManager,
     checkToken,
     handleLogout,
     startTokenCheck,

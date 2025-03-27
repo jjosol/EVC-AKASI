@@ -14,11 +14,12 @@ export class AuthService {
   async login(loginDto: { username: string; password: string }) {
     const { username, password } = loginDto;
 
-    // Find user (admin or client)
+    // Find user (admin, client, or manager)
     const admin = await this.prisma.admin.findFirst({ where: { username } });
     const client = await this.prisma.client.findFirst({ where: { username } });
+    const manager = await this.prisma.manager.findFirst({ where: { username } });
 
-    const user = admin || client;
+    const user = admin || client || manager;
 
     if (!user) {
       throw new UnauthorizedException('Invalid username or password');
@@ -29,18 +30,24 @@ export class AuthService {
       throw new UnauthorizedException('Invalid username or password');
     }
 
-    // In AuthService, change your payload creation:
+    // Create payload based on user type
     const payload = admin
       ? {
-        sub: admin.admin_id,
-        username: admin.username,
-        role: 'admin'
-      }
+          sub: admin.admin_id,
+          username: admin.username,
+          role: 'admin'
+        }
+      : manager
+      ? {
+          sub: manager.manager_id,
+          username: manager.username,
+          role: 'manager'
+        }
       : {
-        sub: client.client_id, // Use 'sub' for client_id as per JWT standards
-        username: client.username,
-        role: 'client'
-      };
+          sub: client.client_id,
+          username: client.username,
+          role: 'client'
+        };
 
     const token = this.jwtService.sign(payload);
 

@@ -183,3 +183,31 @@ export const createDriveFolder = async (folderName: string) => {
     throw error;
   }
 };
+
+// Add these new functions
+export const createFullBackup = async () => {
+  return await post(`${BACKUP_URL}/create-all`, {});
+};
+
+export const getAutoBackupConfig = async () => {
+  return await get(`${BACKUP_URL}/auto-config`);
+};
+
+// Interface for auto backup configuration
+export interface AutoBackupConfig {
+  enabled: boolean;
+  frequency: string;
+  time?: string;
+  retentionDays?: number;
+  backupToCloud?: boolean;
+  driveFolderId?: string;
+  includedModels?: string[];
+}
+
+export const updateAutoBackupConfig = async (config: AutoBackupConfig): Promise<any> => {
+  return await put(`${BACKUP_URL}/auto-config`, config);
+};
+
+export const runBackupNow = async () => {
+  return await post(`${BACKUP_URL}/run-now`, {});
+};
