@@ -40,6 +40,8 @@ async function main() {
         await hashPasswords('manager', 'manager_id')
         await hashPasswords('client', 'client_id')
         await hashPasswords('admin', 'admin_id')
+        await hashPasswords('manager', 'manager_id')
+
     } catch (error) {
         console.error("Error in main function:", error)
     } finally {

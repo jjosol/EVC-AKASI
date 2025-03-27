@@ -1,5 +1,5 @@
 // consultation-records.controller.ts
-import { Body, Controller, Post, Get, Put, Delete, Param, ParseIntPipe, NotFoundException, BadRequestException, Query } from '@nestjs/common';
+import { Body, Controller, Post, Get, Put, Delete, Param, ParseIntPipe, NotFoundException, BadRequestException, Query, ForbiddenException, Request } from '@nestjs/common';
 import { ConsultationRecordsService } from './consultation-records.service';
 //import { ConsultationRecordCreateInput, ConsultationRecordUpdateInput } from './consultation-records.types';
 
@@ -164,5 +164,31 @@ export class ConsultationRecordsController {
       consultation_id,
       diagnosis_id
     );
+  }
+
+  @Get('client/:clientId')
+  async getClientConsultations(
+    @Param('clientId') clientId: string,
+    @Request() req
+  ) {
+    console.log(`Getting consultations for client ID: ${clientId}`);
+    try {
+      // Convert clientId to number
+      const clientIdNum = parseInt(clientId, 10);
+
+      if (isNaN(clientIdNum)) {
+        throw new BadRequestException('Invalid client ID');
+      }
+
+      console.log(`Converted client ID to number: ${clientIdNum}`);
+
+      const consultations = await this.consultationRecordsService.getClientConsultations(clientIdNum);
+      console.log(`Found ${consultations.length} consultations for client ${clientIdNum}`);
+
+      return consultations;
+    } catch (error) {
+      console.error(`Error in getClientConsultations: ${error.message}`);
+      throw error;
+    }
   }
 }

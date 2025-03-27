@@ -1,5 +1,59 @@
 <script setup>
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
+import { useClientConsultations } from '~/composables/useClientConsultations';
+
+// Add activeTab state
+const activeTab = ref('medicalRecords');
+
+// Add the consultations composable
+const { 
+  consultations, 
+  loading: consultationsLoading, 
+  error: consultationsError,  
+} = useClientConsultations();
+
+// Add function to fetch consultations for a student
+const fetchConsultations = async (clientId) => {
+  if (!clientId) {
+    consultationsError.value = 'Client ID is required';
+    return;
+  }
+
+  try {
+    consultationsLoading.value = true;
+    consultationsError.value = null;
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication token not found');
+    }
+
+    // Log the URL we're calling
+    const url = `http://localhost:3001/consultation-records/client/${clientId}`;
+    console.log('Fetching consultations from:', url);
+
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    // Log the response status
+    console.log('Response status:', response.status, response.statusText);
+
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
+    }
+
+    consultations.value = await response.json();
+    console.log('Received consultations:', consultations.value.length);
+  } catch (err) {
+    console.error('Error fetching consultations:', err);
+    consultationsError.value = err.message || 'Failed to load consultation records';
+  } finally {
+    consultationsLoading.value = false;
+  }
+};
 
 // Initialize state
 const students = ref([]);
@@ -80,6 +134,29 @@ watch([showPendingOnly, searchQuery], () => {
   applyFilters();
 });
 
+// Add this to your existing watch statements
+watch(activeTab, (newTab) => {
+  if (newTab === 'consultationRecords' && selectedStudent.value) {
+    fetchConsultations(selectedStudent.value.client_id);
+  }
+});
+
+// Modify your openStudentModal function to also fetch consultations if needed
+const openStudentModal = (student) => {
+  selectedStudent.value = student;
+  showStudentModal.value = true;
+  document.body.classList.add('overflow-hidden');
+  
+  // Reset the selected grade
+  selectedGrade.value = '';
+  studentFiles.value = [];
+  
+  // If the current tab is consultationRecords, fetch consultations
+  if (activeTab.value === 'consultationRecords') {
+    fetchConsultations(student.client_id);
+  }
+};
+
 // Fetch students from API
 const fetchStudents = async () => {
   loading.value = true;
@@ -153,17 +230,6 @@ const fetchStudents = async () => {
   } finally {
     loading.value = false;
   }
-};
-
-// Modal functions
-const openStudentModal = (student) => {
-  selectedStudent.value = student;
-  showStudentModal.value = true;
-  document.body.classList.add('overflow-hidden');
-  
-  // Reset the selected grade
-  selectedGrade.value = '';
-  studentFiles.value = [];
 };
 
 const closeStudentModal = () => {
@@ -538,12 +604,6 @@ const formatFileType = (fileType) => {
     'dental': 'Dental Certificate',
     'physical': 'Physical Examination',
     'opthal': 'Ophthalmological Certificate',
-    
-    // Confinement records
-    'admission': 'Hospital Admission',
-    'discharge': 'Discharge Summary',
-    'treatment': 'Treatment Record',
-    'confinement': 'Confinement Report'
   };
   
   return types[fileType] || fileType;
@@ -556,14 +616,11 @@ const medicalFiles = computed(() => {
   );
 });
 
-const confinementFiles = computed(() => {
+const consultationFiles = computed(() => {
   return studentFiles.value.filter(file => 
     ['admission', 'discharge', 'treatment', 'confinement'].includes(file.type)
   );
 });
-
-// Add activeTab state
-const activeTab = ref('medicalRecords');
 
 // Set up event listeners
 onMounted(() => {
@@ -715,13 +772,13 @@ watch(selectedGrade, (newGrade) => {
                 @click="activeTab = 'medicalRecords'" 
                 :class="['tab-button', activeTab === 'medicalRecords' ? 'active' : '']"
               >
-                Medical Records
+                Enrollment Files
               </button>
               <button 
-                @click="activeTab = 'confinementRecords'" 
-                :class="['tab-button', activeTab === 'confinementRecords' ? 'active' : '']"
+                @click="activeTab = 'consultationRecords'" 
+                :class="['tab-button', activeTab === 'consultationRecords' ? 'active' : '']"
               >
-                Confinement Records
+                Consultation Records
               </button>
             </div>
             
@@ -868,143 +925,117 @@ watch(selectedGrade, (newGrade) => {
                   </div>
                 </div>
               </div>
-
-              <!-- Confinement Records Tab -->
-              <div v-if="activeTab === 'confinementRecords'" class="tab-panel">
-                <div class="p-6">
-                  <div class="flex items-center justify-between mb-6">
-                    <!-- Grade Dropdown (reused) -->
-                    <div class="relative inline-block text-left">
-                      <div>
-                        <button 
-                          @click="isGradeDropdownOpen = !isGradeDropdownOpen" 
-                          type="button" 
-                          class="inline-flex justify-between items-center w-44 rounded-md border border-gray-200 px-4 py-2 bg-white text-sm font-medium text-[#2f4a71] hover:bg-[#f8f4ff] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
-                        >
-                          {{ selectedGrade || 'Select Grade' }}
-                          <svg class="-mr-1 ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                          </svg>
-                        </button>
-                      </div>
-
-                      <div 
-                        v-if="isGradeDropdownOpen" 
-                        class="origin-top-right absolute right-0 mt-2 w-44 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10"
-                      >
-                        <div class="py-1">
-                          <a 
-                            v-for="grade in grades" 
-                            :key="grade"
-                            @click="selectGrade(grade)" 
-                            class="block px-4 py-2 text-sm hover:bg-[#f8f4ff] cursor-pointer"
-                            :class="selectedGrade === grade ? 'bg-[#f8f4ff] text-[#2f4a71] font-medium' : 'text-gray-700'"
-                          >
-                            {{ grade }}
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Loading State -->
-                  <div v-if="loadingFiles" class="flex justify-center py-8">
+              <!-- Consultation Records Tab -->
+              <div v-if="activeTab === 'consultationRecords'" class="tab-panel">
+                <div class="p-3">
+                    
+                  <!-- Loading state -->
+                  <div v-if="consultationsLoading" class="flex justify-center py-8">
                     <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2f4a71]"></div>
                   </div>
-
-                  <!-- No Files State -->
-                  <div v-else-if="!selectedGrade || confinementFiles.length === 0" class="text-center py-12">
+                  
+                  <!-- Error state -->
+                  <div v-else-if="consultationsError" class="p-4 bg-red-50 text-red-700 rounded-md">
+                    <p>{{ consultationsError }}</p>
+                    <button 
+                      @click="fetchConsultations(selectedStudent?.client_id)" 
+                      class="mt-2 text-sm underline hover:text-red-800"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                  
+                  <!-- No data state -->
+                  <div v-else-if="!consultations || consultations.length === 0" class="text-center py-12">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     <p class="mt-3 text-gray-500">
-                      {{ !selectedGrade ? 'Please select a grade to view files' : 'No confinement records available for this grade' }}
+                      No consultation records found for this student
                     </p>
                   </div>
-
-                  <!-- Confinement Files Grid -->
-                  <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Confinement File Card with Status -->
-                    <div 
-                      v-for="file in confinementFiles" 
-                      :key="`${file.type}-${file.id}`" 
-                      class="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-                    >
-                      <div class="p-4">
-                        <div class="flex items-start">
-                          <!-- File Type Icon -->
-                          <div class="flex-shrink-0 mr-3">
-                            <span 
-                              :class="[
-                                file.type === 'admission' ? 'bg-indigo-100 text-indigo-700' :
-                                file.type === 'discharge' ? 'bg-teal-100 text-teal-700' :
-                                file.type === 'treatment' ? 'bg-amber-100 text-amber-700' :
-                                file.type === 'confinement' ? 'bg-rose-100 text-rose-700' :
-                                'bg-gray-100 text-gray-700',
-                                'inline-block p-2 rounded-md'
-                              ]"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                              </svg>
-                            </span>
-                          </div>
-                          
-                          <!-- File Info -->
-                          <div class="flex-1 min-w-0">
-                            <div class="flex justify-between items-start">
-                              <h3 class="text-sm font-medium text-gray-900 truncate">{{ formatFileType(file.type) }}</h3>
-                              
-                              <!-- Status Badge -->
-                              <span 
-                                :class="[
-                                  file.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                  file.status === 'complete' ? 'bg-green-100 text-green-800' :
-                                  file.status === 'pending' ? 'bg-blue-100 text-blue-800' :
-                                  file.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                  'bg-gray-100 text-gray-800',
-                                  'px-2 py-1 text-xs rounded-full ml-2'
-                                ]"
-                              >
-                                {{ file.status ? (file.status.charAt(0).toUpperCase() + file.status.slice(1)) : 'Pending' }}
-                              </span>
-                            </div>
-                            <p class="text-xs text-gray-400 mt-1">
-                              {{ formatDate(file.date) }}
-                            </p>
-                            
-                            <!-- Notes (if any) -->
-                            <p v-if="file.notes" class="text-xs italic text-gray-500 mt-1 truncate">
-                              Note: {{ file.notes }}
-                            </p>
+                  
+                  <!-- Consultation records list -->
+                  <div v-else class="divide-y divide-gray-200">
+                    <div v-for="record in consultations" :key="record.id" class="py-4 hover:bg-gray-50 transition-colors rounded-lg p-4">
+                      <div class="flex justify-between items-start">
+                        <div>
+                          <div class="text-sm text-gray-500">{{ formatDate(record.date) }}</div>
+                          <h3 class="font-medium text-lg text-[#2f4a71]">
+                            {{ record.diagnoses || 'General Consultation' }}
+                          </h3>
+                          <div class="mt-1 flex items-center">
+                            <span class="text-sm text-gray-600">Attended by: {{ record.doctor || 'School Physician' }}</span>
                           </div>
                         </div>
                         
-                        <!-- Actions -->
-                        <div class="mt-3 flex justify-end">
-                          <button 
-                            @click.stop="viewFile(file)"
-                            class="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71] mr-2"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                            View
-                          </button>
-                          
-                          <!-- Review Button -->
-                          <button 
-                            @click.stop="openReviewModal(file)"
-                            class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-[#2f4a71] hover:bg-[#1d2e47] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Review
-                          </button>
+                        <!-- Status indicators -->
+                        <div class="flex space-x-2">
+                          <span v-if="record.confined" class="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">
+                            Confined
+                          </span>
+                          <span v-if="record.medAdministration" class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+                            Medication
+                          </span>
+                          <span v-if="record.intern" class="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full font-medium">
+                            Intern
+                          </span>
                         </div>
                       </div>
+                      
+                      <!-- Enhanced details section with medication information -->
+                      <details class="mt-2">
+                        <summary class="text-sm text-[#2f4a71] cursor-pointer hover:underline focus:outline-none">
+                          View details
+                        </summary>
+                        <div class="mt-3 ml-2 text-sm">
+                          <!-- Complaint section -->
+                          <div v-if="record.complaint" class="mb-2">
+                            <p class="font-medium text-gray-700">Complaint:</p>
+                            <p class="text-gray-600">{{ record.complaint }}</p>
+                          </div>
+                          
+                          <!-- Medication section - show if there are any medications -->
+                          <div v-if="record.medications && record.medications.length > 0" class="mb-2">
+                            <p class="font-medium text-gray-700">Medications:</p>
+                            <div class="mt-1 space-y-2">
+                              <div v-for="(medication, index) in record.medications" :key="medication.id" 
+                                  class="flex items-start bg-blue-50 p-2 rounded">
+                                <div class="flex-shrink-0 h-5 w-5 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center mr-2 text-xs font-bold">
+                                  {{ index + 1 }}
+                                </div>
+                                <div class="flex-1">
+                                  <p class="font-medium">{{ medication.name }}</p>
+                                  <div class="text-xs text-gray-600 mt-1">
+                                    <p><span class="font-medium">Quantity:</span> {{ medication.count }}</p>
+                                    <p><span class="font-medium">Schedule:</span> {{ medication.schedule }}</p>
+                                    <p><span class="font-medium">Duration:</span> {{ formatDate(medication.startDate) }} - {{ formatDate(medication.endDate) }}</p>
+                                    <p v-if="medication.remarks"><span class="font-medium">Notes:</span> {{ medication.remarks }}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <!-- Action Taken section -->
+                          <div v-if="record.action" class="mb-2">
+                            <p class="font-medium text-gray-700">Action Taken:</p>
+                            <p class="text-gray-600">{{ record.action }}</p>
+                          </div>
+                          
+                          <!-- Disposition section -->
+                          <div v-if="record.disposition" class="mb-2">
+                            <p class="font-medium text-gray-700">Disposition:</p>
+                            <p class="text-gray-600">{{ record.disposition }}</p>
+                          </div>
+                          
+                          <!-- Remarks section -->
+                          <div v-if="record.remarks" class="mb-2">
+                            <p class="font-medium text-gray-700">Remarks:</p>
+                            <p class="text-gray-600">{{ record.remarks }}</p>
+                          </div>
+                        </div>
+                      </details>
                     </div>
                   </div>
                 </div>
@@ -1302,5 +1333,39 @@ watch(selectedGrade, (newGrade) => {
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+/* Add styling for details summary element */
+details summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+}
+
+details summary::-webkit-details-marker {
+  display: none;
+}
+
+details summary::before {
+  content: '▶';
+  font-size: 0.8em;
+  margin-right: 0.5em;
+  transition: transform 0.15s ease;
+}
+
+details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+/* Styling for medications list */
+.medication-item {
+  border-left: 3px solid #bfdbfe;
+  padding-left: 8px;
+  margin-bottom: 8px;
+}
+
+/* Create better spacing between medication details */
+.medication-details p {
+  margin-bottom: 2px;
 }
 </style>
