@@ -67,6 +67,8 @@ model appointment {
   hour           Int
   minute         Int
   complaint      String   @db.VarChar(225)
+  status         String   @default("pending") // 'pending', 'approved', 'rejected'
+  notes          String?  @db.VarChar(500)
 
   client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
 
