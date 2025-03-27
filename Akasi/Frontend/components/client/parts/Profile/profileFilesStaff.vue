@@ -5,6 +5,12 @@
 
     const { profile, loading: profileLoading, error: profileError, fetchProfile } = useProfile();
 
+    // Add these to your script section with other refs
+    const showDeleteConfirmModal = ref(false);
+    const fileToDelete = ref(null);
+    const isDeleting = ref(false);
+    const deleteError = ref('');
+
     // State variables
     const fileStatuses = ref([]);
     const loadingStatuses = ref(false);
@@ -771,6 +777,70 @@
         }
     });
 
+    // Add these functions to your script section
+    // Function to open the delete confirmation modal
+    function confirmDeleteFile(file) {
+        fileToDelete.value = file;
+        showDeleteConfirmModal.value = true;
+    }
+
+    // Function to close the delete confirmation modal
+    function closeDeleteConfirmModal() {
+        showDeleteConfirmModal.value = false;
+        fileToDelete.value = null;
+        deleteError.value = '';
+    }
+
+    // Function to delete a file
+    async function deleteFile() {
+        if (!fileToDelete.value) return;
+        
+        try {
+            isDeleting.value = true;
+            deleteError.value = '';
+            
+            const token = localStorage.getItem('token');
+            if (!token) {
+                throw new Error('Authentication token not found');
+            }
+            
+            const response = await fetch(`http://localhost:3001/client-files/delete/${fileToDelete.value.id}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    type: fileToDelete.value.type
+                })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `Server error: ${response.status}`);
+            }
+            
+            // Remove the deleted file from the clientFiles array
+            clientFiles.value = clientFiles.value.filter(
+                file => !(file.id === fileToDelete.value.id && file.type === fileToDelete.value.type)
+            );
+            
+            // Show success message
+            showToast({
+                message: 'File deleted successfully!',
+                type: 'success'
+            });
+            
+            // Close modal
+            closeDeleteConfirmModal();
+            
+        } catch (error) {
+            console.error('Error deleting file:', error);
+            deleteError.value = error.message || 'Failed to delete file';
+        } finally {
+            isDeleting.value = false;
+        }
+    }
 </script>
 
 <template>
@@ -869,18 +939,29 @@
                 </div>
             
                 <!-- Actions -->
-                <div class="mt-3 flex justify-end">
-                    <button 
-                    @click="viewFile(file)"
-                    class="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
-                    >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                    View
-                    </button>
-                </div>
+                <!-- Add this button in the Actions div, after the View button -->
+                    <div class="mt-3 flex justify-end space-x-2">
+                        <button 
+                            @click="viewFile(file)"
+                            class="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            View
+                        </button>
+                        
+                        <button 
+                            @click.stop="confirmDeleteFile(file)"
+                            class="inline-flex items-center px-2.5 py-1.5 border border-red-300 text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Delete
+                        </button>
+                    </div>
                 </div>
             </div>
             </div>
@@ -895,7 +976,7 @@
                 </div>
             </div>
         </div>
-        </div>
+    </div>
 
         <!-- Tab 2 Content -->
         <div v-if="activeTab === 'tab2'" class="tab-panel">
@@ -1124,6 +1205,74 @@
             </div>
         </template>
     </div>
+    </div>
+</div>
+
+<!-- Add this at the bottom of your template, after the other modals -->
+<!-- Delete Confirmation Modal -->
+<div 
+    v-if="showDeleteConfirmModal" 
+    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+    @click.self="closeDeleteConfirmModal"
+>
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
+        <!-- Modal Header -->
+        <div class="flex justify-between items-center p-4 border-b">
+            <h3 class="text-lg font-medium text-gray-900">Confirm Deletion</h3>
+            <button 
+                @click="closeDeleteConfirmModal" 
+                class="text-gray-400 hover:text-gray-500 focus:outline-none"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Modal Body -->
+        <div class="p-6">
+            <div class="flex items-center mb-4 text-red-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span class="text-lg font-medium">Are you sure?</span>
+            </div>
+            
+            <p class="mb-4 text-gray-600">
+                Are you sure you want to delete this 
+                <span class="font-medium">{{ formatFileType(fileToDelete?.type) }}</span>? 
+                This action cannot be undone.
+            </p>
+            
+            <!-- Error message if delete fails -->
+            <div v-if="deleteError" class="mb-4 p-2 bg-red-50 text-red-600 rounded">
+                {{ deleteError }}
+            </div>
+            
+            <div class="flex justify-end space-x-3">
+                <button 
+                    @click="closeDeleteConfirmModal"
+                    class="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                    :disabled="isDeleting"
+                >
+                    Cancel
+                </button>
+                <button 
+                    @click="deleteFile"
+                    class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                    :disabled="isDeleting"
+                >
+                    <span v-if="isDeleting">
+                        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Deleting...
+                    </span>
+                    <span v-else>Delete</span>
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
