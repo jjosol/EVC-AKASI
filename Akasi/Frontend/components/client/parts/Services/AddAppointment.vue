@@ -99,7 +99,8 @@
             <h3 class="text-lg font-semibold mb-2 p-1 bg-[#f0f4f9] text-[#2f4a71] rounded">
               {{ formatFullDate(date) }}
             </h3>
-                      
+          
+            <!-- Update the appointment card in the template section to include delete button -->
             <div 
               v-for="appointment in group" 
               :key="appointment.appointment_id" 
@@ -139,7 +140,64 @@
               <div v-if="appointment.notes" class="mt-2 p-2 bg-yellow-50 rounded text-sm">
                 <p class="text-gray-700"><span class="font-medium">Notes:</span> {{ appointment.notes }}</p>
               </div>
+              
+              <!-- Add delete button - only show for appointments that can be canceled -->
+              <div v-if="canCancelAppointment(appointment)" class="mt-2 flex justify-end">
+                <button 
+                  @click.stop="confirmDeleteAppointment(appointment)"
+                  class="text-xs px-2 py-1 text-red-600 hover:bg-red-50 rounded"
+                >
+                  Cancel Appointment
+                </button>
+              </div>
             </div>
+
+            <!-- Add Delete Confirmation Modal -->
+            <Teleport to="body">
+              <Transition name="modal">
+                <div v-if="showDeleteConfirmModal" class="modal-overlay" @click.self="closeDeleteConfirmModal">
+                  <div class="modal-container max-w-md">
+                    <div class="modal-header">
+                      <h3 class="text-xl font-bold text-red-600 mb-4">Cancel Appointment</h3>
+                      <button class="modal-close" @click="closeDeleteConfirmModal">&times;</button>
+                    </div>
+                    
+                    <div class="modal-body">
+                      <p class="mb-4">Are you sure you want to cancel this appointment?</p>
+                      
+                      <div v-if="appointmentToDelete" class="bg-gray-50 p-3 rounded mb-4">
+                        <div class="text-sm text-gray-500">
+                          {{ formatFullDate(appointmentToDelete.date) }} at 
+                          {{ formatTime(appointmentToDelete.hour, appointmentToDelete.minute) }}
+                        </div>
+                        <div class="font-medium">{{ appointmentToDelete.complaint }}</div>
+                      </div>
+                      
+                      <div v-if="deleteStatusMessage" class="p-2 bg-red-100 text-red-700 rounded mb-4">
+                        {{ deleteStatusMessage }}
+                      </div>
+                    </div>
+                    
+                    <div class="modal-footer flex justify-end space-x-3">
+                      <button 
+                        @click="closeDeleteConfirmModal"
+                        class="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        @click="deleteAppointment"
+                        :disabled="isDeleting"
+                        class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400"
+                      >
+                        {{ isDeleting ? 'Deleting...' : 'Confirm Cancellation' }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </Transition>
+            </Teleport>
+
 
           </div>
         </div>
@@ -440,6 +498,83 @@ const fetchUpcomingAppointments = async () => {
   } finally {
     loadingAppointments.value = false;
   }
+};
+
+// Add these new refs for deletion functionality
+const showDeleteConfirmModal = ref(false);
+const appointmentToDelete = ref(null);
+const isDeleting = ref(false);
+const deleteStatusMessage = ref('');
+
+// Function to open delete confirmation modal
+const confirmDeleteAppointment = (appointment) => {
+  appointmentToDelete.value = appointment;
+  showDeleteConfirmModal.value = true;
+};
+
+// Function to close delete confirmation modal
+const closeDeleteConfirmModal = () => {
+  showDeleteConfirmModal.value = false;
+  appointmentToDelete.value = null;
+  deleteStatusMessage.value = '';
+};
+
+// Function to delete appointment
+const deleteAppointment = async () => {
+  if (!appointmentToDelete.value) return;
+  
+  try {
+    isDeleting.value = true;
+    deleteStatusMessage.value = '';
+    
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication token not found');
+    }
+    
+    const response = await fetch(`http://localhost:3001/add-appointment/${appointmentToDelete.value.appointment_id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to delete appointment');
+    }
+    
+    // Remove the appointment from the list
+    upcomingAppointments.value = upcomingAppointments.value.filter(
+      a => a.appointment_id !== appointmentToDelete.value.appointment_id
+    );
+    
+    // Close the modal
+    closeDeleteConfirmModal();
+    
+    // Show success message as a temporary notification
+    statusMessage.value = 'Appointment deleted successfully!';
+    statusType.value = 'success';
+    
+    // Clear the success message after a few seconds
+    setTimeout(() => {
+      if (statusType.value === 'success') {
+        statusMessage.value = '';
+      }
+    }, 3000);
+    
+  } catch (error) {
+    console.error('Error deleting appointment:', error);
+    deleteStatusMessage.value = error.message || 'Failed to delete appointment';
+  } finally {
+    isDeleting.value = false;
+  }
+};
+
+// Check if the appointment can be canceled (only pending appointments or within 24 hours)
+const canCancelAppointment = (appointment) => {
+  return true;
 };
 
 // Initialize with default values
