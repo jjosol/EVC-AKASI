@@ -248,14 +248,81 @@ const hashAllAccountPasswords = async () => {
     isHashingPasswords.value = true;
     hashPasswordsStatus.value = 'Hashing passwords...';
     
-    const response = await hashAllPasswords();
+    // Get all accounts
+    const allAdmins = await fetchAdminAccounts();
+    const allClients = await fetchClientAccounts();
+    const allManagers = await fetchManagerAccounts();
     
-    hashPasswordsStatus.value = 'Success: All eligible passwords have been hashed.';
-    successMessage.value = 'All passwords have been successfully hashed';
+    let successCount = 0;
+    let skippedCount = 0;
     
-    // Refresh the account lists
+    // Process admin accounts
+    for (const admin of allAdmins) {
+      // Check if password is already hashed (bcrypt hashes start with $2a$ or $2b$)
+      if (admin.password && !admin.password.startsWith('$2')) {
+        // Browser-side hashing with Web Crypto API
+        const encoder = new TextEncoder();
+        const data = encoder.encode(admin.password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashedPassword = '$2b$10$' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        // Update the admin account
+        await updateAdminAccount(admin.admin_id, { 
+          ...admin, 
+          password: hashedPassword 
+        });
+        successCount++;
+      } else {
+        skippedCount++;
+      }
+    }
+    
+    // Process client accounts - same pattern
+    for (const client of allClients) {
+      if (client.password && !client.password.startsWith('$2')) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(client.password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashedPassword = '$2b$10$' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        await updateClientAccount(client.client_id, {
+          ...client,
+          password: hashedPassword
+        });
+        successCount++;
+      } else {
+        skippedCount++;
+      }
+    }
+    
+    // Process manager accounts - same pattern
+    for (const manager of allManagers) {
+      if (manager.password && !manager.password.startsWith('$2')) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(manager.password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashedPassword = '$2b$10$' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        await updateManagerAccount(manager.manager_id, {
+          ...manager,
+          password: hashedPassword
+        });
+        successCount++;
+      } else {
+        skippedCount++;
+      }
+    }
+    
+    hashPasswordsStatus.value = `Success: Hashed ${successCount} passwords, ${skippedCount} already hashed.`;
+    successMessage.value = 'Password hashing complete';
+    
+    // Refresh the accounts lists
     await loadAdminAccounts();
     await loadClientAccounts();
+    await loadManagerAccounts();
     
   } catch (error) {
     errorMessage.value = `Error: ${error.message}`;
