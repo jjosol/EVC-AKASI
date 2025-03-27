@@ -99,7 +99,7 @@
             <h3 class="text-lg font-semibold mb-2 p-1 bg-[#f0f4f9] text-[#2f4a71] rounded">
               {{ formatFullDate(date) }}
             </h3>
-            
+                      
             <div 
               v-for="appointment in group" 
               :key="appointment.appointment_id" 
@@ -121,13 +121,26 @@
                   <span class="block text-[#2f4a71] font-semibold">
                     {{ formatTime(appointment.hour, appointment.minute) }}
                   </span>
+                  <span 
+                    v-if="appointment.status"
+                    class="inline-block px-2 py-1 text-xs rounded-full mt-1"
+                    :class="getStatusClass(appointment.status)"
+                  >
+                    {{ appointment.status || 'pending' }}
+                  </span>
                 </div>
               </div>
               
               <div class="mt-2 p-2 bg-gray-50 rounded text-sm">
                 <p class="text-gray-700">{{ appointment.complaint }}</p>
               </div>
+              
+              <!-- Notes (if any) -->
+              <div v-if="appointment.notes" class="mt-2 p-2 bg-yellow-50 rounded text-sm">
+                <p class="text-gray-700"><span class="font-medium">Notes:</span> {{ appointment.notes }}</p>
+              </div>
             </div>
+
           </div>
         </div>
       </div>
@@ -264,7 +277,7 @@ const validateForm = () => {
   return true;
 };
 
-// Submit the appointment
+// Update the submitAppointment function
 const submitAppointment = async () => {
   console.log(selectedDate.value.rawDate);
   try {
@@ -281,11 +294,19 @@ const submitAppointment = async () => {
     // Extract the date from the selected date
     const dateObj = selectedDate.value.rawDate || new Date();
     
+    // Get token for authentication
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('Authentication token not found');
+    }
+    
     // Call the API
     const response = await fetch('http://localhost:3001/add-appointment', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
         client_id: profile.value.client_id,
@@ -328,6 +349,14 @@ const submitAppointment = async () => {
     statusType.value = 'error';
   } finally {
     isSubmitting.value = false;
+  }
+};
+
+const getStatusClass = (status) => {
+  switch (status) {
+    case 'approved': return 'bg-green-100 text-green-800';
+    case 'rejected': return 'bg-red-100 text-red-800';
+    default: return 'bg-blue-100 text-blue-800';
   }
 };
 
@@ -375,7 +404,7 @@ const groupedAppointments = computed(() => {
     }, {});
 });
 
-// Fetch upcoming appointments
+// Update the fetchUpcomingAppointments function
 const fetchUpcomingAppointments = async () => {
   loadingAppointments.value = true;
   appointmentsError.value = null;
@@ -383,14 +412,21 @@ const fetchUpcomingAppointments = async () => {
   try {
     await fetchProfile();
     // Get the client ID from profile
-    const clientId = profile.value?.id;
+    const clientId = profile.value?.client_id;
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('Authentication token not found');
+    }
     
     // Add client_id to the URL if available
-    const url = clientId 
-      ? `http://localhost:3001/fetch-appointments-client/upcoming?client_id=${clientId}`
-      : 'http://localhost:3001/fetch-appointments-client/upcoming';
+    const url = `http://localhost:3001/fetch-appointments-client/upcoming`;
     
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
     
     if (!response.ok) {
       throw new Error('Failed to fetch appointments');

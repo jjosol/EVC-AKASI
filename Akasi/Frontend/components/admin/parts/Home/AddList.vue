@@ -362,7 +362,7 @@ console.log(patients)
  * Handles both new records and updates
  * @returns {Promise<void>}
  */
- const savePerson = async () => {
+const savePerson = async () => {
   try {
     if (!selectedPerson.value?.clientId) {
       throw new Error('Client ID is required');
@@ -1453,6 +1453,81 @@ const closeDiagnosisDropdown = () => {
 
 const currentModalPage = ref(1);
 
+// Add these refs
+const showStatusModal = ref(false);
+const selectedAppointment = ref(null);
+const appointmentStatus = ref('pending');
+const appointmentNotes = ref('');
+const isUpdatingStatus = ref(false);
+
+// Function to open status modal
+const openStatusModal = (appointment) => {
+  selectedAppointment.value = appointment;
+  appointmentStatus.value = appointment.status || 'pending';
+  appointmentNotes.value = appointment.notes || '';
+  showStatusModal.value = true;
+};
+
+// Function to close status modal
+const closeStatusModal = () => {
+  showStatusModal.value = false;
+  selectedAppointment.value = null;
+  appointmentStatus.value = 'pending';
+  appointmentNotes.value = '';
+};
+
+// Function to update appointment status
+const updateAppointmentStatus = async () => {
+  if (!selectedAppointment.value) return;
+  
+  try {
+    isUpdatingStatus.value = true;
+    
+    const response = await fetch(`http://localhost:3001/add-appointment/${selectedAppointment.value.appointment_id}/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        status: appointmentStatus.value,
+        notes: appointmentNotes.value
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to update appointment status');
+    }
+    
+    // Update the appointment in the list
+    const index = appointments.value.findIndex(a => a.appointment_id === selectedAppointment.value.appointment_id);
+    if (index !== -1) {
+      appointments.value[index].status = appointmentStatus.value;
+      appointments.value[index].notes = appointmentNotes.value;
+    }
+    
+    // Close the modal
+    closeStatusModal();
+    
+    // Show success message
+    alert('Appointment status updated successfully');
+  } catch (error) {
+    console.error('Error updating appointment status:', error);
+    alert('Error updating appointment status: ' + error.message);
+  } finally {
+    isUpdatingStatus.value = false;
+  }
+};
+
+// Function to get status class
+const getStatusClass = (status) => {
+  switch (status) {
+    case 'approved': return 'bg-green-100 text-green-800';
+    case 'rejected': return 'bg-red-100 text-red-800';
+    default: return 'bg-blue-100 text-blue-800';
+  }
+};
 </script>
 
 <template>
@@ -1585,11 +1660,32 @@ const currentModalPage = ref(1);
                   <span class="block text-[#2f4a71] font-semibold">
                     {{ formatTime(appointment.hour, appointment.minute) }}
                   </span>
+                  <span 
+                    class="inline-block px-2 py-1 text-xs rounded-full mt-1"
+                    :class="getStatusClass(appointment.status || 'pending')"
+                  >
+                    {{ appointment.status || 'pending' }}
+                  </span>
                 </div>
               </div>
               
               <div class="mt-2 p-2 bg-gray-50 rounded text-sm">
                 <p class="text-gray-700">{{ appointment.complaint }}</p>
+              </div>
+              
+              <!-- Notes (if any) -->
+              <div v-if="appointment.notes" class="mt-2 p-2 bg-yellow-50 rounded text-sm">
+                <p class="text-gray-700"><span class="font-medium">Notes:</span> {{ appointment.notes }}</p>
+              </div>
+              
+              <!-- Action buttons -->
+              <div class="mt-2 flex justify-end">
+                <button 
+                  @click="openStatusModal(appointment)" 
+                  class="px-3 py-1 text-sm bg-[#2f4a71] text-white rounded hover:bg-[#8b67db]"
+                >
+                  Manage Status
+                </button>
               </div>
             </div>
           </div>
@@ -2321,6 +2417,69 @@ const currentModalPage = ref(1);
             No categories available
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add the Status Modal -->
+  <div v-if="showStatusModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md">
+      <h3 class="text-xl font-bold text-[#2f4a71] mb-4">Update Appointment Status</h3>
+      
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Appointment Status</label>
+        <div class="grid grid-cols-3 gap-2">
+          <button 
+            @click="appointmentStatus = 'pending'"
+            class="py-2 px-3 rounded-md border flex items-center justify-center text-sm focus:outline-none"
+            :class="appointmentStatus === 'pending' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'border-gray-300 hover:bg-gray-50'"
+          >
+            <span>Pending</span>
+          </button>
+          <button 
+            @click="appointmentStatus = 'approved'"
+            class="py-2 px-3 rounded-md border flex items-center justify-center text-sm focus:outline-none"
+            :class="appointmentStatus === 'approved' ? 'bg-green-50 border-green-500 text-green-700' : 'border-gray-300 hover:bg-gray-50'"
+          >
+            <span>Approved</span>
+          </button>
+          <button 
+            @click="appointmentStatus = 'rejected'"
+            class="py-2 px-3 rounded-md border flex items-center justify-center text-sm focus:outline-none"
+            :class="appointmentStatus === 'rejected' ? 'bg-red-50 border-red-500 text-red-700' : 'border-gray-300 hover:bg-gray-50'"
+          >
+            <span>Rejected</span>
+          </button>
+        </div>
+      </div>
+      
+      <div class="mb-4">
+        <label for="notes" class="block text-sm font-medium text-gray-700 mb-2">
+          Notes (Optional)
+        </label>
+        <textarea
+          id="notes"
+          v-model="appointmentNotes"
+          rows="3"
+          class="shadow-sm block w-full focus:ring-[#2f4a71] focus:border-[#2f4a71] sm:text-sm border border-gray-300 rounded-md"
+          placeholder="Add any notes about this appointment..."
+        ></textarea>
+      </div>
+      
+      <div class="flex justify-end space-x-3">
+        <button 
+          @click="closeStatusModal"
+          class="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
+        >
+          Cancel
+        </button>
+        <button 
+          @click="updateAppointmentStatus"
+          :disabled="isUpdatingStatus"
+          class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#2f4a71] hover:bg-[#8b67db] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
+        >
+          {{ isUpdatingStatus ? 'Updating...' : 'Update Status' }}
+        </button>
       </div>
     </div>
   </div>

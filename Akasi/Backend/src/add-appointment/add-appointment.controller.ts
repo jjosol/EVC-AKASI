@@ -10,6 +10,11 @@ class CreateAppointmentDto {
     complaint: string;
 }
 
+class UpdateAppointmentStatusDto {
+    status: 'pending' | 'approved' | 'rejected';
+    notes?: string;
+}
+
 @Controller('add-appointment')
 export class AddAppointmentController {
     constructor(private readonly service: AddAppointmentService) { }
@@ -73,6 +78,34 @@ export class AddAppointmentController {
             }
 
             throw new BadRequestException(error.message || 'Failed to create appointment');
+        }
+    }
+
+    @Put(':id/status')
+    async updateAppointmentStatus(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() updateDto: UpdateAppointmentStatusDto
+    ) {
+        try {
+            if (!['pending', 'approved', 'rejected'].includes(updateDto.status)) {
+                throw new BadRequestException('Invalid status value');
+            }
+
+            const appointment = await this.service.updateAppointmentStatus(id, updateDto);
+
+            return {
+                success: true,
+                message: 'Appointment status updated successfully',
+                data: appointment
+            };
+        } catch (error) {
+            console.error('Update appointment status error:', error);
+
+            if (error instanceof BadRequestException) {
+                throw error;
+            }
+
+            throw new BadRequestException(error.message || 'Failed to update appointment status');
         }
     }
 }
