@@ -4,7 +4,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { GoogleDriveService } from './google-drive.service';
 import { SchedulerRegistry } from '@nestjs/schedule';
-import { CronJob } from 'cron';
+import { CronJob } from '@nestjs/schedule/node_modules/cron';
+
 
 @Injectable()
 export class BackupService {

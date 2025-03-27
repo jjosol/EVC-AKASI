@@ -40,7 +40,8 @@ export class ClientsService {
           gender: clientData.gender,
           category: clientData.category,
           grade: clientData.grade || null,
-          section: clientData.section
+          section: clientData.section,
+          type: clientData.type, // Add this line with an appropriate type value
         }
       });
     } catch (error) {
