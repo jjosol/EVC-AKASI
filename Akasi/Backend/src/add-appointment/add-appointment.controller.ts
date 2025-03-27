@@ -108,4 +108,24 @@ export class AddAppointmentController {
             throw new BadRequestException(error.message || 'Failed to update appointment status');
         }
     }
+
+    @Delete(':id')
+    async deleteAppointment(@Param('id', ParseIntPipe) id: number) {
+        try {
+            await this.service.deleteAppointment(id);
+
+            return {
+                success: true,
+                message: 'Appointment deleted successfully'
+            };
+        } catch (error) {
+            console.error('Delete appointment error:', error);
+
+            if (error instanceof NotFoundException) {
+                throw error;
+            }
+
+            throw new BadRequestException(error.message || 'Failed to delete appointment');
+        }
+    }
 }

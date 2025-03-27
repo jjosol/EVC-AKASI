@@ -46,4 +46,24 @@ export class AddAppointmentService {
             throw error;
         }
     }
+
+    async deleteAppointment(id: number) {
+        try {
+            // First check if appointment exists
+            const appointment = await this.prisma.appointment.findUnique({
+                where: { appointment_id: id }
+            });
+
+            if (!appointment) {
+                throw new NotFoundException(`Appointment with ID ${id} not found`);
+            }
+
+            // Delete the appointment
+            return await this.prisma.appointment.delete({
+                where: { appointment_id: id }
+            });
+        } catch (error) {
+            throw error;
+        }
+    }
 }
