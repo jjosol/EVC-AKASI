@@ -91,9 +91,10 @@ model consultation_records {
   medAdministration Boolean
 
   // Relations
-  admin     admin                    @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction)
-  client    client                   @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
-  diagnoses consultation_diagnosis[]
+  admin              admin                    @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction)
+  client             client                   @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
+  diagnoses          consultation_diagnosis[]
+  medAdministrations medAdministration[]
 
   @@index([admin_id], map: "FK_admin_TO_consultation_records")
   @@index([client_id], map: "FK_client_TO_consultation_records")
@@ -258,23 +259,25 @@ model hsu_bulletin_files {
 }
 
 model medAdministration {
-  consultation_id Int      @id @default(autoincrement())
-  client_id       Int
-  admin_id        Int
-  med_id          Int
-  medName         String   @db.VarChar(225)
-  date            DateTime @db.DateTime(0)
-  patient         String   @db.VarChar(225)
-  count           Int
-  schedule        String   @db.VarChar(225)
-  start_date      DateTime @db.Date
-  end_date        DateTime @db.Date
-  remarks         String?  @db.VarChar(500)
+  med_administration_id Int      @id @default(autoincrement())
+  consultation_id       Int
+  client_id             Int
+  admin_id              Int
+  med_id                Int
+  medName               String   @db.VarChar(225)
+  date                  DateTime @db.DateTime(0)
+  patient               String   @db.VarChar(225)
+  count                 Int
+  schedule              String   @db.VarChar(225)
+  start_date            DateTime @db.Date
+  end_date              DateTime @db.Date
+  remarks               String?  @db.VarChar(500)
 
   // Relations
-  admin     admin     @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction)
-  client    client    @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
-  inventory inventory @relation(fields: [med_id, medName], references: [med_id, medName], onDelete: NoAction, onUpdate: NoAction)
+  admin                admin                @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction)
+  client               client               @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
+  inventory            inventory            @relation(fields: [med_id, medName], references: [med_id, medName], onDelete: NoAction, onUpdate: NoAction)
+  consultation_records consultation_records @relation(fields: [consultation_id], references: [consultation_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([admin_id])
   @@index([client_id])

@@ -6,7 +6,32 @@ import { useProfile } from '~/composables/useProfile'
 import { useAppointmentsByDate } from '~/composables/useAppointmentsByDate';
 import * as consultationRecordService from '~/services/consultationRecordService';
 
-const activeTab = ref('consultation');
+// Properly initialize the profile composable
+const { profile, loading: profileLoading, fetchProfile } = useProfile();
+
+// Create a computed property for the current user that handles both admin and client types
+const currentUser = computed(() => {
+  if (!profile.value) return { name: 'School Physician', admin_id: 1 };
+  
+  // Handle different profile types
+  if (profile.value.type === 'admin') {
+    return {
+      admin_id: profile.value.admin_id,
+      name: profile.value.name,
+      role: 'admin'
+    };
+  } else {
+    // In case a client somehow accesses this admin component
+    return { name: 'School Physician', admin_id: 1 };
+  }
+});
+
+// Determine if the selected person is a student
+const isStudent = computed(() => {
+  return selectedPerson.value?.category?.toLowerCase() === 'student';
+});
+
+const activeTab = ref('tab1');
 
 // Appointments
 const { 
@@ -91,11 +116,11 @@ const updateConsultationRecord = async (consultation_id, person) => {
       },
       body: JSON.stringify({
         client_id: person.clientId,
-        admin_id: 1, // Replace with actual admin_id
+        admin_id: currentUser?.admin_id, // Replace with actual admin_id
         date: existingRecord.date, // Use the original date and time
         patient_name: person.name,
         patient_occupation: person.occupation || `${person.grade}-${person.section}`,
-        doctor: 'John Doe',
+        doctor: currentUser?.name,
         complaint: person.generalComplaint || '',
         remarks: person.remarks || '',
         confined: person.confined || false,
@@ -165,7 +190,7 @@ const createConsultationRecord = async (person) => {
       },
       body: JSON.stringify({
         client_id: person.clientId,
-        admin_id: 1, // Default admin ID
+        admin_id: currentUser?.admin_id, // Default admin ID
         date: formattedDateTime,
         patient_name: person.name,
         patient_occupation: person.occupation || `${person.grade}-${person.section}`,
@@ -173,7 +198,7 @@ const createConsultationRecord = async (person) => {
         remarks: selectedConsultationRecord.value?.remarks || '',
         confined: selectedConsultationRecord.value?.confined || false,
         medAdministration: true,
-        doctor: 'John Doe'
+        doctor: currentUser?.name
       })
     });
 
@@ -207,6 +232,8 @@ const fetchPeople = async () => {
       grade: client.grade || 'N/A',
       age: client.age || 0,
       sex: client.sex || 'N/A',
+      category: client.category || 'N/A', // Added category field
+      occupation: client.occupation || 'N/A', // Added occupation field
     }));
   } catch (error) {
     console.error('Error fetching people:', error.message);
@@ -318,7 +345,8 @@ onMounted(() => {
   fetchPeople();
   fetchPatients();
   fetchRecordCount();
-  fetchInventory(); 
+  fetchInventory();
+  fetchProfile(); 
 
   if (activeTab.value === 'tab2') {
     fetchAppointmentsForSelectedDate();
@@ -365,13 +393,13 @@ console.log(patients)
 
     const consultationData = {
       client_id: selectedPerson.value.clientId,
-      admin_id: 1, // Replace with the actual admin ID
+      admin_id: currentUser.value.admin_id, // Remove the optional chaining
       date: selectedDateTime.toISOString(),
       patient_name: selectedPerson.value.name,
       patient_occupation:
         selectedPerson.value.occupation ||
         `${selectedPerson.value.grade}-${selectedPerson.value.section}`,
-      doctor: 'John Doe',
+      doctor: currentUser.value.name, // Remove the optional chaining
       complaint: selectedPerson.value.complaints.length > 0 ? selectedPerson.value.complaints.map(c => c.text).join(', ') : null,
       remarks: selectedPerson.value.remarks || '',
       confined: Boolean(selectedPerson.value.confined),
@@ -429,35 +457,45 @@ console.log(patients)
     }
 
     // Handle medicines if medication administration is enabled
-    if (
-      selectedPerson.value.medicationAdministration &&
-      selectedPerson.value.medicines?.length > 0
-    ) {
-      for (const medicine of selectedPerson.value.medicines) {
-        if (medicine.markedForDeletion) {
-          // Delete the medicine
-          await consultationRecordService.deleteMedAdministrationRecord(medicine.consultation_id);
-        } else {
-          // Save or update the medicine
-          const medAdminData = {
-            consultation_id: consultationId,
-            client_id: selectedPerson.value.clientId,
-            admin_id: 1,
-            med_id: medicine.med_id,
-            medName: medicine.name,
-            count: Number(medicine.quantity),
-            schedule: medicine.schedule || '',
-            start_date: medicine.startDate,
-            end_date: medicine.endDate,
-            remarks: medicine.remarks || '',
-            date: new Date().toISOString(),
-            patient: selectedPerson.value.name
-          };
-
-          await consultationRecordService.createMedAdministrationRecord(medAdminData);
+  if (
+    selectedPerson.value.medicationAdministration &&
+    selectedPerson.value.medicines?.length > 0
+  ) {
+    // Process each medicine in the array
+    for (const medicine of selectedPerson.value.medicines) {
+      if (medicine.markedForDeletion) {
+        // Delete the medicine if it has an ID (existing record)
+        if (medicine.med_administration_id) {
+          await consultationRecordService.deleteMedAdministrationRecord(medicine.med_administration_id);
         }
+        continue; // Skip to next medicine
+      }
+      
+      // Create new medicine record
+      const medAdminData = {
+        consultation_id: consultationId,
+        client_id: selectedPerson.value.clientId,
+        admin_id: currentUser.value.admin_id, // Replace with actual admin ID from auth
+        med_id: medicine.med_id,
+        medName: medicine.name,
+        count: Number(medicine.quantity),
+        schedule: medicine.schedule || 'As needed',
+        start_date: medicine.startDate || new Date().toISOString().split('T')[0],
+        end_date: medicine.endDate || new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0],
+        remarks: medicine.remarks || '',
+        date: new Date().toISOString(),
+        patient: selectedPerson.value.name
+      };
+
+      try {
+        await consultationRecordService.createMedAdministrationRecord(medAdminData);
+        console.log(`Medication ${medicine.name} saved successfully`);
+      } catch (medicineError) {
+        console.error(`Error saving medication ${medicine.name}:`, medicineError);
+        // Continue with other medicines instead of failing completely
       }
     }
+  }
 
     // After processing medicines, update the selectedPerson.medicines array
     // to trigger reactivity
@@ -600,13 +638,32 @@ const openEditModal = async (patient) => {
     const consultationRecord = await fetchConsultationRecord(patient.consultation_id);
     selectedConsultationRecord.value = consultationRecord;
 
+    let clientCategory = 'N/A';
+    let clientGrade = 'N/A';
+    let clientSection = 'N/A';
+    let clientOccupation = 'N/A';
+
+    try {
+      const clientResponse = await fetch(`http://localhost:3001/clients/${patient.id}`);
+      if (clientResponse.ok) {
+        const clientData = await clientResponse.json();
+        clientCategory = clientData.category || 'N/A';
+        clientGrade = clientData.grade || 'N/A';
+        clientSection = clientData.section || 'N/A';
+        clientOccupation = clientData.occupation || 'N/A';
+      }
+    } catch (clientError) {
+      console.error('Error fetching client details:', clientError);
+    }
+
     // Fetch medication administration records
     const medAdminRecords = await consultationRecordService.fetchMedAdministrationRecords(patient.consultation_id);
 
     // Map the med admin records to match the expected format
     const mappedMedicines = medAdminRecords.map(record => ({
       med_id: record.med_id,
-      consultation_id: record.consultation_id, // Add this line
+      med_administration_id: record.med_administration_id, // Use the new PK
+      consultation_id: record.consultation_id,
       name: record.medName,
       quantity: record.count,
       schedule: record.schedule,
@@ -635,6 +692,10 @@ const openEditModal = async (patient) => {
     selectedPerson.value = {
       ...patient,
       clientId: patient.id,
+      category: clientCategory, // Add category
+      grade: clientGrade, // Add grade
+      section: clientSection, // Add section
+      occupation: clientOccupation, // Add occupation
       complaints: diagnosisComplaints,
       remarks: consultationRecord.remarks,
       confined: consultationRecord.confined,
@@ -1427,7 +1488,7 @@ const currentModalPage = ref(1);
       <ul class="mt-4 overflow-y-auto max-h-60">
         <li v-for="(patient, index) in patients" :key="patient.consultationId" class="flex items-center justify-between mb-2 text-lg confinement-item text-[#2f4a71]">
           <span @click="openEditModal(patient)" class="cursor-pointer confinement-details">
-            {{ patient.name }} - {{ patient.occupation }} - {{ patient.time }} 
+            {{ patient.name }} - {{ patient.time }} 
           </span>
           <button @click="deleteConsultationRecord(patient.consultation_id)" class="p-1 .text-white bg-red-500 rounded ">
             <Icon icon="fluent:delete-28-regular" />
@@ -1522,8 +1583,13 @@ const currentModalPage = ref(1);
             <!-- Attending Physician -->
               <div class="mb-4">
                 <label for="ap" class="block text-sm font-semibold text-gray-600">Attending Physician</label>
-                <input type="text" value="John Doe" id="ap" disabled
-                  class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
+                <input 
+                  type="text" 
+                  :value="currentUser?.name || 'Current User'" 
+                  id="ap" 
+                  disabled
+                  class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg"
+                >
               </div>
 
               <!-- Name -->
@@ -1531,6 +1597,18 @@ const currentModalPage = ref(1);
                 <label for="name" class="block text-sm font-semibold text-gray-600">Name</label>
                 <input type="text" :value="selectedPerson.name" id="name" disabled
                   class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
+              </div>
+              
+              <!-- Category -->
+              <div class="mb-4">
+                <label for="category" class="block text-sm font-semibold text-gray-600">Category</label>
+                <input 
+                  type="text" 
+                  :value="selectedPerson.category || 'N/A'" 
+                  id="category" 
+                  disabled
+                  class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg"
+                >
               </div>
           </div>
           
@@ -1543,19 +1621,41 @@ const currentModalPage = ref(1);
                   class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
               </div>
 
-              <!-- Grade Level & Section -->
-              <div class="flex items-center mb-4 space-x-4">
-                <div class="w-1/2">
-                  <label for="grade-level" class="block text-sm font-semibold text-gray-600">Grade Level</label>
-                  <input type="text" value="12" id="grade-level" disabled
-                    class="w-full px-4 py-2 mt-1 text-center bg-gray-200 border border-gray-300 rounded-full">
-                </div>
-                <div class="w-1/2">
-                  <label for="section" class="block text-sm font-semibold text-gray-600">Section</label>
-                  <input type="text" value="C" id="section" disabled
-                    class="w-full px-4 py-2 mt-1 text-center bg-gray-200 border border-gray-300 rounded-full">
-                </div>
+              <!-- Grade Level & Section - Only shown for students -->
+            <div v-if="isStudent" class="flex items-center mb-4 space-x-4">
+              <div class="w-1/2">
+                <label for="grade-level" class="block text-sm font-semibold text-gray-600">Grade Level</label>
+                <input 
+                  type="text" 
+                  :value="selectedPerson.grade || 'N/A'" 
+                  id="grade-level" 
+                  disabled
+                  class="w-full px-4 py-2 mt-1 text-center bg-gray-200 border border-gray-300 rounded-full"
+                >
               </div>
+              <div class="w-1/2">
+                <label for="section" class="block text-sm font-semibold text-gray-600">Section</label>
+                <input 
+                  type="text" 
+                  :value="selectedPerson.section || 'N/A'" 
+                  id="section" 
+                  disabled
+                  class="w-full px-4 py-2 mt-1 text-center bg-gray-200 border border-gray-300 rounded-full"
+                >
+              </div>
+            </div>
+
+            <!-- Occupation - Shown for non-students -->
+            <div v-else class="mb-4">
+              <label for="occupation" class="block text-sm font-semibold text-gray-600">Occupation</label>
+              <input 
+                type="text" 
+                :value="selectedPerson.occupation || 'N/A'" 
+                id="occupation" 
+                disabled
+                class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg"
+              >
+            </div>
           </div>
         </div>
         

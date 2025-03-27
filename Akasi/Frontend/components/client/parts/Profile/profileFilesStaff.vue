@@ -1,6 +1,7 @@
 <script setup>
     import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
     import { useProfile } from '~/composables/useProfile';
+    import { useClientConsultations } from '~/composables/useClientConsultations';
 
     const { profile, loading: profileLoading, error: profileError, fetchProfile } = useProfile();
 
@@ -19,6 +20,55 @@
     const fileError = ref('');
     const fileLoading = ref(false);
     const showAccessDeniedModal = ref(false);
+
+    // Add the consultations composable
+    const { 
+    consultations, 
+    loading: consultationsLoading, 
+    error: consultationsError,  
+    } = useClientConsultations();
+
+    const fetchConsultations = async (clientId) => {
+        if (!clientId) {
+            consultationsError.value = 'Client ID is required'
+            return
+        }
+
+        try {
+            consultationsLoading.value = true
+            consultationsError.value = null
+
+            const token = localStorage.getItem('token')
+            if (!token) {
+                throw new Error('Authentication token not found')
+            }
+
+            // Log the URL we're calling
+            const url = `http://localhost:3001/consultation-records/client/${clientId}`
+            console.log('Fetching consultations from:', url)
+
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+
+            // Log the response status
+            console.log('Response status:', response.status, response.statusText)
+
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`)
+            }
+
+            consultations.value = await response.json()
+            console.log('Received consultations:', consultations.value.length)
+        } catch (err) {
+            console.error('Error fetching consultations:', err)
+            consultationsError.value = err.message || 'Failed to load consultation records'
+        } finally {
+            consultationsLoading.value = false
+        }
+    }
 
     // Status definitions with colors
     const statusColors = {
@@ -191,22 +241,6 @@
             return file;
         });
     }
-
-    // Set up on component mount
-    onMounted(async () => {
-        debugToken();
-
-        try {
-            // Fetch the profile data
-            await fetchProfile();
-            
-            // Fetch files for the current client
-            await fetchFiles();
-            
-        } catch (err) {
-            console.error('Error during component setup:', err);
-        }
-    });
 
     const currentClientId = computed(() => {
         // Check if profile is loaded
@@ -707,6 +741,36 @@
     uploadError.value = '';
     }
 
+    // Set up on component mount
+    onMounted(async () => {
+    debugToken();
+
+    try {
+        // Fetch the profile data
+        await fetchProfile();
+        
+        // Fetch files for the current client
+        await fetchFiles();
+        
+    } catch (err) {
+        console.error('Error during component setup:', err);
+    }
+
+    // Also add a watcher for active tab
+    watch(activeTab, (newTab) => {
+            if (newTab === 'tab2' && currentClientId.value) {
+                fetchConsultations(currentClientId.value);
+            }
+        });
+    });
+
+    // Watch for changes in the currentClientId
+    watch(currentClientId, (newId) => {
+        if (newId && activeTab.value === 'tab2') {
+            fetchConsultations(newId);
+        }
+    });
+
 </script>
 
 <template>
@@ -835,8 +899,116 @@
 
         <!-- Tab 2 Content -->
         <div v-if="activeTab === 'tab2'" class="tab-panel">
-        <h2 class="text-xl font-medium p-6">Consultation Records</h2>
-        <p class="px-6 pb-6 text-gray-600">This is the content for the consultation records tab.</p>
+            <div v-if="activeTab === 'tab2'" class="tab-panel p-4">
+                
+                <!-- Loading state -->
+                <div v-if="consultationsLoading" class="flex justify-center py-8">
+                    <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2f4a71]"></div>
+                </div>
+                
+                <!-- Error state -->
+                <div v-else-if="consultationsError" class="p-4 bg-red-50 text-red-700 rounded-md">
+                    <p>{{ consultationsError }}</p>
+                    <button 
+                        @click="fetchConsultations(currentClientId)" 
+                        class="mt-2 text-sm underline hover:text-red-800"
+                    >
+                        Try again
+                    </button>
+                </div>
+                
+                <!-- No records state -->
+                <div v-else-if="consultations.length === 0" class="text-center py-12">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p class="mt-3 text-gray-500">No consultation records found</p>
+                </div>
+                
+                <!-- Consultation records list -->
+                <div v-else class="divide-y divide-gray-200">
+                    <div v-for="record in consultations" :key="record.id" class="py-4 hover:bg-gray-50 transition-colors rounded-lg p-4">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="text-sm text-gray-500">{{ formatDate(record.date) }}</div>
+                                <h3 class="font-medium text-lg text-[#2f4a71]">
+                                    {{ record.diagnoses || 'General Consultation' }}
+                                </h3>
+                                <div class="mt-1 flex items-center">
+                                    <span class="text-sm text-gray-600">Attended by: {{ record.doctor || 'School Physician' }}</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Status indicators -->
+                            <div class="flex space-x-2">
+                                <span v-if="record.confined" class="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">
+                                    Confined
+                                </span>
+                                <span v-if="record.medAdministration" class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+                                    Medication
+                                </span>
+                                <span v-if="record.intern" class="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full font-medium">
+                                    Intern
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- Enhanced details section with medication information -->
+                        <details class="mt-2">
+                            <summary class="text-sm text-[#2f4a71] cursor-pointer hover:underline focus:outline-none">
+                                View details
+                            </summary>
+                            <div class="mt-3 ml-2 text-sm">
+                                <!-- Complaint section -->
+                                <div v-if="record.complaint" class="mb-2">
+                                    <p class="font-medium text-gray-700">Complaint:</p>
+                                    <p class="text-gray-600">{{ record.complaint }}</p>
+                                </div>
+                                
+                                <!-- Medication section - show if there are any medications -->
+                                <div v-if="record.medications && record.medications.length > 0" class="mb-2">
+                                    <p class="font-medium text-gray-700">Medications:</p>
+                                    <div class="mt-1 space-y-2">
+                                        <div v-for="(medication, index) in record.medications" :key="medication.id" 
+                                            class="flex items-start bg-blue-50 p-2 rounded">
+                                            <div class="flex-shrink-0 h-5 w-5 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center mr-2 text-xs font-bold">
+                                                {{ index + 1 }}
+                                            </div>
+                                            <div class="flex-1">
+                                                <p class="font-medium">{{ medication.name }}</p>
+                                                <div class="text-xs text-gray-600 mt-1">
+                                                    <p><span class="font-medium">Quantity:</span> {{ medication.count }}</p>
+                                                    <p><span class="font-medium">Schedule:</span> {{ medication.schedule }}</p>
+                                                    <p><span class="font-medium">Duration:</span> {{ formatDate(medication.startDate) }} - {{ formatDate(medication.endDate) }}</p>
+                                                    <p v-if="medication.remarks"><span class="font-medium">Notes:</span> {{ medication.remarks }}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Action Taken section -->
+                                <div v-if="record.action" class="mb-2">
+                                    <p class="font-medium text-gray-700">Action Taken:</p>
+                                    <p class="text-gray-600">{{ record.action }}</p>
+                                </div>
+                                
+                                <!-- Disposition section -->
+                                <div v-if="record.disposition" class="mb-2">
+                                    <p class="font-medium text-gray-700">Disposition:</p>
+                                    <p class="text-gray-600">{{ record.disposition }}</p>
+                                </div>
+                                
+                                <!-- Remarks section -->
+                                <div v-if="record.remarks" class="mb-2">
+                                    <p class="font-medium text-gray-700">Remarks:</p>
+                                    <p class="text-gray-600">{{ record.remarks }}</p>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
