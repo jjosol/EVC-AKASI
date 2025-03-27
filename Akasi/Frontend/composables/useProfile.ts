@@ -13,6 +13,7 @@ type ClientProfile = {
   category: string;
   grade: number | null;
   section: string;
+  
 }
 
 type AdminProfile = {
@@ -46,6 +47,7 @@ export function useProfile() {
           const role = localStorage.getItem('userRole')
           profile.value = role === 'admin' ? createMockAdminProfile() : createMockProfile()
           isAdmin.value = role === 'admin'
+          console.log('Created mock profile:', profile.value)
           return profile.value
         }
         throw new Error('No authentication token found')
@@ -66,6 +68,7 @@ export function useProfile() {
             const role = localStorage.getItem('userRole') || 'client'
             profile.value = role === 'admin' ? createMockAdminProfile() : createMockProfile()
             isAdmin.value = role === 'admin'
+            console.log('Created mock profile after auth error:', profile.value)
             return profile.value
           }
 
@@ -76,6 +79,7 @@ export function useProfile() {
         }
 
         const userData = await response.json()
+        console.log('API response userData:', userData)
 
         // Determine the profile type based on the data received
         if (userData.admin_id !== undefined) {
@@ -89,6 +93,7 @@ export function useProfile() {
           }
           isAdmin.value = true
           localStorage.setItem('userRole', 'admin')
+          console.log('Processed admin profile:', profile.value)
         } else if (userData.client_id !== undefined) {
           // This is a client profile
           profile.value = {
@@ -97,6 +102,7 @@ export function useProfile() {
           }
           isAdmin.value = false
           localStorage.setItem('userRole', 'client')
+          console.log('Processed client profile:', profile.value)
         } else {
           // Cannot determine the profile type
           throw new Error('Unknown profile type received')
@@ -109,6 +115,7 @@ export function useProfile() {
           const role = localStorage.getItem('userRole') || 'client'
           profile.value = role === 'admin' ? createMockAdminProfile() : createMockProfile()
           isAdmin.value = role === 'admin'
+          console.log('Created mock profile after fetch error:', profile.value)
           return profile.value
         }
         throw err
@@ -127,6 +134,7 @@ export function useProfile() {
         const role = localStorage.getItem('userRole') || 'client'
         profile.value = role === 'admin' ? createMockAdminProfile() : createMockProfile()
         isAdmin.value = role === 'admin'
+        console.log('Created mock profile after general error:', profile.value)
         return profile.value
       }
       return null
@@ -145,7 +153,7 @@ export function useProfile() {
       gmail: 'test@example.com',
       age: 15,
       gender: 'Male',
-      category: 'Student',
+      category: 'student', // Changed to lowercase to match the check in profileFiles.vue
       grade: 9,
       section: 'A'
     }
@@ -169,4 +177,4 @@ export function useProfile() {
     isAdmin,
     fetchProfile
   }
-} 
+}

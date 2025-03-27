@@ -23,16 +23,23 @@
     
     const { isAdmin, isClient, userRole } = useAuth();
     const { profile, fetchProfile } = useProfile();
-    
+
     // Add computed properties to determine user category
     const isStudent = computed(() => {
-        return profile.value?.type === 'client' && profile.value?.category === 'student';
+        console.log( profile.value?.category)
+        return profile.value?.type === 'client' && profile.value?.category === 'Student';
+      
     });
-    
+    console.log(isStudent)
     const isFaculty = computed(() => {
-        return profile.value?.type === 'client' && profile.value?.category === 'faculty' || profile.value?.category === 'staff';
+        const category = profile.value?.category;
+    console.log('Category value:', category);
+    console.log('Type check:', profile.value?.type === 'client');
+    console.log('Category check:', category === 'Student');
+        return profile.value?.type === 'client' && profile.value?.category === 'Faculty' || profile.value?.category === 'staff';
+        
     });
-    
+    console.log('isStudent.value:', isStudent.value);
     onMounted(async () => {
         // Fetch the profile data if not already loaded
         if (!profile.value) {

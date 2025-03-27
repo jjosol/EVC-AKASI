@@ -4,7 +4,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { GoogleDriveService } from './google-drive.service';
 import { Cron, SchedulerRegistry } from '@nestjs/schedule';
-import { CronJob } from 'cron';
 
 @Injectable()
 export class BackupService {
@@ -18,6 +17,8 @@ export class BackupService {
     retention: 7 // Number of backups to keep
   };
   private autoBackupConfigPath = path.join(process.cwd(), 'auto-backup-config.json');
+  private cronExpression: string;
+  private cronEnabled: boolean;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -66,43 +67,52 @@ export class BackupService {
   // Set up automatic backup job based on configuration
   private setupAutoBackupJob() {
     try {
-      // Remove any existing job
-      try {
-        this.schedulerRegistry.deleteCronJob('autoBackup');
-      } catch (error) {
-        // Job doesn't exist yet, that's ok
-      }
-
+      // Skip the custom scheduling approach and use dynamic cron expression
+      // with a class property that the @Cron decorator can use
+      
       // Parse time from HH:MM format
       const [hours, minutes] = this.autoBackupConfig.time.split(':').map(Number);
       
       // Create cron expression based on frequency
-      let cronExpression = '';
       switch(this.autoBackupConfig.frequency) {
         case 'daily':
-          cronExpression = `${minutes} ${hours} * * *`;
+          this.cronExpression = `${minutes} ${hours} * * *`;
           break;
         case 'weekly':
-          cronExpression = `${minutes} ${hours} * * 0`; // Sunday
+          this.cronExpression = `${minutes} ${hours} * * 0`; // Sunday
           break;
         case 'monthly':
-          cronExpression = `${minutes} ${hours} 1 * *`; // 1st of month
+          this.cronExpression = `${minutes} ${hours} 1 * *`; // 1st of month
           break;
         default:
-          cronExpression = `${minutes} ${hours} * * *`; // Default to daily
+          this.cronExpression = `${minutes} ${hours} * * *`; // Default to daily
       }
-
-      // Create and register the cron job
-      const job = new CronJob(cronExpression, async () => {
-        await this.runAutoBackup();
-        // No return value to satisfy CronCommand type requirements
-      });
-      this.schedulerRegistry.addCronJob('autoBackup', job);
-      job.start();
+      
+      this.cronEnabled = this.autoBackupConfig.enabled;
       
       this.logger.log(`Auto backup scheduled: ${this.autoBackupConfig.frequency} at ${this.autoBackupConfig.time}`);
     } catch (error) {
       this.logger.error('Error setting up auto backup job', error);
+    }
+  }
+
+  // Dynamic cron job using the built-in NestJS scheduler
+  @Cron('* * * * *', { name: 'autoBackup' })
+  async dynamicAutomaticBackup() {
+    // Only run if auto backup is enabled and we have a cron expression
+    if (this.cronEnabled && this.cronExpression) {
+      // Check if this minute matches our schedule
+      const now = new Date();
+      const cronParts = this.cronExpression.split(' ');
+      const minute = cronParts[0] === '*' ? true : cronParts[0] === now.getMinutes().toString();
+      const hour = cronParts[1] === '*' ? true : cronParts[1] === now.getHours().toString();
+      const day = cronParts[2] === '*' ? true : cronParts[2] === now.getDate().toString();
+      const month = cronParts[3] === '*' ? true : cronParts[3] === (now.getMonth() + 1).toString();
+      const dayOfWeek = cronParts[4] === '*' ? true : cronParts[4] === now.getDay().toString();
+      
+      if (minute && hour && day && month && dayOfWeek) {
+        await this.runAutoBackup();
+      }
     }
   }
 
