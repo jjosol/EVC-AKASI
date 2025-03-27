@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import { GoogleDriveService } from './google-drive.service';
-import { Cron, SchedulerRegistry } from '@nestjs/schedule';
+import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
 
 @Injectable()
@@ -515,15 +515,15 @@ export class BackupService {
         'consultation_records',
         'diagnosis',
         'consultation_diagnosis',
-        'EditsInverntory',
+        'EditsInventory',
         'medAdministration',
         'dental_certificates',
         'medical_certificates',
         'opthal_certificates',
         'physical_exam',
         'appointment',
-        'HSU_bulletin',
-        'HSU_bulletin_files',
+        'hsu_bulletin',
+        'hsu_bulletin_files',
       ];
       
       // Sort models based on the defined order
@@ -603,9 +603,9 @@ export class BackupService {
   private async clearModelData(prisma: any, modelName: string) {
     try {
       // Special handling for models with dependencies
-      if (modelName === 'HSU_bulletin') {
+      if (modelName === 'hsu_bulletin') {
         // First delete files since they reference posts
-        await prisma.hSU_bulletin_files.deleteMany({});
+        await prisma.hsu_bulletin_files.deleteMany({});
       } else if (modelName === 'consultation_records') {
         // First delete related diagnoses
         await prisma.consultation_diagnosis.deleteMany({});
@@ -613,7 +613,7 @@ export class BackupService {
         await prisma.medAdministration.deleteMany({});
       } else if (modelName === 'inventory') {
         // First delete related edits and med administration
-        await prisma.editsInverntory.deleteMany({});
+        await prisma.EditsInventory.deleteMany({});
         await prisma.medAdministration.deleteMany({});
       }
       
@@ -718,8 +718,8 @@ export class BackupService {
             'diagnosis': 'Diagnosis',
             'consultation_diagnosis': 'Consultation_diagnosis',
             'medAdministration': 'MedAdministration',
-            'HSU_bulletin': 'HSU_bulletin',
-            'HSU_bulletin_files': 'HSU_bulletin_files',
+            'hsu_bulletin': 'hsu_bulletin',
+            'hsu_bulletin_files': 'hsu_bulletin_files',
             // Add other mappings as needed
           };
 

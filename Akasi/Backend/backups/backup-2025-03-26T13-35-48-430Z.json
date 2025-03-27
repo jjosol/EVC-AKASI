@@ -59,9 +59,9 @@
   "opthal_certificates": [],
   "physical_exam": [],
   "appointment": [],
-  "editsInverntory": [],
-  "hSU_bulletin": [],
-  "hSU_bulletin_files": [],
+  "editsInventory": [],
+  "hsu_bulletin": [],
+  "hsu_bulletin_files": [],
   "_metadata": {
     "version": "1.0",
     "timestamp": "2025-03-26T13:35:48.505Z",
@@ -82,9 +82,9 @@
       "opthal_certificates",
       "physical_exam",
       "appointment",
-      "editsInverntory",
-      "hSU_bulletin",
-      "hSU_bulletin_files"
+      "editsInventory",
+      "hsu_bulletin",
+      "hsu_bulletin_files"
     ],
     "recordCounts": {
       "manager": 1,
@@ -103,9 +103,9 @@
       "opthal_certificates": 0,
       "physical_exam": 0,
       "appointment": 0,
-      "editsInverntory": 0,
-      "hSU_bulletin": 0,
-      "hSU_bulletin_files": 0
+      "editsInventory": 0,
+      "hsu_bulletin": 0,
+      "hsu_bulletin_files": 0
     },
     "errors": [
       "$metrics: this.prisma[modelName].findMany is not a function",

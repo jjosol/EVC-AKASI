@@ -70,8 +70,8 @@ export class AdminsService {
     try {
       // Use a transaction to ensure all related records are deleted
       return await this.prisma.$transaction(async (tx) => {
-        // Delete all HSU bulletin files first
-        await tx.hSU_bulletin_files.deleteMany({
+        // Delete all hsu bulletin files first
+        await tx.hsu_bulletin_files.deleteMany({
           where: {
             bulletin: {
               admin_id: id
@@ -79,8 +79,8 @@ export class AdminsService {
           }
         });
         
-        // Delete HSU bulletins
-        await tx.hSU_bulletin.deleteMany({ where: { admin_id: id } });
+        // Delete hsu bulletins
+        await tx.hsu_bulletin.deleteMany({ where: { admin_id: id } });
         
         // For consultation_records related to this admin
         const consultations = await tx.consultation_records.findMany({

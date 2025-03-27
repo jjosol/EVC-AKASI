@@ -30,7 +30,7 @@ model admin {
   name                 String                 @db.VarChar(225) // Added from schema2
   
   // Relations
-  HSU_bulletin         HSU_bulletin[]
+  hsu_bulletin         hsu_bulletin[]
   consultation_records consultation_records[]
   medAdministration    medAdministration[]
   created_diagnoses    diagnosis[]
@@ -195,7 +195,7 @@ model EditsInventory {
   addSubCount Int
   inventory   inventory @relation(fields: [med_id, medName], references: [med_id, medName])
 
-  @@index([med_id, medName], map: "FK_inventory_TO_EditsInverntory")
+  @@index([med_id, medName], map: "FK_inventory_TO_EditsInventory")
 }
 
 model medAdministration {
@@ -235,6 +235,8 @@ model medical_certificates {
   date        DateTime @db.Date
   medical     Bytes    @db.LongBlob // Changed to LongBlob as per schema2
   client      client   @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
+  status    String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
+  notes     String?  @db.VarChar(500)
 
   @@index([client_id], map: "FK_client_TO_medical_certificates")
 }
@@ -245,6 +247,8 @@ model opthal_certificates {
   date      DateTime @db.Date
   opthal    Bytes    @db.LongBlob
   opthal_id Int      @id @default(autoincrement())
+  status    String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
+  notes     String?  @db.VarChar(500)
 
   client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -256,12 +260,14 @@ model physical_exam {
   date        DateTime @db.Date
   physical    Bytes    @db.LongBlob
   physical_id Int      @id @default(autoincrement())
+  status    String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
+  notes     String?  @db.VarChar(500)
   
   client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([client_id], map: "FK_client_TO_physical_exam")
 }
-model HSU_bulletin {
+model hsu_bulletin {
   post_id    Int                   @id @default(autoincrement())
   admin_id   Int
   username   String                @db.VarChar(225)
@@ -269,13 +275,13 @@ model HSU_bulletin {
   created_at DateTime              @default(now())
   
   // Relations
-  files      HSU_bulletin_files[]
+  files      hsu_bulletin_files[]
   admin      admin                 @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@index([admin_id, username], map: "FK_admin_TO_HSU_bulletin")
+  @@index([admin_id, username], map: "FK_admin_TO_hsu_bulletin")
 }
 
-model HSU_bulletin_files {
+model hsu_bulletin_files {
   file_id    Int                   @id @default(autoincrement())
   post_id    Int
   file_name  String
@@ -283,7 +289,7 @@ model HSU_bulletin_files {
   mime_type  String
   data       Bytes
   created_at DateTime              @default(now())
-  bulletin   HSU_bulletin          @relation(fields: [post_id], references: [post_id])
+  bulletin   hsu_bulletin          @relation(fields: [post_id], references: [post_id])
 
   @@index([post_id])
 }
