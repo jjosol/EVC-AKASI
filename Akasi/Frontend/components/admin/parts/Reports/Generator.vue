@@ -224,7 +224,7 @@ const generatePdf = async (htmlContent) => {
       `<textarea id="conclusion" name="conclusion" rows="4">${conclusionText.value}</textarea>`
     );
     
-    const response = await fetch('/api/generate-pdf', {
+    const response = await fetch('/_generate-pdf', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

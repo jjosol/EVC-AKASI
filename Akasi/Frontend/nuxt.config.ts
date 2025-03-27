@@ -50,7 +50,7 @@ export default defineNuxtConfig({
   nitro: {
     handlers: [
       {
-        route: '/api/generate-pdf',
+        route: '/_generate-pdf',
         handler: '~/server/api/generate-pdf.post'
       }
     ],
