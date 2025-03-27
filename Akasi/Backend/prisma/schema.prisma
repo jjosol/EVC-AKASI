@@ -258,7 +258,8 @@ model hsu_bulletin_files {
 }
 
 model medAdministration {
-  consultation_id Int      @id @default(autoincrement())
+  med_administration_id Int @id @default(autoincrement())
+  consultation_id Int      
   client_id       Int
   admin_id        Int
   med_id          Int
