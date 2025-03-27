@@ -27,7 +27,7 @@
     // Add computed properties to determine user category
     const isStudent = computed(() => {
         console.log( profile.value?.category)
-        return profile.value?.type === 'client' && profile.value?.category === 'Student';
+        return profile.value?.category === 'Student';
       
     });
     console.log(isStudent)
@@ -36,7 +36,7 @@
     console.log('Category value:', category);
     console.log('Type check:', profile.value?.type === 'client');
     console.log('Category check:', category === 'Student');
-        return profile.value?.type === 'client' && profile.value?.category === 'Faculty' || profile.value?.category === 'staff';
+        return  profile.value?.category === 'Faculty' || profile.value?.category === 'staff';
         
     });
     console.log('isStudent.value:', isStudent.value);
