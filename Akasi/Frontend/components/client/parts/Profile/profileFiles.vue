@@ -36,7 +36,7 @@
     console.log('Category value:', category);
     console.log('Type check:', profile.value?.type === 'client');
     console.log('Category check:', category === 'Student');
-        return  profile.value?.category === 'Faculty' || profile.value?.category === 'staff';
+        return  profile.value?.category === 'Faculty' || profile.value?.category === 'Staff';
         
     });
     console.log('isStudent.value:', isStudent.value);

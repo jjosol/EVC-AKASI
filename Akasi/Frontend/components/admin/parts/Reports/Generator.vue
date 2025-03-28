@@ -53,6 +53,13 @@
               </div>
             </div>
             
+            <div v-if="selectedPeriod === 'yearly'" class="space-y-2">
+              <label class="block text-sm font-medium text-gray-700">Period</label>
+              <div class="px-4 py-2 bg-gray-100 rounded-md border border-gray-200">
+                Full School Year (July - June)
+              </div>
+            </div>
+            
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2">School Year</label>
               <select 
@@ -165,6 +172,8 @@ const pdfPreviewUrl = ref("")
 
 // Watch for changes to end month selection and validate
 watch([startMonth, endMonth], ([newStartMonth, newEndMonth]) => {
+  if (selectedPeriod.value !== 'monthly') return;
+  
   endMonthError.value = ""
   
   if (newEndMonth !== "" && newEndMonth !== "null") {
@@ -195,11 +204,23 @@ watch([startMonth, endMonth], ([newStartMonth, newEndMonth]) => {
   }
 })
 
+// Watch for period changes
+watch(selectedPeriod, (newPeriod) => {
+  if (newPeriod === 'yearly') {
+    // Reset month selection errors when switching to yearly
+    endMonthError.value = ""
+  }
+})
+
 // Computed properties
 const canGenerate = computed(() => {
-  return startMonth.value !== "" && 
-         selectedYear.value !== "" &&
-         endMonthError.value === ""
+  if (selectedPeriod.value === 'yearly') {
+    return selectedYear.value !== "";
+  } else {
+    return startMonth.value !== "" && 
+           selectedYear.value !== "" &&
+           endMonthError.value === "";
+  }
 })
 
 // Load the HTML template on component mount
@@ -245,12 +266,14 @@ const generatePdf = async (htmlContent) => {
     const a = document.createElement('a')
     a.href = url
     
-    // Set filename based on whether there's an end month
-    let filename
-    if (endMonth.value === "null" || endMonth.value === "") {
-      filename = `report-${months.value[startMonth.value]}-${selectedYear.value}.pdf`
+    // Set filename based on whether it's yearly or monthly
+    let filename;
+    if (selectedPeriod.value === 'yearly') {
+      filename = `annual-report-${selectedYear.value}.pdf`;
+    } else if (endMonth.value === "null" || endMonth.value === "") {
+      filename = `report-${months.value[startMonth.value]}-${selectedYear.value}.pdf`;
     } else {
-      filename = `report-${months.value[startMonth.value]}-${months.value[endMonth.value]}-${selectedYear.value}.pdf`
+      filename = `report-${months.value[startMonth.value]}-${months.value[endMonth.value]}-${selectedYear.value}.pdf`;
     }
     
     a.download = filename
@@ -266,7 +289,7 @@ const generatePdf = async (htmlContent) => {
   }
 }
 
-const fetchReportData = async (startMonthName, endMonthName, year) => {
+const fetchReportData = async (startMonthName, endMonthName, year, isYearly = false) => {
   fetchingData.value = true;
   fetchError.value = null;
   
@@ -275,10 +298,13 @@ const fetchReportData = async (startMonthName, endMonthName, year) => {
     const encodedStartMonth = encodeURIComponent(startMonthName);
     const encodedEndMonth = encodeURIComponent(endMonthName || startMonthName);
     
-    console.log(`Fetching data for: ${encodedStartMonth} to ${encodedEndMonth}, ${year}`);
+    // Add yearly parameter to API call
+    const yearlyParam = isYearly ? '&yearly=true' : '';
+    
+    console.log(`Fetching data for: ${encodedStartMonth} to ${encodedEndMonth}, ${year}, yearly=${isYearly}`);
     
     const response = await fetch(
-      `http://localhost:3001/reports/illness-summary?startMonth=${encodedStartMonth}&endMonth=${encodedEndMonth}&year=${year}`
+      `http://localhost:3001/reports/illness-summary?startMonth=${encodedStartMonth}&endMonth=${encodedEndMonth}&year=${year}${yearlyParam}`
     );
     
     if (!response.ok) {
@@ -301,15 +327,18 @@ const fetchReportData = async (startMonthName, endMonthName, year) => {
   }
 };
 
-const fetchConsultationMonitoring = async (startMonthName, endMonthName, year) => {
+const fetchConsultationMonitoring = async (startMonthName, endMonthName, year, isYearly = false) => {
   try {
     const encodedStartMonth = encodeURIComponent(startMonthName);
     const encodedEndMonth = encodeURIComponent(endMonthName || startMonthName);
     
-    console.log(`Fetching monitoring data for: ${encodedStartMonth} to ${encodedEndMonth}, ${year}`);
+    // Add yearly parameter to API call
+    const yearlyParam = isYearly ? '&yearly=true' : '';
+    
+    console.log(`Fetching monitoring data for: ${encodedStartMonth} to ${encodedEndMonth}, ${year}, yearly=${isYearly}`);
     
     const response = await fetch(
-      `http://localhost:3001/reports/monitoring?startMonth=${encodedStartMonth}&endMonth=${encodedEndMonth}&year=${year}`
+      `http://localhost:3001/reports/monitoring?startMonth=${encodedStartMonth}&endMonth=${encodedEndMonth}&year=${year}${yearlyParam}`
     );
     
     if (!response.ok) {
@@ -328,12 +357,10 @@ const fetchConsultationMonitoring = async (startMonthName, endMonthName, year) =
   }
 };
 
-// Update generateReport to handle async processTemplate
-
 const generateReport = async () => {
   // Validate selections before generating
-  if (startMonth.value === "" || selectedYear.value === "") {
-    alert("Please select both start month and year");
+  if (selectedYear.value === "" || (selectedPeriod.value === 'monthly' && startMonth.value === "")) {
+    alert("Please select required fields");
     return;
   }
   
@@ -343,34 +370,52 @@ const generateReport = async () => {
     return;
   }
   
-  const startMonthName = months.value[startMonth.value];
-  let endMonthName = endMonth.value === "null" || endMonth.value === "" 
-    ? startMonthName 
-    : months.value[endMonth.value];
+  const isYearly = selectedPeriod.value === 'yearly';
+  
+  // For yearly report, use July-June period
+  let startMonthName, endMonthName, dateRange;
+  
+  if (isYearly) {
+    startMonthName = "July";
+    endMonthName = "June";
+    dateRange = `School Year ${selectedYear.value}`;
+  } else {
+    startMonthName = months.value[startMonth.value];
+    endMonthName = endMonth.value === "null" || endMonth.value === "" 
+      ? startMonthName 
+      : months.value[endMonth.value];
+      
+    // Format date range for the report heading
+    if (endMonth.value === "null" || endMonth.value === "") {
+      dateRange = `${startMonthName}, S.Y. ${selectedYear.value}`;
+    } else {
+      dateRange = `${startMonthName} - ${endMonthName}, S.Y. ${selectedYear.value}`;
+    }
+  }
+  
   const year = selectedYear.value;
 
-  // Format date range for the report heading
-  let dateRange;
-  if (endMonth.value === "null" || endMonth.value === "") {
-    dateRange = `${startMonthName}, S.Y. ${year}`;
-  } else {
-    dateRange = `${startMonthName} - ${endMonthName}, S.Y. ${year}`;
-  }
-
   // Fetch data from the API
-  const data = await fetchReportData(startMonthName, endMonthName, year);
+  const data = await fetchReportData(startMonthName, endMonthName, year, isYearly);
   
   if (!data) {
     alert("Failed to fetch report data. Please try again.");
     return;
   }
 
-  // Generate the selectedMonths array
+  // Generate the selectedMonths array (for monthly reports only)
   const selectedMonths = [];
-  const startIndex = parseInt(startMonth.value);
-  const endIndex = endMonth.value === "null" || endMonth.value === "" ? startIndex : parseInt(endMonth.value);
-  for (let i = startIndex; i <= endIndex; i++) {
-    selectedMonths.push(months.value[i]);
+  if (!isYearly) {
+    const startIndex = parseInt(startMonth.value);
+    const endIndex = endMonth.value === "null" || endMonth.value === "" ? startIndex : parseInt(endMonth.value);
+    for (let i = startIndex; i <= endIndex; i++) {
+      selectedMonths.push(months.value[i]);
+    }
+  } else {
+    // For yearly reports, we'll use all months but the data processing will be different
+    for (let i = 0; i < months.value.length; i++) {
+      selectedMonths.push(months.value[i]);
+    }
   }
 
   // Process the HTML template: Replace placeholders with actual values
@@ -380,7 +425,7 @@ const generateReport = async () => {
     .replace(/{{selectedYear}}/g, year);
 
   // Process tables with correct column counts and data (now async)
-  finalHtml = await processTemplate(finalHtml, selectedMonths, data);
+  finalHtml = await processTemplate(finalHtml, selectedMonths, data, isYearly);
 
   try {
     // Generate PDF with the final HTML
@@ -391,7 +436,7 @@ const generateReport = async () => {
   }
 };
 
-const processTemplate = async (html, selectedMonths, data) => {
+const processTemplate = async (html, selectedMonths, data, isYearly = false) => {
   let processedHtml = html;
   
   // Extract data from API response
@@ -401,37 +446,93 @@ const processTemplate = async (html, selectedMonths, data) => {
   console.log("Months data:", months);
   console.log("Totals data:", totals);
   
-  // Create student rows with actual data
-  const studentRows = months.map(month => `
-    <tr>
-      <td>${month.month}</td>
-      <td>${month.students.maleDormers}</td>
-      <td>${month.students.maleExterns}</td>
-      <td>${month.students.femaleDormers}</td>
-      <td>${month.students.femaleExterns}</td>
-      <td>${month.students.total}</td>
-    </tr>
-  `).join('');
+  // Create rows based on whether this is a yearly or monthly report
+  let studentRows, teachingRows, nonTeachingRows;
   
-  // Create teaching staff (faculty) rows
-  const teachingRows = months.map(month => `
-    <tr>
-      <td>${month.month}</td>
-      <td>${month.faculty.male}</td>
-      <td>${month.faculty.female}</td>
-      <td>${month.faculty.total}</td>
-    </tr>
-  `).join('');
+  if (isYearly) {
+    // For yearly reports, we display a single row with the school year and totals
+    const year = selectedYear.value;
+    
+    studentRows = `
+      <tr>
+        <td>S.Y. ${year}</td>
+        <td>${totals.students.maleDormers}</td>
+        <td>${totals.students.maleExterns}</td>
+        <td>${totals.students.femaleDormers}</td>
+        <td>${totals.students.femaleExterns}</td>
+        <td>${totals.students.total}</td>
+      </tr>
+    `;
+    
+    teachingRows = `
+      <tr>
+        <td>S.Y. ${year}</td>
+        <td>${totals.faculty.male}</td>
+        <td>${totals.faculty.female}</td>
+        <td>${totals.faculty.total}</td>
+      </tr>
+    `;
+    
+    nonTeachingRows = `
+      <tr>
+        <td>S.Y. ${year}</td>
+        <td>${totals.staff.male}</td>
+        <td>${totals.staff.female}</td>
+        <td>${totals.staff.total}</td>
+      </tr>
+    `;
+  } else {
+    // For monthly reports, create a row for each month as before
+    studentRows = months.map(month => `
+      <tr>
+        <td>${month.month}</td>
+        <td>${month.students.maleDormers}</td>
+        <td>${month.students.maleExterns}</td>
+        <td>${month.students.femaleDormers}</td>
+        <td>${month.students.femaleExterns}</td>
+        <td>${month.students.total}</td>
+      </tr>
+    `).join('');
+    
+    teachingRows = months.map(month => `
+      <tr>
+        <td>${month.month}</td>
+        <td>${month.faculty.male}</td>
+        <td>${month.faculty.female}</td>
+        <td>${month.faculty.total}</td>
+      </tr>
+    `).join('');
+    
+    nonTeachingRows = months.map(month => `
+      <tr>
+        <td>${month.month}</td>
+        <td>${month.staff.male}</td>
+        <td>${month.staff.female}</td>
+        <td>${month.staff.total}</td>
+      </tr>
+    `).join('');
+  }
   
-  // Create non-teaching staff rows - make sure we're using staff data
-  const nonTeachingRows = months.map(month => `
-    <tr>
-      <td>${month.month}</td>
-      <td>${month.staff.male}</td>
-      <td>${month.staff.female}</td>
-      <td>${month.staff.total}</td>
-    </tr>
-  `).join('');
+  // Update column header if yearly
+  if (isYearly) {
+    // For Students table - make School Year span two rows
+    processedHtml = processedHtml.replace(
+      /<table class="data-table">\s*<tr>\s*<th[^>]*>Month<\/th>/g,
+      '<table class="data-table"><tr><th rowspan="2">School Year</th>'
+    );
+    
+    // For Teaching Staff table - just replace Month with School Year (no rowspan)
+    processedHtml = processedHtml.replace(
+      /<h3>\s*Teaching Staff\s*<\/h3>[\s\S]*?<table[^>]*>[\s\S]*?<th[^>]*>Month<\/th>/g, 
+      match => match.replace(/<th[^>]*>Month<\/th>/g, '<th>School Year</th>')
+    );
+    
+    // For Non-Teaching Staff table - just replace Month with School Year (no rowspan)
+    processedHtml = processedHtml.replace(
+      /<h3>\s*Non-Teaching Staff\s*<\/h3>[\s\S]*?<table[^>]*>[\s\S]*?<th[^>]*>Month<\/th>/g,
+      match => match.replace(/<th[^>]*>Month<\/th>/g, '<th>School Year</th>')
+    );
+  }
   
   // Replace student table
   processedHtml = processedHtml.replace(
@@ -447,7 +548,7 @@ const processTemplate = async (html, selectedMonths, data) => {
   
   // Use more specific patterns for the teaching staff table to avoid conflicts
   let teachingStaffPattern = new RegExp(
-    '<h3>\\s*Teaching Staff\\s*</h3>[\\s\\S]*?<table[^>]*>[\\s\\S]*?<tr>\\s*<th[^>]*>Month</th>[\\s\\S]*?</tr>\\s*{{#each selectedMonths}}[\\s\\S]*?{{/each}}',
+    '<h3>\\s*Teaching Staff\\s*</h3>[\\s\\S]*?<table[^>]*>[\\s\\S]*?<tr>\\s*<th[^>]*>[^<]*</th>[\\s\\S]*?</tr>\\s*{{#each selectedMonths}}[\\s\\S]*?{{/each}}',
     'g'
   );
   
@@ -462,7 +563,7 @@ const processTemplate = async (html, selectedMonths, data) => {
   
   // Use more specific patterns for the non-teaching staff table
   let nonTeachingStaffPattern = new RegExp(
-    '<h3>\\s*Non-Teaching Staff\\s*</h3>[\\s\\S]*?<table[^>]*>[\\s\\S]*?<tr>\\s*<th[^>]*>Month</th>[\\s\\S]*?</tr>\\s*{{#each selectedMonths}}[\\s\\S]*?{{/each}}',
+    '<h3>\\s*Non-Teaching Staff\\s*</h3>[\\s\\S]*?<table[^>]*>[\\s\\S]*?<tr>\\s*<th[^>]*>[^<]*</th>[\\s\\S]*?</tr>\\s*{{#each selectedMonths}}[\\s\\S]*?{{/each}}',
     'g'
   );
   
@@ -497,13 +598,20 @@ const processTemplate = async (html, selectedMonths, data) => {
     }
   );
   
-  // Rest of your code for consultation monitoring data...
-  const startMonthName = months.length > 0 ? months[0].month : "";
-  const endMonthName = months.length > 1 ? months[months.length - 1].month : startMonthName;
+  // Handle consultation monitoring data
   const year = selectedYear.value.split('-')[0];
   
+  let startMonthName, endMonthName;
+  if (isYearly) {
+    startMonthName = "July";
+    endMonthName = "June";
+  } else {
+    startMonthName = months.length > 0 ? months[0].month : "";
+    endMonthName = months.length > 1 ? months[months.length - 1].month : startMonthName;
+  }
+  
   // Fetch the consultation monitoring data
-  const monitoringData = await fetchConsultationMonitoring(startMonthName, endMonthName, year);
+  const monitoringData = await fetchConsultationMonitoring(startMonthName, endMonthName, year, isYearly);
   
   // Replace the consultation monitoring rows in the template
   if (monitoringData && monitoringData.length > 0) {
@@ -537,11 +645,9 @@ const processTemplate = async (html, selectedMonths, data) => {
   return processedHtml;
 };
 
-// Update previewReport to handle async processTemplate
-
 const previewReport = async () => {
-  if (startMonth.value === "" || selectedYear.value === "") {
-    alert("Please select both start month and year");
+  if (selectedYear.value === "" || (selectedPeriod.value === 'monthly' && startMonth.value === "")) {
+    alert("Please select required fields");
     return;
   }
   
@@ -551,34 +657,52 @@ const previewReport = async () => {
     return;
   }
   
-  const startMonthName = months.value[startMonth.value];
-  let endMonthName = endMonth.value === "null" || endMonth.value === "" 
-    ? startMonthName 
-    : months.value[endMonth.value];
-  const year = selectedYear.value;
+  const isYearly = selectedPeriod.value === 'yearly';
   
-  // Format date range for the report heading
-  let dateRange;
-  if (endMonth.value === "" || endMonth.value === "null") {
-    dateRange = `${startMonthName}, S.Y. ${year}`;
+  // For yearly report, use July-June period
+  let startMonthName, endMonthName, dateRange;
+  
+  if (isYearly) {
+    startMonthName = "July";
+    endMonthName = "June";
+    dateRange = `School Year ${selectedYear.value}`;
   } else {
-    dateRange = `${startMonthName} - ${endMonthName}, S.Y. ${year}`;
+    startMonthName = months.value[startMonth.value];
+    endMonthName = endMonth.value === "null" || endMonth.value === "" 
+      ? startMonthName 
+      : months.value[endMonth.value];
+      
+    // Format date range for the report heading
+    if (endMonth.value === "null" || endMonth.value === "") {
+      dateRange = `${startMonthName}, S.Y. ${selectedYear.value}`;
+    } else {
+      dateRange = `${startMonthName} - ${endMonthName}, S.Y. ${selectedYear.value}`;
+    }
   }
+  
+  const year = selectedYear.value;
 
   // Fetch data from the API
-  const data = await fetchReportData(startMonthName, endMonthName, year);
+  const data = await fetchReportData(startMonthName, endMonthName, year, isYearly);
   
   if (!data) {
     alert("Failed to fetch report data. Please try again.");
     return;
   }
 
-  // Generate the selectedMonths array
+  // Generate the selectedMonths array (for monthly reports only)
   const selectedMonths = [];
-  const startIndex = parseInt(startMonth.value);
-  const endIndex = endMonth.value === "null" || endMonth.value === "" ? startIndex : parseInt(endMonth.value);
-  for (let i = startIndex; i <= endIndex; i++) {
-    selectedMonths.push(months.value[i]);
+  if (!isYearly) {
+    const startIndex = parseInt(startMonth.value);
+    const endIndex = endMonth.value === "null" || endMonth.value === "" ? startIndex : parseInt(endMonth.value);
+    for (let i = startIndex; i <= endIndex; i++) {
+      selectedMonths.push(months.value[i]);
+    }
+  } else {
+    // For yearly reports, we'll use all months but the data processing will be different
+    for (let i = 0; i < months.value.length; i++) {
+      selectedMonths.push(months.value[i]);
+    }
   }
 
   // Process the HTML template: Replace placeholders with actual values
@@ -588,7 +712,7 @@ const previewReport = async () => {
     .replace(/{{selectedYear}}/g, year);
 
   // Process tables with correct column counts and data (now async)
-  finalHtml = await processTemplate(finalHtml, selectedMonths, data);
+  finalHtml = await processTemplate(finalHtml, selectedMonths, data, isYearly);
 
   try {
     // Create a blob from the HTML content
@@ -630,8 +754,8 @@ const onIframeLoad = (event) => {
 
 // Update the fetchReport method:
 async function fetchReport() {
-  if (!this.selectedYear || !this.startMonth) {
-    this.error = "Please select a school year and start month.";
+  if (!this.selectedYear || (this.selectedPeriod === 'monthly' && !this.startMonth)) {
+    this.error = "Please select required fields.";
     return;
   }
   
@@ -639,19 +763,27 @@ async function fetchReport() {
     this.fetchingData = true;
     this.fetchError = null;
     
-    // Debug values being sent to API
-    console.log(`Fetching report with: year=${this.selectedYear}, startMonth=${this.startMonth}, endMonth=${this.endMonth || "Same as start"}`);
+    const isYearly = this.selectedPeriod === 'yearly';
     
-    // Format the parameters properly
+    // Format parameters based on period type
     const params = {
-      startMonth: this.startMonth,
       year: this.selectedYear
     };
     
-    // Only add endMonth if it's different from startMonth and not 'null'
-    if (this.endMonth && this.endMonth !== 'null' && this.endMonth !== this.startMonth) {
-      params.endMonth = this.endMonth;
+    if (isYearly) {
+      params.startMonth = 'July';
+      params.endMonth = 'June';
+      params.yearly = true;
+    } else {
+      params.startMonth = this.startMonth;
+      // Only add endMonth if it's different from startMonth and not 'null'
+      if (this.endMonth && this.endMonth !== 'null' && this.endMonth !== this.startMonth) {
+        params.endMonth = this.endMonth;
+      }
     }
+    
+    // Debug values being sent to API
+    console.log(`Fetching report with:`, params);
     
     // Make the API request
     const response = await fetch(`/api/reports/illness-summary?${new URLSearchParams(params)}`);
@@ -671,15 +803,6 @@ async function fetchReport() {
     }
     
     this.reportData = data;
-    
-    // Check if data actually contains values or is empty
-    const hasValues = data.months.some(month => 
-      month.students.total > 0 || month.faculty.total > 0 || month.staff.total > 0
-    );
-    
-    if (!hasValues) {
-      console.warn('Report contains no data - all values are zero');
-    }
     
   } catch (error) {
     console.error('Error fetching report:', error);
