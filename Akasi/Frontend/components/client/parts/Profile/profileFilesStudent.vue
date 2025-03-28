@@ -105,24 +105,18 @@
         }
     }
 
-    // Improved downloadFile function
-function downloadFile(file) {
-    if (!file || !file.url) {
-        showToast({
-            message: 'No file available to download',
-            type: 'error'
-        });
+    function downloadFile(file) {
+    if (!file || (!file.url && !file.blob)) {
+        console.error('No file available to download');
         return;
     }
 
     try {
-        // If we have a blob, create a direct download from it
+        const a = document.createElement('a');
+        
         if (file.blob) {
-            const a = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-
-            console.log(url)
-            console.log(file.blob)
+            // If we have the blob directly, create an object URL from it
+            const url = URL.createObjectURL(file.blob);
             a.href = url;
             a.download = file.fileName || `${file.type}_${file.id}.${getFileExtension(file)}`;
             document.body.appendChild(a);
@@ -133,29 +127,16 @@ function downloadFile(file) {
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
             }, 100);
-        } else {
-            // Fallback to the existing URL
-            const a = document.createElement('a');
+        } else if (file.url) {
+            // If we already have a URL (typically an object URL from a blob)
             a.href = file.url;
             a.download = file.fileName || `${file.type}_${file.id}.${getFileExtension(file)}`;
             document.body.appendChild(a);
             a.click();
-            
-            // Clean up
             document.body.removeChild(a);
         }
-        
-        showToast({
-            message: 'File download started',
-            type: 'success'
-        });
-        
     } catch (error) {
         console.error('Download error:', error);
-        showToast({
-            message: 'Failed to download file: ' + error.message,
-            type: 'error'
-        });
     }
 }
 
@@ -436,8 +417,11 @@ async function viewFile(file) {
 
         console.log(`Requesting file: ${file.type}/${file.id}`);
         
-        // Make the request with proper authorization
-        const response = await fetch(`http://localhost:3001/fetch-client-files/file/${file.type}/${file.id}`, {
+        // Use the exact same endpoint string from student.vue
+        const apiBaseUrl = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001';
+        
+        // Make the request with proper authorization using the same endpoint as student.vue
+        const response = await fetch(`${apiBaseUrl}/fetch-client-files-admin/file/${file.type}/${file.id}`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
