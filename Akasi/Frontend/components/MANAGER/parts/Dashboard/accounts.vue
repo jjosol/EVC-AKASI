@@ -503,15 +503,51 @@ const handleFileUpload = (event) => {
   }
 };
 
-// Inside processExcelImport function, fix the incomplete reader.onload function:
+// Update this function to validate Excel structure
+const validateExcelStructure = (data, type) => {
+  if (!data || !data.length) {
+    return 'Excel file is empty';
+  }
+  
+  const firstRow = data[0];
+  const requiredCommonFields = ['username', 'gmail'];
+  const clientSpecificFields = ['name', 'age', 'gender', 'category', 'section'];
+  
+  // Check common required fields for all account types
+  for (const field of requiredCommonFields) {
+    if (!(field in firstRow)) {
+      return `Missing required column: ${field}`;
+    }
+  }
+  
+  // For clients, check for required client fields
+  if (type === 'clients') {
+    for (const field of clientSpecificFields) {
+      if (!(field in firstRow)) {
+        return `Missing required column for client accounts: ${field}`;
+      }
+    }
+  } 
+  // For admins and managers, ensure client fields are NOT present
+  else if (type === 'admins' || type === 'managers') {
+    // Check for client-specific fields that shouldn't be in admin/manager templates
+    const inappropriateFields = clientSpecificFields.filter(field => field in firstRow);
+    
+    if (inappropriateFields.length > 0) {
+      return `Invalid template for ${type}. Found client-specific fields: ${inappropriateFields.join(', ')}. Please use the correct template for ${type}.`;
+    }
+  }
+  
+  return null; // No validation error
+};
 
-// Process Excel file and create accounts
+// Update the processExcelImport function
 const processExcelImport = async () => {
   if (!excelFile.value) {
     errorMessage.value = 'Please select an Excel file first';
     return;
   }
-
+  
   try {
     importResults.value.inProgress = true;
     importResults.value.logs = [];
@@ -541,9 +577,14 @@ const processExcelImport = async () => {
         
         // Convert to JSON
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        importResults.value.total = jsonData.length;
         
-        console.log("Parsed Excel data:", jsonData);
+        // Validate Excel structure first
+        const structureError = validateExcelStructure(jsonData, massImportType.value);
+        if (structureError) {
+          throw new Error(structureError);
+        }
+        
+        importResults.value.total = jsonData.length;
         
         // Process each row based on the type
         for (const row of jsonData) {
@@ -566,27 +607,27 @@ const processExcelImport = async () => {
                 section: String(row.section || '').trim()
               };
               
-              // Only include password for new accounts
-              if (row.password) {
-                clientData.password = String(row.password).trim();
-              }
-              
               // Check for existing client account (match by username and name)
               const existingClient = existingAccounts.find(c => 
                 c.username === clientData.username && c.name === clientData.name
               );
               
               if (existingClient) {
-                // Update existing client account - remove password field to preserve existing password
-                delete clientData.password;
+                // Fail if password is provided for existing account
+                if (row.password) {
+                  throw new Error('Cannot update password for existing client account through import');
+                }
+                
+                // Update existing client account - don't touch password
                 await updateClientAccount(existingClient.client_id, clientData);
                 importResults.value.success++;
                 importResults.value.logs.push(`✅ Updated client: ${clientData.name} (${clientData.username})`);
               } else {
                 // Create new client account - password is required
-                if (!clientData.password) {
-                  throw new Error('Password is required for new accounts');
+                if (!row.password) {
+                  throw new Error('Password is required for new client account');
                 }
+                clientData.password = String(row.password).trim();
                 await createClientAccount(clientData);
                 importResults.value.success++;
                 importResults.value.logs.push(`✅ Created client: ${clientData.name} (${clientData.username})`);
@@ -599,25 +640,25 @@ const processExcelImport = async () => {
                 name: String(row.name || row.username || '').trim() // Add name with fallback to username
               };
               
-              // Only include password for new accounts
-              if (row.password) {
-                adminData.password = String(row.password).trim();
-              }
-              
               // Check for existing admin account (match by username)
               const existingAdmin = existingAccounts.find(a => a.username === adminData.username);
               
               if (existingAdmin) {
-                // Update existing admin account - remove password field to preserve existing password
-                delete adminData.password;
+                // Fail if password is provided for existing account
+                if (row.password) {
+                  throw new Error('Cannot update password for existing admin account through import');
+                }
+                
+                // Update existing admin account - don't touch password
                 await updateAdminAccount(existingAdmin.admin_id, adminData);
                 importResults.value.success++;
                 importResults.value.logs.push(`✅ Updated admin: ${adminData.username}`);
               } else {
                 // Create new admin account - password is required
-                if (!adminData.password) {
-                  throw new Error('Password is required for new accounts');
+                if (!row.password) {
+                  throw new Error('Password is required for new admin account');
                 }
+                adminData.password = String(row.password).trim();
                 await createAdminAccount(adminData);
                 importResults.value.success++;
                 importResults.value.logs.push(`✅ Created admin: ${adminData.username}`);
@@ -629,25 +670,25 @@ const processExcelImport = async () => {
                 gmail: String(row.gmail || '').trim()
               };
               
-              // Only include password for new accounts
-              if (row.password) {
-                managerData.password = String(row.password).trim();
-              }
-              
               // Check for existing manager account (match by username)
               const existingManager = existingAccounts.find(m => m.username === managerData.username);
               
               if (existingManager) {
-                // Update existing manager account - remove password field to preserve existing password
-                delete managerData.password;
+                // Fail if password is provided for existing account
+                if (row.password) {
+                  throw new Error('Cannot update password for existing manager account through import');
+                }
+                
+                // Update existing manager account - don't touch password
                 await updateManagerAccount(existingManager.manager_id, managerData);
                 importResults.value.success++;
                 importResults.value.logs.push(`✅ Updated manager: ${managerData.username}`);
               } else {
                 // Create new manager account - password is required
-                if (!managerData.password) {
-                  throw new Error('Password is required for new accounts');
+                if (!row.password) {
+                  throw new Error('Password is required for new manager account');
                 }
+                managerData.password = String(row.password).trim();
                 await createManagerAccount(managerData);
                 importResults.value.success++;
                 importResults.value.logs.push(`✅ Created manager: ${managerData.username}`);
@@ -655,7 +696,7 @@ const processExcelImport = async () => {
             }
           } catch (error) {
             importResults.value.failed++;
-            importResults.value.logs.push(`❌ Error processing ${massImportType.value.slice(0, -1)}: ${row.name || row.username} - ${error.message}`);
+            importResults.value.logs.push(`❌ Error processing ${massImportType.value.slice(0, -1)}: ${row.name || row.username || 'Unknown'} - ${error.message}`);
             console.error(`Error processing account:`, error);
           }
         }
