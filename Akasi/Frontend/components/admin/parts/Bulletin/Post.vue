@@ -1,6 +1,10 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
-
+import { 
+  fetchPostDetails as fetchPostDetailsAPI, 
+  deletePost as deletePostAPI, 
+  getFileUrl 
+} from '~/services/bulletinService';
 
 // Add at top of script
 const EXCEL_MIME_TYPES = [
@@ -10,6 +14,34 @@ const EXCEL_MIME_TYPES = [
 ];
 
 const isExcelFile = (mimeType) => EXCEL_MIME_TYPES.includes(mimeType);
+
+// Add this function to your <script setup> in PostA.vue
+const handleVideoError = (event, file) => {
+  console.error(`Video error for ${file.file_name}:`, event);
+  fileLoadErrors.value[file.file_id] = true;
+  
+  // Check the video URL accessibility
+  fetch(getFileUrl(file.file_id))
+    .then(response => {
+      console.log(`Video ${file.file_id} response:`, 
+        response.status, 
+        response.headers.get('Content-Type'),
+        response.headers.get('Content-Length')
+      );
+      
+      // Check if the content length is reasonable
+      const contentLength = response.headers.get('Content-Length');
+      if (contentLength) {
+        const sizeMB = parseInt(contentLength) / (1024 * 1024);
+        console.log(`Video size: ${sizeMB.toFixed(2)} MB`);
+        
+        if (sizeMB > 50) {
+          console.warn(`Large video detected (${sizeMB.toFixed(2)} MB). This may cause playback issues.`);
+        }
+      }
+    })
+    .catch(err => console.error(`Fetch error for video ${file.file_id}:`, err));
+};
 
 // Define props with default values
 const props = defineProps({
@@ -33,13 +65,11 @@ const isLoading = ref(true);
 const postDetails = ref(props.post);
 const fileLoadErrors = ref({});
 const deleteTimeout = ref(null);
-const pdfLoadError = ref(false);
+const isDeleted = ref(false);
 
-async function fetchPostDetails() {
+async function loadPostDetails() {
   try {
-    const response = await fetch(`http://localhost:3001/posts/${props.post.post_id}`);
-    if (!response.ok) throw new Error('Failed to fetch post details');
-    postDetails.value = await response.json();
+    postDetails.value = await fetchPostDetailsAPI(props.post.post_id);
   } catch (error) {
     console.error('Error fetching post details:', error);
   } finally {
@@ -48,7 +78,7 @@ async function fetchPostDetails() {
 }
 
 // Debounced delete function
-async function deletePost() {
+async function handleDeletePost() {
   if (isDeleting.value) return;
   
   try {
@@ -59,22 +89,16 @@ async function deletePost() {
       clearTimeout(deleteTimeout.value);
     }
     
-    // Set timeout to prevent rapid consecutive calls
-    deleteTimeout.value = setTimeout(async () => {
-      const response = await fetch(`http://localhost:3001/posts/${props.post.post_id}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok && response.status !== 404) {
-        throw new Error('Delete failed');
-      }
-      
-      emit('delete-post', props.post.post_id);
-    }, 300);
-
+    await deletePostAPI(props.post.post_id);
+    
+    // Mark as deleted immediately
+    isDeleted.value = true;
+    
+    // Notify parent component immediately after successful deletion
+    emit('delete-post', props.post.post_id);
+    
   } catch (error) {
-    console.error('Error:', error);
-  } finally {
+    console.error('Error deleting post:', error);
     isDeleting.value = false;
   }
 }
@@ -91,7 +115,18 @@ function editPost() {
 }
 
 const handleImageError = (file) => {
+  console.error(`Failed to load image: ${file.file_name} (ID: ${file.file_id})`);
   fileLoadErrors.value[file.file_id] = true;
+  
+  // For debugging - check if the URL is accessible
+  fetch(getFileUrl(file.file_id))
+    .then(response => {
+      console.log(`File ${file.file_id} response:`, 
+        response.status, 
+        response.headers.get('Content-Type')
+      );
+    })
+    .catch(err => console.error(`Fetch error for ${file.file_id}:`, err));
 };
 
 const handleIframeLoad = (fileId) => {
@@ -138,13 +173,11 @@ const getFileIcon = (mimeType) => {
   return 'mdi:file-document-outline';
 };
 
-onMounted(fetchPostDetails);
-
-
+onMounted(loadPostDetails);
 </script>
 
 <template>
-  <div class="relative p-4 bg-white rounded-lg shadow">
+  <div v-if="!isDeleted" class="relative p-4 transition-all duration-300 bg-white rounded-lg shadow">
     <div v-if="isDeleting" class="absolute inset-0 z-10 flex items-center justify-center bg-black bg-opacity-50 rounded-lg">
       <div class="text-white">Deleting...</div>
     </div>
@@ -153,7 +186,7 @@ onMounted(fetchPostDetails);
       <PisayLogo alt="Avatar" class="w-20 h-20 rounded-full" />
       <div>
         <div class="text-lg font-semibold">Health Service Unit</div>
-        <div class="text-gray-500">{{ post.date }}</div>
+        <div class="text-gray-500">{{ new Date(post.created_at).toLocaleString() }}</div>
       </div>
       <button @click="editPost" class="p-2 ml-auto">
         <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
@@ -164,131 +197,146 @@ onMounted(fetchPostDetails);
       </button>
     </div>
 
-    <p class="mb-4 text-gray-700">{{ post?.text }}</p>
+    <p v-if="post?.text" class="mb-4 text-gray-700">{{ post?.text }}</p>
+    <p v-if="post?.caption" class="mb-4 text-gray-700">{{ post.caption }}</p>
+    
     <div class="post-content">
-      <p>{{ post.caption }}</p>
-      
       <div v-if="isLoading" class="text-center">Loading files...</div>
-      <div v-else>
-        <div v-if="postDetails?.files?.length" class="grid gap-4">
-          <div v-for="file in postDetails.files" :key="file.file_id">
-            <!-- Images -->
-            <div v-if="file.file_type === 'image'" class="relative">
-              <img 
-                :src="`http://localhost:3001/files/${file.file_id}`" 
-                :alt="file.file_name" 
-                class="h-auto max-w-full rounded-lg shadow-md"
-                @error="handleImageError(file)"
-              />
+      <div v-else-if="postDetails?.files?.length" class="grid gap-4">
+        <div v-for="file in postDetails.files" :key="file.file_id">
+          <!-- Images -->
+          <div v-if="file.file_type === 'image'" class="relative">
+            <img 
+              :src="getFileUrl(file.file_id)" 
+              :alt="file.file_name" 
+              class="h-auto max-w-full rounded-lg shadow-md"
+              @error="handleImageError(file)"
+            />
+            <div v-if="fileLoadErrors[file.file_id]" class="p-4 text-center text-red-500">
+              Failed to load image: {{ file.file_name }}
+              <div class="mt-2">
+                <a 
+                  :href="getFileUrl(file.file_id)"
+                  class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
+                  download
+                >
+                  Download Instead
+                </a>
+              </div>
             </div>
+          </div>
 
-            <!-- Videos -->
-            <div v-else-if="file.file_type === 'video'" class="relative">
+          <!-- Videos -->
+          <div v-else-if="file.file_type === 'video'" class="relative">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center space-x-2">
+                <Icon icon="mdi:video" class="w-6 h-6 text-blue-500" />
+                <span>{{ file.file_name }}</span>
+              </div>
+              <a 
+                :href="getFileUrl(file.file_id)"
+                class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
+                download
+              >
+                Download Video
+              </a>
+            </div>
+            <div class="relative">
               <video 
-                :src="`http://localhost:3001/files/${file.file_id}`" 
+                :src="getFileUrl(file.file_id)" 
                 controls
+                preload="metadata"
                 class="w-full rounded-lg shadow-md"
+                @error="(e) => handleVideoError(e, file)"
               >
                 Your browser does not support video playback.
               </video>
-            </div>
-
-            <!-- PDFs -->
-            <div v-else-if="getFileViewerComponent(file) === 'pdf'" class="p-4 border rounded-lg shadow-md">
-              <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center space-x-2">
-                  <Icon icon="mdi:file-pdf" class="w-6 h-6 text-red-500" />
-                  <span>{{ file.file_name }}</span>
+              <div v-if="fileLoadErrors[file.file_id]" class="p-4 text-center text-red-500">
+                Failed to load video: {{ file.file_name }}
+                <div class="mt-2">
+                  <a 
+                    :href="getFileUrl(file.file_id)"
+                    class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
+                    download
+                  >
+                    Download Video
+                  </a>
                 </div>
-                <a 
-                  :href="`http://localhost:3001/files/${file.file_id}`"
-                  class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
-                  target="_blank"
-                >
-                  Open PDF in New Tab
-                </a>
               </div>
-              <object
-                :data="`http://localhost:3001/files/${file.file_id}`"
-                type="application/pdf"
-                class="w-full h-[600px]"
+            </div>
+          </div>
+
+          <!-- PDFs -->
+          <div v-else-if="getFileViewerComponent(file) === 'pdf'" class="p-4 border rounded-lg shadow-md">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center space-x-2">
+                <Icon icon="mdi:file-pdf" class="w-6 h-6 text-red-500" />
+                <span>{{ file.file_name }}</span>
+              </div>
+              <a 
+                :href="getFileUrl(file.file_id)"
+                class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
+                target="_blank"
               >
-                <p>
-                  It appears you don't have a PDF plugin for this browser.
-                  You can <a :href="`http://localhost:3001/files/${file.file_id}`" download>download the PDF file</a>
-                  to view it.
-                </p>
-              </object>
+                Open PDF in New Tab
+              </a>
             </div>
+            <object
+              :data="getFileUrl(file.file_id)"
+              type="application/pdf"
+              class="w-full h-[600px]"
+              @error="handleIframeError(file.file_id)"
+            >
+              <p>
+                It appears you don't have a PDF plugin for this browser or the PDF couldn't be loaded.
+                You can <a :href="getFileUrl(file.file_id)" download>download the PDF file</a>
+                to view it.
+              </p>
+            </object>
+          </div>
 
-            <!-- PDF Files using PDFvuer -->
-            <div v-else-if="getFileViewerComponent(file) === 'pdfAlt'" class="p-4 border rounded-lg shadow-md">
-              <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center space-x-2">
-                  <Icon icon="mdi:file-pdf" class="w-6 h-6 text-red-500" />
-                  <span>{{ file.file_name }}</span>
-                </div>
-                <a 
-                  :href="`http://localhost:3001/files/${file.file_id}`"
-                  class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
-                  target="_blank"
-                >
-                  Open PDF in New Tab
-                </a>
+          <!-- Office Files -->
+          <div v-else-if="getFileViewerComponent(file) === 'office'" class="p-4 border rounded-lg shadow-md">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <Icon :icon="getFileIcon(file.mime_type)" class="w-6 h-6"/>
+                <span>{{ file.file_name }}</span>
               </div>
-              <PDFvuer 
-                :src="`http://localhost:3001/files/${file.file_id}`" 
-                width="100%" 
-                height="600px"
-                @error="pdfLoadError = true"
-              />
-              <div v-if="pdfLoadError" class="mt-2 text-red-500">
-                Failed to load PDF. <a :href="`http://localhost:3001/files/${file.file_id}`" download>Download PDF</a>
-              </div>
+              <a 
+                :href="getFileUrl(file.file_id)"
+                class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
+                download
+              >
+                Download
+              </a>
             </div>
+          </div>
 
-            <!-- Office Files -->
-            <div v-else-if="getFileViewerComponent(file) === 'office'" class="p-4 border rounded-lg shadow-md">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-2">
-                  <Icon :icon="getFileIcon(file.mime_type)" class="w-6 h-6"/>
-                  <span>{{ file.file_name }}</span>
-                </div>
-                <a 
-                  :href="`http://localhost:3001/files/${file.file_id}`"
-                  class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
-                  download
-                >
-                  Download
-                </a>
+          <!-- Other Files -->
+          <div v-else class="p-4 border rounded-lg shadow-md">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <Icon icon="mdi:file-document-outline" class="w-6 h-6"/>
+                <span>{{ file.file_name }}</span>
               </div>
-            </div>
-
-            <!-- Other Files -->
-            <div v-else class="p-4 border rounded-lg shadow-md">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-2">
-                  <Icon icon="mdi:file-document-outline" class="w-6 h-6"/>
-                  <span>{{ file.file_name }}</span>
-                </div>
-                <a 
-                  :href="`http://localhost:3001/files/${file.file_id}`"
-                  class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
-                  download
-                >
-                  Download
-                </a>
-              </div>
+              <a 
+                :href="getFileUrl(file.file_id)"
+                class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
+                download
+              >
+                Download
+              </a>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="flex justify-end space-x-2">
-      <button @click="deletePost" 
-              :disabled="isDeleting" 
-              class="px-4 py-2 text-white bg-red-500 rounded-lg">
+    <div class="flex justify-end mt-4 space-x-2">
+      <button 
+        @click="handleDeletePost" 
+        :disabled="isDeleting" 
+        class="px-4 py-2 text-white bg-red-500 rounded-lg hover:bg-red-600">
         {{ isDeleting ? 'Deleting...' : 'Delete' }}
       </button>
     </div>

@@ -1,6 +1,6 @@
 <script setup>
-import { ref } from 'vue';
-// import axios from 'axios';
+import { ref, watch, onMounted } from 'vue';
+import { getFileUrl } from '../../../../services/bulletinService'; // Import the getFileUrl function
 
 const props = defineProps({
   post: {
@@ -15,15 +15,43 @@ const emit = defineEmits(['add-post', 'close']);
 const isLoading = ref(false);
 const error = ref(null);
 
-watch(props.post, (newPost) => {
+watch(() => props.post, (newPost) => {
   if (newPost) {
     localText.value = newPost.text || '';
-    localMediaFiles.value = newPost.mediaFiles.map(file => ({
-      type: file.type,
-      name: file.name,
-      preview: file.preview || file.src,
-      file: file.file || null
-    })) || [];
+    
+    // Handle existing files from backend
+    if (newPost.files && newPost.files.length) {
+      localMediaFiles.value = newPost.files.map(file => {
+        // Determine file type based on mime_type
+        let fileType = 'document';
+        if (file.mime_type?.startsWith('image/')) {
+          fileType = 'image';
+        } else if (file.mime_type?.startsWith('video/')) {
+          fileType = 'video';
+        } else if (file.mime_type?.startsWith('application/pdf')) {
+          fileType = 'pdf';
+        }
+        
+        return {
+          type: fileType,
+          name: file.file_name,
+          // Use proper URL for existing files
+          preview: getFileUrl(file.file_id),
+          fileId: file.file_id,
+          // No file property for existing files
+        };
+      });
+    } else if (newPost.mediaFiles) {
+      // Handle locally added files that haven't been uploaded yet
+      localMediaFiles.value = newPost.mediaFiles.map(file => ({
+        type: file.type,
+        name: file.name,
+        preview: file.preview || file.src,
+        file: file.file || null
+      }));
+    } else {
+      localMediaFiles.value = [];
+    }
   } else {
     localText.value = '';
     localMediaFiles.value = [];
@@ -36,16 +64,81 @@ function handleFileUpload(event) {
   files.forEach(file => {
     const reader = new FileReader();
     reader.onload = (e) => {
+      // More robust file type detection
+      let fileType = 'document';
+      if (file.type.startsWith('image/')) {
+        fileType = 'image';
+      } else if (file.type.startsWith('video/')) {
+        fileType = 'video';
+      } else if (file.type.startsWith('application/pdf')) {
+        fileType = 'pdf';
+      }
+      
       localMediaFiles.value.push({
-        file: file, // Store the actual file object
+        file: file,
         preview: e.target.result,
-        type: file.type.split('/')[0],
+        type: fileType,
         name: file.name
       });
     };
     reader.readAsDataURL(file);
   });
 }
+
+// Improve handleImageError to add more debugging
+function handleImageError(e) {
+  console.error('Media failed to load:', e.target.src);
+  // For images
+  if (e.target.tagName.toLowerCase() === 'img') {
+    e.target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJmZWF0aGVyIGZlYXRoZXItaW1hZ2UiPjxyZWN0IHg9IjMiIHk9IjMiIHdpZHRoPSIxOCIgaGVpZ2h0PSIxOCIgcng9IjIiIHJ5PSIyIj48L3JlY3Q+PGNpcmNsZSBjeD0iOC41IiBjeT0iOC41IiByPSIxLjUiPjwvY2lyY2xlPjxwb2x5bGluZSBwb2ludHM9IjIxIDE1IDE2IDEwIDUgMjEiPjwvcG9seWxpbmU+PC9zdmc+';
+  }
+  // Add fallback content for videos
+  if (e.target.tagName.toLowerCase() === 'video') {
+    const parent = e.target.parentNode;
+    const errorMsg = document.createElement('div');
+    errorMsg.className = 'p-4 bg-gray-100 rounded-lg text-center';
+    errorMsg.textContent = 'Video cannot be played';
+    parent.replaceChild(errorMsg, e.target);
+  }
+}
+
+// Add a function to check file URLs
+function debugFileUrl(file) {
+  if (file.fileId) {
+    const url = getFileUrl(file.fileId);
+    console.log(`Debug: File URL for ${file.name} (ID: ${file.fileId}): ${url}`);
+    
+    // Test fetch the URL
+    fetch(url)
+      .then(response => {
+        console.log(`URL ${url} responded with status: ${response.status}`);
+        if (!response.ok) throw new Error(`Response not OK: ${response.status}`);
+        return response.headers.get('Content-Type');
+      })
+      .then(contentType => {
+        console.log(`Content-Type for ${file.name}: ${contentType}`);
+      })
+      .catch(err => {
+        console.error(`Error checking ${url}:`, err);
+      });
+    
+    return url;
+  }
+  return file.preview;
+}
+
+// Add this to debug your files when the component mounts
+onMounted(() => {
+  if (props.post?.files?.length) {
+    console.log('Debugging attached files:', props.post.files);
+    props.post.files.forEach(file => {
+      debugFileUrl({
+        name: file.file_name,
+        fileId: file.file_id
+      });
+    });
+  }
+});
 
 function removeFile(index) {
   localMediaFiles.value.splice(index, 1);
@@ -130,11 +223,11 @@ function resetPost() {
 
   <!-- Media Previews -->
   <div class="grid grid-cols-1 gap-4 mt-5 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 max-h-60">
-    <div v-for="(file, index) in localMediaFiles" :key="file.name" class="relative group">
+    <div v-for="(file, index) in localMediaFiles" :key="index" class="relative group">
       <!-- Image Preview -->
       <div v-if="file.type === 'image'" class="relative aspect-w-16 aspect-h-9">
         <img 
-          :src="file.preview" 
+          :src="debugFileUrl(file)"
           :alt="file.name"
           class="object-cover w-full h-full rounded-lg shadow-md"
           @error="handleImageError"
@@ -144,18 +237,36 @@ function resetPost() {
       <!-- Video Preview -->
       <div v-else-if="file.type === 'video'" class="relative aspect-w-16 aspect-h-9">
         <video 
-          :src="file.preview" 
+          :src="debugFileUrl(file)"
           controls
           class="w-full h-full rounded-lg shadow-md"
+          @error="handleImageError"
         >
           Your browser does not support video playback.
         </video>
       </div>
 
+      <!-- PDF Preview -->
+      <div v-else-if="file.type === 'pdf'" class="p-4 border rounded-lg shadow-md">
+        <div class="flex items-center space-x-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <line x1="10" y1="9" x2="8" y2="9"></line>
+          </svg>
+          <span class="truncate">{{ file.name }}</span>
+        </div>
+      </div>
+
       <!-- Document Preview -->
       <div v-else class="p-4 border rounded-lg shadow-md">
         <div class="flex items-center space-x-2">
-          <Icon icon="mdi:file-document-outline" class="w-6 h-6"/>
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
           <span class="truncate">{{ file.name }}</span>
         </div>
       </div>
@@ -165,7 +276,10 @@ function resetPost() {
         @click="removeFile(index)" 
         class="absolute p-1 text-white bg-red-500 rounded-full -top-2 -right-2 hover:bg-red-600"
       >
-        <Icon icon="mdi:close" class="w-4 h-4"/>
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
       </button>
     </div>
   </div>

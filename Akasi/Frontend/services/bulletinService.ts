@@ -1,4 +1,4 @@
-import { get, post, put, del } from './apiService';
+import { get, post, put, del } from './apiService.js';
 
 const BASE_URL = '/posts';
 const FILES_URL = '/files';
