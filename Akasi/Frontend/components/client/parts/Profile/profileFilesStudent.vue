@@ -107,6 +107,7 @@
 
     // Improved downloadFile function
 function downloadFile(file) {
+    console.log('dfkvndskvnks', file.blob)
     if (!file || !file.url) {
         showToast({
             message: 'No file available to download',
@@ -119,7 +120,7 @@ function downloadFile(file) {
         // If we have a blob, create a direct download from it
         if (file.blob) {
             const a = document.createElement('a');
-            const url = URL.createObjectURL(blob);
+            const url = URL.createObjectURL(file.blob);
 
             console.log(url)
             console.log(file.blob)
@@ -136,7 +137,7 @@ function downloadFile(file) {
         } else {
             // Fallback to the existing URL
             const a = document.createElement('a');
-            a.href = file.url;
+            a.href = file.url; 
             a.download = file.fileName || `${file.type}_${file.id}.${getFileExtension(file)}`;
             document.body.appendChild(a);
             a.click();
@@ -495,6 +496,8 @@ async function viewFile(file) {
             blob: blob,
             isLoading: false
         };
+
+        console.log(selectedFile.value.blob, 'fignsrin')
 
     } catch (error) {
         console.error('Error viewing file:', error);
@@ -1417,7 +1420,7 @@ async function deleteFile() {
             @click="downloadFile(selectedFile)"
             class="px-3 py-1 bg-blue-500 text-white rounded"
           >
-            Download Instead
+            Download Instead {{ selectedFile.url }}
           </button>
         </div>
         <img 

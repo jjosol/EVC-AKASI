@@ -27,14 +27,60 @@
                   </div>
 
                   <div class="time-picker mb-4">
-                    <p>Select Time</p>
-                    <select v-model="selectedHour" class="time-picker-select">
-                      <option v-for="hour in hours" :key="hour" :value="hour">{{ hour < 10 ? '0' + hour : hour }}</option>
-                    </select>
-                    <span>:</span>
-                    <select v-model="selectedMinute" class="time-picker-select">
-                      <option v-for="minute in minutes" :key="minute" :value="minute">{{ minute < 10 ? '0' + minute : minute }}</option>
-                    </select>
+                    <div class="flex flex-col space-y-4">
+                      <span class="flex items-center space-x-4">
+                        <label for="hour-select" class="block text-sm font-medium text-gray-700 mb-1">Select Hour:</label>
+                        <select 
+                          id="hour-select"
+                          v-model="selectedHour" 
+                          class="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-[#2f4a71] focus:border-[#2f4a71]"
+                          @change="selectHour(selectedHour)"
+                        >
+                          <option value="">Select Hour</option>
+                          <option 
+                            v-for="hour in availableHours" 
+                            :key="hour" 
+                            :value="hour"
+                          >
+                            {{ hour < 10 ? '0' + hour : hour }}
+                          </option>
+                        </select>
+                      </span> 
+                      
+                      <span v-if="selectedHour !== null" class="flex items-center space-x-4">
+                        <label for="minute-select" class="block text-sm font-medium text-gray-700 mb-1">Select Minute:</label>
+                        <select 
+                          id="minute-select"
+                          v-model="selectedMinute" 
+                          class="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-[#2f4a71] focus:border-[#2f4a71]"
+                          @change="checkTimeSlotAvailability()"
+                        >
+                          <option value="">Select Minute</option>
+                          <option 
+                            v-for="minute in availableMinutes" 
+                            :key="minute" 
+                            :value="minute"
+                          >
+                            {{ minute < 10 ? '0' + minute : minute }}
+                          </option>
+                        </select>
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <!-- Show message when no time slots are available -->
+                  <div v-if="availableHours.length === 0 && !isWeekend(selectedDate.rawDate)" 
+                      class="p-2 bg-yellow-100 text-yellow-800 rounded mb-4">
+                    No time slots available for this date. Please select another date.
+                  </div>
+                  <!-- Add a warning message if the selected time is already booked -->
+                  <div v-if="!isSelectedTimeAvailable && selectedHour !== null && selectedMinute !== null" 
+                      class="p-2 bg-red-100 text-red-700 rounded mb-4">
+                    This time slot is already booked. Please select a different time.
+                  </div>
+
+                  <div v-if="isWeekend(selectedDate.rawDate)" class="p-2 bg-yellow-100 text-yellow-800 rounded mb-4">
+                    Note: Appointments cannot be scheduled on weekends.
                   </div>
                   
                   <!-- Complaint -->
@@ -207,7 +253,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, nextTick} from 'vue';
 import moment from 'moment-timezone';
 import { useProfile } from '~/composables/useProfile';
 
@@ -216,8 +262,15 @@ const showModal = ref(false);
 const showCloseButton = ref(true);
 const closeOnOverlayClick = ref(true);
 
+const isSelectedTimeAvailable = ref(true);
+
 // Define emits
 const emit = defineEmits(['update-hour', 'update-minute', 'modal-closed', 'modal-opened']);
+
+const formatBookedTime = (timeSlot) => {
+  const [hour, minute] = timeSlot.split(':').map(Number);
+  return formatTime(hour, minute);
+};
 
 // Component props
 const props = defineProps({
@@ -258,16 +311,84 @@ const formatDate = (dateString) => {
 const selectedAppointmentRecord = ref(null);
 
 // Form state
-const selectedHour = ref(9); // Default hour
 const selectedMinute = ref(0); // Default minute
 const complaint = ref('');
 const statusMessage = ref('');
 const statusType = ref('');
 const isSubmitting = ref(false);
+// With this ref
+const selectedHour = ref(null);
+
+// And add a selectHour function
+const selectHour = (hour) => {
+  selectedHour.value = hour;
+  emit("update-hour", hour);
+  
+  // Get available minutes for this hour
+  const hourIndex = hourToIndex(hour);
+  
+  // If there are available minutes, select the first one
+  if (hourIndex !== -1 && minutesMap.value[hourIndex].length > 0) {
+    selectedMinute.value = minutesMap.value[hourIndex][0];
+    emit("update-minute", selectedMinute.value);
+  } else {
+    selectedMinute.value = null;
+  }
+  
+  checkTimeSlotAvailability();
+};
 
 // Available options
-const hours = ref([7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
-const minutes = ref([0, 15, 30, 45]);
+const hours = ref([15, 16]);
+
+// Create a 2D array for minutes where each index corresponds to an hour
+// Initialize with all minutes available for each hour
+const minutesMap = ref([
+  [0, 20, 40], // Hour 15
+  [0, 20, 40] 
+
+]);
+
+// Map hour value to index in the minutesMap array
+const hourToIndex = (hour) => {
+  // Map from hour value (7-16) to array index (0-9)
+  // This ensures 7:00 is at index 0, 8:00 is at index 1, etc.
+  return hours.value.findIndex(h => h === Number(hour));
+};
+
+const bookedTimeSlots = ref([]); 
+
+const checkTimeSlotAvailability = () => {
+  if (selectedHour.value !== null && selectedMinute.value !== null) {
+    const available = isTimeSlotAvailable(selectedHour.value, selectedMinute.value);
+    isSelectedTimeAvailable.value = available;
+    
+    console.log(
+      `Time ${selectedHour.value}:${selectedMinute.value} availability check:`, 
+      available ? 'AVAILABLE' : 'BOOKED'
+    );
+    
+    // If the selected time is not available, reset the minute selection
+    if (!available) {
+      selectedMinute.value = null;
+      
+      // If no minutes are available for this hour, reset the hour too
+      if (availableMinutes.value.length === 0) {
+        selectedHour.value = null;
+      }
+    }
+  }
+};
+
+const isWeekend = (date) => {
+  if (!date) return false;
+  const day = moment(date).day();
+  return day === 0 || day === 6; // 0 is Sunday, 6 is Saturday
+};
+
+watch([selectedHour, selectedMinute], () => {
+  checkTimeSlotAvailability();
+});
 
 // Watch for changes and emit
 watch(selectedHour, (newHour) => {
@@ -280,10 +401,19 @@ watch(selectedMinute, (newMinute) => {
 
 // Modal controls
 const openModal = () => {
+  // Check if selected date is a weekend and show warning
+  if (selectedDate.value  && isWeekend(selectedDate.value.rawDate)) {
+    statusMessage.value = 'Appointments cannot be scheduled on weekends';
+    statusType.value = 'error';
+  } else {
+    statusMessage.value = '';
+  }
+  
   showModal.value = true;
   emit('modal-opened');
   document.body.classList.add('overflow-hidden');
 };
+
 
 const closeModal = () => {
   showModal.value = false;
@@ -314,6 +444,13 @@ const validateForm = () => {
     return false;
   }
   
+  // Check if selected date is a weekend
+  if (isWeekend(selectedDate.value.rawDate)) {
+    statusMessage.value = 'Appointments cannot be scheduled on weekends';
+    statusType.value = 'error';
+    return false;
+  }
+  
   if (selectedHour.value === null || selectedHour.value === undefined) {
     statusMessage.value = 'Please select an hour';
     statusType.value = 'error';
@@ -322,6 +459,13 @@ const validateForm = () => {
   
   if (selectedMinute.value === null || selectedMinute.value === undefined) {
     statusMessage.value = 'Please select a minute';
+    statusType.value = 'error';
+    return false;
+  }
+  
+  // Check if time slot is already booked
+  if (!isSelectedTimeAvailable.value) {
+    statusMessage.value = 'This time slot is already booked';
     statusType.value = 'error';
     return false;
   }
@@ -335,12 +479,170 @@ const validateForm = () => {
   return true;
 };
 
+const fetchAvailableTimeSlots = async (date) => {
+  if (!date) {
+    console.error('No date provided to fetchAvailableTimeSlots');
+    return;
+  }
+  
+  // If it's a weekend, reset everything and return
+  if (isWeekend(date)) {
+    console.log('Weekend date, clearing booked slots');
+    bookedTimeSlots.value = [];
+    
+    // Reset all minutes to be available
+    minutesMap.value = [
+      [0, 20, 40], // Hour 15
+      [0, 20, 40]  // Hour 16
+
+    ];
+    return;
+  }
+  
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication token not found');
+    }
+    
+    const formattedDate = moment(selectedDate.value.rawDate).tz("Asia/Manila").format('YYYY-MM-DD');
+    console.log(`Fetching booked slots for ${formattedDate}`);
+    
+    const response = await fetch(`http://localhost:3001/add-appointment/booked-slots?date=${formattedDate}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch booked time slots: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Received booked slots:', data);
+    
+    // FIRST: Reset all minutes to be available
+    // Create a fresh copy of the minutes array for each hour
+    minutesMap.value = [
+      [0, 20, 40], // Hour 15
+      [0, 20, 40]  // Hour 16
+    ];
+    
+    // SECOND: Process the booked slots and remove them from available minutes
+    if (Array.isArray(data)) {
+      // Store booked slots for display
+      bookedTimeSlots.value = data.map(slot => `${slot.hour}:${slot.minute}`);
+      console.log('Formatted booked slots:', bookedTimeSlots.value);
+      
+      // Now remove booked minutes from the minutesMap
+      data.forEach(slot => {
+        // Ensure values are numbers
+        const hour = Number(slot.hour);
+        const minute = Number(slot.minute);
+        
+        const hourIndex = hourToIndex(hour);
+        console.log(`Removing slot ${hour}:${minute}, hour index: ${hourIndex}`);
+        
+        if (hourIndex !== -1) {
+          // Remove the booked minute from the array using direct array manipulation
+          const currentMinutes = [...minutesMap.value[hourIndex]];
+          const minuteIndex = currentMinutes.indexOf(minute);
+          
+          if (minuteIndex !== -1) {
+            currentMinutes.splice(minuteIndex, 1);
+            // Replace the entire array for reactivity
+            minutesMap.value[hourIndex] = currentMinutes;
+            console.log(`Removed minute ${minute} from hour ${hour}, remaining: ${currentMinutes}`);
+          }
+        }
+      });
+    } else {
+      console.error('Received invalid data format from API:', data);
+      bookedTimeSlots.value = [];
+    }
+    
+    console.log('Updated minutes map:', minutesMap.value);
+    
+    // Reset selections if they're no longer available
+    if (selectedHour.value !== null && selectedMinute.value !== null) {
+      const hourIndex = hourToIndex(selectedHour.value);
+      
+      if (hourIndex === -1 || !minutesMap.value[hourIndex].includes(selectedMinute.value)) {
+        console.log(`Selected time ${selectedHour.value}:${selectedMinute.value} is no longer available`);
+        selectedMinute.value = null;
+        
+        // If hour has no available minutes, reset hour too
+        if (hourIndex !== -1 && minutesMap.value[hourIndex].length === 0) {
+          selectedHour.value = null;
+        }
+      }
+    }
+    
+    // Auto-select first available slot if nothing is selected
+    await nextTick();
+    if (selectedHour.value === null) {
+      // Find first hour with available minutes
+      const firstAvailableHourIndex = minutesMap.value.findIndex(minutes => minutes.length > 0);
+      
+      if (firstAvailableHourIndex !== -1) {
+        const hour = hours.value[firstAvailableHourIndex];
+        console.log(`Auto-selecting hour ${hour}`);
+        selectedHour.value = hour;
+        
+        // Select the first available minute for this hour
+        if (minutesMap.value[firstAvailableHourIndex].length > 0) {
+          const minute = minutesMap.value[firstAvailableHourIndex][0];
+          console.log(`Auto-selecting minute ${minute}`);
+          selectedMinute.value = minute;
+        }
+      }
+    }
+    
+  } catch (error) {
+    console.error('Error fetching booked time slots:', error);
+    statusMessage.value = 'Error loading available time slots';
+    statusType.value = 'error';
+  }
+};
+
+// Check if a specific hour-minute combination is available
+const isTimeSlotAvailable = (hour, minute) => {
+  if (hour === null || minute === null) return false;
+  
+  // Get the index for the hour in our hours array
+  const hourIndex = hourToIndex(hour);
+  if (hourIndex === -1) return false;
+  
+  // Check if this minute exists in the available minutes for this hour
+  return minutesMap.value[hourIndex].includes(minute);
+};
+
+
+watch(() => props.currentDay.date, (newDate) => {
+  if (newDate) {
+    fetchAvailableTimeSlots(newDate);
+  }
+}, { immediate: true });
+
+// Make sure we update the available slots whenever the date changes
+watch(() => selectedDate.value.rawDate, (newDate) => {
+  if (newDate) {
+    fetchAvailableTimeSlots(newDate);
+  }
+}, { immediate: true });
+
+
 // Update the submitAppointment function
 const submitAppointment = async () => {
   console.log(selectedDate.value.rawDate);
   try {
     // Reset status
     statusMessage.value = '';
+    
+    await fetchAvailableTimeSlots(selectedDate.value.rawDate);
+    
+    // Recheck time slot availability
+    checkTimeSlotAvailability();
     
     // Validate form
     if (!validateForm()) {
@@ -577,6 +879,30 @@ const canCancelAppointment = (appointment) => {
   return true;
 };
 
+// Return available minutes for the selected hour
+const availableMinutes = computed(() => {
+  if (selectedHour.value === null || isWeekend(selectedDate.value.rawDate)) {
+    return [];
+  }
+  
+  const hourIndex = hourToIndex(selectedHour.value);
+  if (hourIndex === -1) return [];
+  
+  return minutesMap.value[hourIndex];
+});
+
+// Return only hours that have at least one available minute
+const availableHours = computed(() => {
+  if (!selectedDate.value || isWeekend(selectedDate.value.rawDate)) {
+    return [];
+  }
+  
+  return hours.value.filter(hour => {
+    const hourIndex = hourToIndex(hour);
+    return hourIndex !== -1 && minutesMap.value[hourIndex].length > 0;
+  });
+});
+
 // Initialize with default values
 onMounted(() => {
   if (selectedHour.value !== null) {
@@ -586,8 +912,9 @@ onMounted(() => {
     emit("update-minute", selectedMinute.value);
   }
   
-  // Fetch upcoming appointments
+  // Fetch upcoming appointments and available time slots
   fetchUpcomingAppointments();
+  fetchAvailableTimeSlots(selectedDate.value.rawDate);
 });
 
 // Expose methods for parent components
