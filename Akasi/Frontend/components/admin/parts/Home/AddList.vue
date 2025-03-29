@@ -401,7 +401,6 @@ const savePerson = async () => {
       remarks: selectedPerson.value.remarks || '',
       confined: Boolean(selectedPerson.value.confined),
       medAdministration: Boolean(selectedPerson.value.medicationAdministration),
-      intern: Boolean(selectedPerson.value.intern),
       fatality: Boolean(selectedPerson.value.fatality),
       intervention: selectedPerson.value.intervention || '',
       // Include diagnosis_ids array if present
@@ -736,7 +735,6 @@ const openEditModal = async (patient) => {
       complaints: diagnosisComplaints,
       remarks: consultationRecord.remarks,
       confined: consultationRecord.confined,
-      intern: consultationRecord.intern,
       medicationAdministration: consultationRecord.medAdministration,
       fatality: consultationRecord.fatality,
       intervention: consultationRecord.intervention,
@@ -1889,11 +1887,6 @@ const getStatusClass = (status) => {
           <div class="flex items-center space-x-2">
             <input type="checkbox" id="confined" v-model="selectedPerson.confined" class="text-blue-500 form-checkbox">
             <label for="confined" class="text-sm font-semibold">Confined</label>
-          </div>
-          <!-- Intern Checkbox -->
-          <div class="flex items-center space-x-2">
-            <input type="checkbox" id="intern" v-model="selectedPerson.intern" class="text-blue-500 form-checkbox">
-            <label for="intern" class="text-sm font-semibold">Intern</label>
           </div>
           <!-- Medicine Administration Checkbox -->
           <div class="flex items-center space-x-2">
