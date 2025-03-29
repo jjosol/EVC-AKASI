@@ -7,6 +7,11 @@ const props = defineProps({
   categories: {
     type: Array,
     default: () => []
+  },
+  // Add new props for pre-filled data
+  prefillData: {
+    type: Object,
+    default: () => ({})
   }
 })
 
@@ -18,6 +23,30 @@ const newItem = ref({
   count: 0,
   category_id: null
 })
+
+// Watch for prefill data changes
+watch(() => props.prefillData, (data) => {
+  if (data && Object.keys(data).length > 0) {
+    // Pre-fill form with provided data
+    if (data.medicineName) {
+      newItem.value.name = data.medicineName; // This line is correct
+    } else if (data.name) {
+      newItem.value.name = data.name; // Add this line to handle both property names
+    }
+    
+    if (data.categoryId) {
+      newItem.value.category_id = Number(data.categoryId);
+    }
+    
+    // Set today's date as default for new batches
+    if (data.isNewBatch) {
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+      newItem.value.expirationDate = formatDate(oneYearFromNow);
+      newItem.value.count = 1; // Default count
+    }
+  }
+}, { deep: true });
 
 const formErrors = ref({
   name: '',

@@ -8,8 +8,8 @@
     />
     <MedicineModal 
       :isOpen="isModalOpen && modalType === 'medicine'" 
-      :editItem="currentItem"
       :categories="categories"
+      :prefillData="currentItem"
       @closeModal="closeModal"
       @addItem="handleAddItem"
       @fetchCategories="fetchCategories"
@@ -41,7 +41,8 @@ const openModal = (data = {}) => {
   modalType.value = 'medicine'
   if (data.isNewBatch) {
     currentItem.value = { 
-      name: data.medicineName, 
+      name: data.medicineName, // This should be consistent with what MedicineModal expects
+      medicineName: data.medicineName, // Add this line to be consistent
       isNewBatch: true,
       categoryId: data.categoryId
     }

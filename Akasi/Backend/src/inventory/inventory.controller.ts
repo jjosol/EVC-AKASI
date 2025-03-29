@@ -19,9 +19,9 @@ export class InventoryController {
   async reduceInventory(
     @Param('med_id') med_id: string,
     @Param('medName') medName: string,
-    @Body() data: { quantity: number }
+    @Body('quantity') quantity: number  // now accepting quantity directly from the body
   ) {
-    return this.inventoryService.reduceInventory(Number(med_id), medName, data.quantity);
+    return this.inventoryService.reduceInventory(Number(med_id), medName, quantity);
   }
 
   @Post('increase/:med_id')
@@ -32,32 +32,34 @@ export class InventoryController {
     return this.inventoryService.increaseInventory(Number(med_id), data.medName, data.quantity);
   }
 
-  @Put(':id/:name')
+  // Changed route parameters for consistency: use med_id and medName
+  @Put(':med_id/:medName')
   async updateItem(
-    @Param('id') id: string,
-    @Param('name') name: string,
+    @Param('med_id') med_id: string,
+    @Param('medName') medName: string,
     @Body() data: any
   ) {
-    return this.inventoryService.updateItem(Number(id), name, data);
+    return this.inventoryService.updateItem(Number(med_id), medName, data);
   }
 
-  @Delete('group/:name')
-  async deleteGroupByName(@Param('name') name: string) {
-    return this.inventoryService.deleteGroupByName(name);
+  @Delete('group/:medName')
+  async deleteGroupByName(@Param('medName') medName: string) {
+    return this.inventoryService.deleteGroupByName(medName);
   }
 
-  // Place the more specific route BEFORE the general route
+  // Specific route for deleting by category; keep before the generic delete route
   @Delete('category/:id')
   async deleteCategory(@Param('id') id: string) {
     return this.inventoryService.deleteCategory(Number(id));
   }
 
-  @Delete(':id/:name')
+  // Changed route parameters for consistency: use med_id and medName
+  @Delete(':med_id/:medName')
   async deleteItem(
-    @Param('id') id: string,
-    @Param('name') name: string
+    @Param('med_id') med_id: string,
+    @Param('medName') medName: string
   ) {
-    return this.inventoryService.deleteItem(Number(id), name);
+    return this.inventoryService.deleteItem(Number(med_id), medName);
   }
 
   @Get('categories')

@@ -1,4 +1,4 @@
-import { get, post, put, del } from './apiService';
+import { get, post, put, del } from './apiService.js';
 
 const BASE_URL = '/consultation-records';
 const MED_ADMIN_URL = '/med-administration';
@@ -37,11 +37,53 @@ export const updateConsultationWithMedication = async (consultation_id: number) 
   return put(`${BASE_URL}/${consultation_id}`, { medAdministration: true });
 };
 
+// Utility function to validate medication dates
+export const validateMedicationDates = (startDate: string | Date, endDate: string | Date): { valid: boolean; message: string } => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Reset time part for date comparison
+  
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
+  
+  const end = new Date(endDate);
+  end.setHours(0, 0, 0, 0);
+  
+  // Check if start date is before today
+  if (start < today) {
+    return { valid: false, message: 'Start date cannot be before today' };
+  }
+  
+  // Check if end date is before today
+  if (end < today) {
+    return { valid: false, message: 'End date cannot be before today' };
+  }
+  
+  // Check if start and end dates are the same
+  if (start.getTime() === end.getTime()) {
+    return { valid: false, message: 'Start date and end date cannot be the same' };
+  }
+  
+  // Check if start date is after end date
+  if (start > end) {
+    return { valid: false, message: 'Start date must be before end date' };
+  }
+  
+  return { valid: true, message: '' };
+};
+
 export const fetchMedAdministrationRecords = async (consultation_id: number) => {
   return get(`${MED_ADMIN_URL}/consultation/${consultation_id}`);
 };
 
 export const createMedAdministrationRecord = async (data: any) => {
+  // Validate dates if they exist in the data
+  if (data.startDate && data.endDate) {
+    const validation = validateMedicationDates(data.startDate, data.endDate);
+    if (!validation.valid) {
+      throw new Error(validation.message);
+    }
+  }
+  
   return post(MED_ADMIN_URL, data);
 };
 
@@ -50,6 +92,14 @@ export const deleteMedAdministrationRecord = async (consultation_id: number) => 
 };
 
 export const updateMedAdministrationRecord = async (consultation_id: number, data: any) => {
+  // Validate dates if they exist in the data
+  if (data.startDate && data.endDate) {
+    const validation = validateMedicationDates(data.startDate, data.endDate);
+    if (!validation.valid) {
+      throw new Error(validation.message);
+    }
+  }
+  
   return put(`${MED_ADMIN_URL}/${consultation_id}`, data);
 };
 
