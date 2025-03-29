@@ -7,7 +7,7 @@ export class PostsService {
   constructor(
     private prisma: PrismaService,
     private storageService: StorageService
-  ) { }
+  ) {}
 
   async create(post: { admin_id: number; username: string; caption?: string }, files: Express.Multer.File[]) {
     try {
@@ -23,7 +23,7 @@ export class PostsService {
 
         // Handle files if any
         if (files?.length) {
-          const filePromises = files.map(file =>
+          const filePromises = files.map(file => 
             tx.hsu_bulletin_files.create({
               data: {
                 post_id: newPost.post_id,

@@ -146,25 +146,50 @@
         }
     }
 
+    const imageLoadError = ref(false);
+
     function downloadFile(file) {
-        if (!file || !file.url) {
-            showToast({
+    if (!file || (!file.url && !file.blob)) {
+        console.error('No file available to download');
+        showToast({
             message: 'No file available to download',
             type: 'error'
-            });
-            return;
-        }
-
-        // Create an anchor element and set the download attribute
-        const a = document.createElement('a');
-        a.href = file.url;
-        a.download = file.fileName || `${file.type}_${file.id}.${getFileExtension(file)}`;
-        document.body.appendChild(a);
-        a.click();
-        
-        // Clean up
-        document.body.removeChild(a);
+        });
+        return;
     }
+
+    try {
+        const a = document.createElement('a');
+        
+        if (file.blob) {
+            // If we have the blob directly, create an object URL from it
+            const url = URL.createObjectURL(file.blob);
+            a.href = url;
+            a.download = file.fileName || `${file.type}_${file.id}.${getFileExtension(file)}`;
+            document.body.appendChild(a);
+            a.click();
+            
+            // Clean up
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+        } else if (file.url) {
+            // If we already have a URL (typically an object URL from a blob)
+            a.href = file.url;
+            a.download = file.fileName || `${file.type}_${file.id}.${getFileExtension(file)}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    } catch (error) {
+        console.error('Download error:', error);
+        showToast({
+            message: 'Failed to download file: ' + error.message,
+            type: 'error'
+        });
+    }
+}
 
     // Function to format status text for display
     function formatStatus(status) {
@@ -310,45 +335,55 @@
         return uploadForm.value.certType && uploadForm.value.file;
     });
 
-    // Updated viewFile function to use the correct endpoint
+    // Updated viewFile function to use the API that works in profileFilesStudent.vue
     async function viewFile(file) {
         try {
             fileLoading.value = true;
-            selectedFile.value = { ...file }; // Set initial file info
+            fileError.value = '';
+            imageLoadError.value = false;
+
+            // Initialize with basic file info
+            selectedFile.value = { 
+                ...file,
+                isImage: false,
+                isLoading: true
+            };
+            
             showViewerModal.value = true;
             document.body.classList.add('overflow-hidden');
             
             const token = localStorage.getItem('token');
-            
-            if (!token) {
-                throw new Error('Authentication token not found');
-            }
+            if (!token) throw new Error('Authentication token not found');
 
             console.log(`Requesting file: ${file.type}/${file.id}`);
             
-            // The backend will verify that this file belongs to the current user
-            // Use the CORRECT endpoint for file viewing - note that we're using fetch-client-files now
-            const response = await fetch(`http://localhost:3001/fetch-client-files/file/${file.type}/${file.id}`, {
+            // Use the exact same endpoint string that works in profileFilesStudent.vue
+            const apiBaseUrl = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001';
+            
+            // Make the request with the admin endpoint that works
+            const response = await fetch(`${apiBaseUrl}/fetch-client-files-admin/file/${file.type}/${file.id}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
 
             if (!response.ok) {
-                // If file is not found or not authorized, backend returns 404
                 throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
             }
             
-            // Get file content as blob
+            // Retrieve the blob data
             const blob = await response.blob();
             console.log('Received blob size:', blob.size, 'type:', blob.type);
-
-            // Create URL for the blob
-            const url = URL.createObjectURL(blob);
-
-            // Always detect the mime type to ensure accuracy
-            let mimeType = await detectMimeType(blob);
             
+            if (blob.size === 0) {
+                throw new Error('Received empty file data');
+            }
+
+            // Generate a unique URL for this blob
+            const url = URL.createObjectURL(blob);
+            
+            // Detect the MIME type
+            const mimeType = await detectMimeType(blob);
             console.log('Detected MIME type:', mimeType);
             
             // Update the component state with the URL and detected mime type
@@ -357,7 +392,10 @@
                 url: url,
                 mimeType: mimeType,
                 fileName: getFileNameFromType(file.type, file.id, mimeType),
-                isImage: mimeType.startsWith('image/')
+                isImage: mimeType.startsWith('image/'),
+                isPdf: mimeType === 'application/pdf',
+                blob: blob,
+                isLoading: false
             };
 
         } catch (error) {
@@ -366,6 +404,11 @@
                 message: 'Failed to load file: ' + error.message,
                 type: 'error'
             });
+            
+            if (selectedFile.value?.url) {
+                URL.revokeObjectURL(selectedFile.value.url);
+            }
+            
             closeViewerModal();
         } finally {
             fileLoading.value = false;
@@ -410,16 +453,21 @@
         showAccessDeniedModal.value = true;
     }
     
-    // Close viewer modal and clean up
     function closeViewerModal() {
-        if (selectedFile.value && selectedFile.value.url) {
+        if (selectedFile.value) {
             // Revoke the object URL to free up memory
-            URL.revokeObjectURL(selectedFile.value.url);
+            if (selectedFile.value.url) {
+                URL.revokeObjectURL(selectedFile.value.url);
+            }
+            if (selectedFile.value.previewUrl && selectedFile.value.previewUrl !== selectedFile.value.url) {
+                URL.revokeObjectURL(selectedFile.value.previewUrl);
+            }
         }
         
         showViewerModal.value = false;
         document.body.classList.remove('overflow-hidden');
         selectedFile.value = null;
+        imageLoadError.value = false;
     }
 
     function formatDate(dateString) {
