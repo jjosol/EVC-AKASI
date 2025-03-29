@@ -1,17 +1,42 @@
 <script setup>
 import moment from 'moment-timezone';
 
-// Initialize with current date in Manila timezone
-const today = moment().tz("Asia/Manila");
-const selectedYear = ref(today.year());
-const selectedMonth = ref(today.month());
-const selectedDate = ref(today.toDate());
-const calendar = ref([]);
-const confinedCount = ref(0);
-const monthlyConsultationCount = ref(0);
-const yearlyConsultationCount = ref(0);
+const findEarliestAvailableDate = () => {
+  const now = moment().tz("Asia/Manila");
+  let candidate = now.clone(); // Start with today
+  
+  // If it's afternoon or evening, start with tomorrow
+  if (now.hour() >= 12) {
+    candidate.add(1, 'day').startOf('day');
+  }
+  
+  // Check up to 60 days ahead to ensure we find a date
+  for (let i = 0; i < 60; i++) {
+    // Only allow Monday (1), Wednesday (3), and Friday (5)
+    const dayOfWeek = candidate.day();
+    if (dayOfWeek !== 1 && dayOfWeek !== 3 && dayOfWeek !== 5) {
+      candidate.add(1, 'day');
+      continue;
+    }
+    
+    // Found a valid date (MWF and either not today or today morning)
+    return candidate.toDate();
+  }
+  
+  // Fallback - should never reach here
+  return now.clone().add(1, 'day').toDate();
+};
 
-const years = Array.from({ length: 7 }, (_, i) => moment().tz("Asia/Manila").year() - 6 + i);
+// Initialize with current date in Manila timezone
+const earliestDate = findEarliestAvailableDate();
+const today = moment().tz("Asia/Manila");
+const selectedYear = ref(moment(earliestDate).year());
+const selectedMonth = ref(moment(earliestDate).month());
+const selectedDate = ref(findEarliestAvailableDate());
+
+const calendar = ref([]);
+
+const years = Array.from({ length: 2 }, (_, i) => moment().tz("Asia/Manila").year() + i);
 const months = [
   "January", "February", "March", "April", "May", "June", 
   "July", "August", "September", "October", "November", "December"
@@ -76,8 +101,9 @@ watch([selectedYear, selectedMonth], () => {
   updateCalendar();
 }, { immediate: true });
 
+// Replace the existing openAddingList function
 const openAddingList = (day) => {
-  if (day.date) {
+  if (day.date && isDayClickable(day.date)) {
     selectedDate.value = day.date;
     // Emit the full date object
     emit('day-selected', {
@@ -104,8 +130,38 @@ const isSelected = (date) => {
   );
 };
 
+// Replace the existing isDayClickable function with this updated version
+const isDayClickable = (date) => {
+  if (!date) return false; // null dates are not clickable
+  
+  // Convert to moment objects for comparison
+  const dateToCheck = moment(date).tz("Asia/Manila").startOf('day');
+  const currentDate = moment().tz("Asia/Manila").startOf('day');
+  const currentTime = moment().tz("Asia/Manila");
+  const currentHour = currentTime.hour();
+  
+  // Check if it's a valid day (1 = Monday, 3 = Wednesday, 5 = Friday)
+  const dayOfWeek = dateToCheck.day();
+  const isValidDay = dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5;
+  
+  // Check if date is in the past
+  const isPastDay = dateToCheck.isBefore(currentDate);
+  
+  // Check if it's today but after morning (noon or later)
+  const isToday = dateToCheck.isSame(currentDate);
+  const isMorning = currentHour < 12;
+  
+  return isValidDay && !isPastDay && (!isToday || (isToday && isMorning));
+};
+
 onMounted(() => {
+  // Make sure calendar shows correct month
+  selectedYear.value = moment(selectedDate.value).year();
+  selectedMonth.value = moment(selectedDate.value).month();
   updateCalendar();
+  
+  // Emit the selected date so parent components know about it
+  emit('day-selected', { date: selectedDate.value });
 });
 
 defineExpose({
@@ -142,13 +198,21 @@ defineExpose({
       </thead>
       <tbody>
         <tr v-for="week in calendar" :key="week[0].date">
-          <td v-for="day in week" :key="day.date" :class="{
+          <td @click="openAddingList(day)" v-for="day in week" :key="day.date" :class="{
             'bg-green-200': isSelected(day.date),
-            'relative border border-gray-300 calendar-cell': true
+            'relative border border-gray-300 calendar-cell': true,
+            'hover:bg-blue-100': day.date && isDayClickable(day.date)
           }">
-            <div @click="openAddingList(day)" class="flex items-center justify-center w-full cursor-pointer">
+            <div 
+              class="flex items-center justify-center w-full"
+              :class="{ 
+                'cursor-pointer': day.date && isDayClickable(day.date),
+                'cursor-not-allowed': day.date && !isDayClickable(day.date),
+              }"
+            >
               <span :class="{
-                'border-b-4 border-[#2f4a71]': isToday(day.date)
+                'border-b-4 border-[#2f4a71]': isToday(day.date),
+                'opacity-50': day.date && !isDayClickable(day.date)
               }">
                 {{ day.date ? day.date.getDate() : '' }}
               </span>

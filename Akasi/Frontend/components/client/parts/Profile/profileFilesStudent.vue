@@ -480,6 +480,8 @@ async function viewFile(file) {
             isLoading: false
         };
 
+        console.log(selectedFile.value.blob, 'fignsrin')
+
     } catch (error) {
         console.error('Error viewing file:', error);
         fileError.value = error.message || 'Failed to load file';
@@ -1401,7 +1403,7 @@ async function deleteFile() {
             @click="downloadFile(selectedFile)"
             class="px-3 py-1 bg-blue-500 text-white rounded"
           >
-            Download Instead
+            Download Instead {{ selectedFile.url }}
           </button>
         </div>
         <img 
