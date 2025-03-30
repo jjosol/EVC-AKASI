@@ -401,7 +401,6 @@ const savePerson = async () => {
       remarks: selectedPerson.value.remarks || '',
       confined: Boolean(selectedPerson.value.confined),
       medAdministration: Boolean(selectedPerson.value.medicationAdministration),
-      intern: Boolean(selectedPerson.value.intern),
       fatality: Boolean(selectedPerson.value.fatality),
       intervention: selectedPerson.value.intervention || '',
       // Include diagnosis_ids array if present
@@ -744,7 +743,6 @@ const openEditModal = async (patient) => {
       complaints: diagnosisComplaints,
       remarks: consultationRecord.remarks,
       confined: consultationRecord.confined,
-      intern: consultationRecord.intern,
       medicationAdministration: consultationRecord.medAdministration,
       fatality: consultationRecord.fatality,
       intervention: consultationRecord.intervention,
@@ -1960,6 +1958,7 @@ const pendingMedicineQuantities = ref({}); // Track quantities that are "reserve
               class="text-blue-500 form-checkbox">
             <label for="confined" class="text-sm font-semibold">Confined</label>
           </div>
+<<<<<<< HEAD
           <!-- Intern Checkbox -->
           <div class="flex items-center space-x-2">
             <input 
@@ -1970,6 +1969,8 @@ const pendingMedicineQuantities = ref({}); // Track quantities that are "reserve
               class="text-blue-500 form-checkbox">
             <label for="intern" class="text-sm font-semibold">Intern</label>
           </div>
+=======
+>>>>>>> 01cb21145952b9e54151b98a229e618dc974e70d
           <!-- Medicine Administration Checkbox -->
           <div class="flex items-center space-x-2">
             <input 
