@@ -83,10 +83,10 @@ model consultation_records {
   complaint          String   @db.VarChar(225)
   remarks            String   @db.VarChar(500)
   intervention       String   @db.VarChar(500)
-  action             String   @db.VarChar(500) @default("")
+  action             String   @default("") @db.VarChar(500)
   confined           Boolean
   medAdministration  Boolean
-  disposition        String   @db.VarChar(500) @default("")
+  disposition        String   @default("") @db.VarChar(500)
   intern             Boolean  @default(false)
 
   // Relations
@@ -258,20 +258,20 @@ model hsu_bulletin_files {
 }
 
 model medAdministration {
-  med_administration_id Int @id @default(autoincrement())
-  consultation_id Int      
-  client_id       Int
-  admin_id        Int
-  med_id          Int
-  medName         String   @db.VarChar(225)
-  date            DateTime @db.DateTime(0)
-  patient         String   @db.VarChar(225)
-  count           Int
-  schedule        String   @db.VarChar(225)
-  start_date      DateTime @db.Date
-  end_date        DateTime @db.Date
-  remarks         String?  @db.VarChar(500)
-  intervention    String?  @db.VarChar(500)
+  med_administration_id Int      @id @default(autoincrement())
+  consultation_id       Int
+  client_id             Int
+  admin_id              Int
+  med_id                Int
+  medName               String   @db.VarChar(225)
+  date                  DateTime @db.DateTime(0)
+  patient               String   @db.VarChar(225)
+  count                 Int
+  schedule              String   @db.VarChar(225)
+  start_date            DateTime @db.Date
+  end_date              DateTime @db.Date
+  remarks               String?  @db.VarChar(500)
+  intervention          String?  @db.VarChar(500)
 
   // Relations
   admin                admin                @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction)

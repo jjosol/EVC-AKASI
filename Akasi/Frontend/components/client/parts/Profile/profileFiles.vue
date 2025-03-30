@@ -33,9 +33,9 @@
     console.log(isStudent)
     const isFaculty = computed(() => {
         const category = profile.value?.category;
-    console.log('Category value:', category);
-    console.log('Type check:', profile.value?.type === 'client');
-    console.log('Category check:', category === 'Student');
+        console.log('Category value:', category);
+        console.log('Type check:', profile.value?.type === 'client');
+        console.log('Category check:', category === 'Student');
         return  profile.value?.category === 'Faculty' || profile.value?.category === 'Staff';
         
     });

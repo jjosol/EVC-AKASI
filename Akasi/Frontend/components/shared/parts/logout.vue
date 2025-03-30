@@ -2,19 +2,30 @@
   <div>
     <button
       @click="handleLogoutClick"
-      class="px-5 py-3 text-xl text-center rounded-full text-[#2F4A71] hover:bg-blue-900 hover:text-white"
+      class="flex items-center justify-center px-6 py-3 text-lg font-medium text-white transition-all duration-300 ease-in-out bg-[#2F4A71] hover:bg-[#745dab] rounded-full shadow-md hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
       :disabled="isLoading"
     >
+      <Icon 
+        v-if="isLoading" 
+        icon="mdi:loading" 
+        class="w-5 h-5 mr-2 animate-spin" 
+      />
+      <Icon 
+        v-else 
+        icon="mdi:logout" 
+        class="w-5 h-5 mr-2" 
+      />
       {{ isLoading ? 'Logging out...' : 'Logout' }}
     </button>
 
-    <div v-if="isLoading" class="fixed inset-0 flex items-center justify-center bg-white/80">
-      <div class="text-center">
+    <div v-if="isLoading" class="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-50">
+      <div class="text-center px-8 py-6 bg-white rounded-xl shadow-xl">
         <Icon 
           icon="mdi:loading" 
-          class="w-8 h-8 mb-4 text-gray-600 animate-spin"
+          class="w-12 h-12 mb-4 text-[#745dab] animate-spin"
         />
-        <p class="text-gray-600">Logging out...</p>
+        <p class="text-lg font-medium text-gray-800">Logging out...</p>
+        <p class="text-sm text-gray-600 mt-2">Please wait a moment</p>
       </div>
     </div>
   </div>

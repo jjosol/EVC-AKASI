@@ -1,53 +1,56 @@
 <script setup>
 import { computed, onMounted } from 'vue';
+import { useProfile } from '~/composables/useProfile';
 
 const route = useRoute();
+const { profile, loading: profileLoading, fetchProfile } = useProfile();
 
 const links = [
   { path: '/dashboard', label: 'Dashboard' },
+  // Add any other links for managers here
 ];
-
 const isActive = (path) => computed(() => {
   if (route.path === path) {
     return true;
   } else if (path === '/dashboard' && route.path === '/dashboard') {
     return true;
-  }
-  else {
+  } else {
     return false;
   }
 });
 
 onMounted(() => {
-  console.log(isActive(links[0].path).value);
+  fetchProfile();
 });
 </script>
 
 <template>
   <div class="fixed top-0 left-0 z-50 h-full font-inter">
-    <!-- Left-side Navbar -->
-    <nav class="flex flex-col items-center h-full space-y-16 pt-10 w-64 text-white bg-[#e6e6e6]">
-      <MidTitle class="text-5xl" />
-      <div class="flex items-center w-full px-4">
-        <input
-          type="text"
-          placeholder="Search..."
-          class="border border-[#2F4A71] rounded-full px-4 py-2 text-black focus:outline-none w-full"
-        />
-        <button class="ml-44 text-[#2F4A71] focus:outline-none absolute">
-          <Icon icon="ion:search-sharp" class="text-[#2F4A71] text-4xl" />
-        </button>
+    <nav class="flex flex-col items-center h-full py-10 w-64 text-white bg-[#2F4A71] shadow-lg">
+      <div class="mb-12">
+        <MidTitle class="text-5xl"/>
       </div>
-      <ul v-for="link in links" :key="link.path">
+      
+      <div class="flex flex-col space-y-5 w-full px-6">
+        <!-- Regular navigation links -->
         <router-link
+          v-for="link in links" 
+          :key="link.path"
           :to="link.path"
-          class="px-5 py-3 text-xl text-center rounded-full"
-          :class="isActive(link.path).value ? 'bg-blue-900  text-white' : 'text-[#2F4A71] hover:bg-blue-900 hover:text-white '"
+          class="px-5 py-3 text-lg font-medium text-center rounded-full transition-all duration-200 ease-in-out"
+          :class="isActive(link.path).value 
+            ? 'bg-[#f8f4ff] text-[#745dab] shadow-md border-4 border-[#745dab]' 
+            : 'text-[#f8f4ff] hover:bg-[#f8f4ff] hover:text-[#745dab]'"
         >
           {{ link.label }}
         </router-link>
-      </ul>
-      <Logout />
+      
+      </div>
+
+      <!-- Logout button at bottom -->
+      <div class="mt-auto mb-8">
+        <logoutManager/>
+      </div>
     </nav>
   </div>
 </template>
