@@ -925,50 +925,6 @@ const editMedicine = (medicine, index) => {
 };
 
 /**
- * Saves medicine details back to consultation
- * Validates required fields before saving
- */
-const saveMedicineDetails = async () => {
-  try {
-    const medicine = selectedMedicine.value;
-    if (!medicine || !medicine.med_id) {
-      throw new Error('Invalid medicine details');
-    }
-
-    // Additional validation
-    if (!medicine.startDate || !medicine.endDate) {
-      throw new Error('Start date and end date are required');
-    }
-
-    if (!medicine.quantity || medicine.quantity <= 0) {
-      throw new Error('Valid quantity is required');
-    }
-
-    // If editing an existing medicine, adjust the pending quantity
-    if (medicine.index !== undefined) {
-      const oldQty = selectedPerson.value.medicines[medicine.index].quantity || 0;
-      const newQty = medicine.quantity;
-      const qtyDiff = newQty - oldQty;
-      
-      if (qtyDiff !== 0) {
-        pendingMedicineQuantities.value[medicine.med_id] = 
-          (pendingMedicineQuantities.value[medicine.med_id] || 0) + qtyDiff;
-      }
-      
-      selectedPerson.value.medicines[medicine.index] = { ...medicine };
-    } else {
-      // New medicine being added
-      selectedPerson.value.medicines.push({ ...medicine });
-    }
-
-    showMedicineDetailModal.value = false;
-  } catch (error) {
-    console.error('Error saving medicine details:', error);
-    alert(error.message);
-  }
-};
-
-/**
  * Removes medicine from current consultation
  * @param {number} index - Index of medicine to remove
  */
@@ -1627,6 +1583,67 @@ const proceedWithSave = async () => {
 const cancelConfirmation = () => {
   showConfirmationModal.value = false;
   pendingSaveAction.value = null;
+};
+
+// Add this computed property after your other computed properties
+const todayFormatted = computed(() => {
+  const today = new Date();
+  return today.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+});
+
+// Update the saveMedicineDetails function to include date validation
+const saveMedicineDetails = async () => {
+  try {
+    const medicine = selectedMedicine.value;
+    if (!medicine || !medicine.med_id) {
+      throw new Error('Invalid medicine details');
+    }
+
+    // Additional validation
+    if (!medicine.startDate || !medicine.endDate) {
+      throw new Error('Start date and end date are required');
+    }
+
+    // Validate that start date is not before today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to beginning of day for comparison
+    const startDate = new Date(medicine.startDate);
+    if (startDate < today) {
+      throw new Error('Start date cannot be before today');
+    }
+
+    // Validate that end date is not before start date
+    const endDate = new Date(medicine.endDate);
+    if (endDate < startDate) {
+      throw new Error('End date cannot be before start date');
+    }
+
+    if (!medicine.quantity || medicine.quantity <= 0) {
+      throw new Error('Valid quantity is required');
+    }
+
+    // If editing an existing medicine, adjust the pending quantity
+    if (medicine.index !== undefined) {
+      const oldQty = selectedPerson.value.medicines[medicine.index].quantity || 0;
+      const newQty = medicine.quantity;
+      const qtyDiff = newQty - oldQty;
+      
+      if (qtyDiff !== 0) {
+        pendingMedicineQuantities.value[medicine.med_id] = 
+          (pendingMedicineQuantities.value[medicine.med_id] || 0) + qtyDiff;
+      }
+      
+      selectedPerson.value.medicines[medicine.index] = { ...medicine };
+    } else {
+      // New medicine being added
+      selectedPerson.value.medicines.push({ ...medicine });
+    }
+
+    showMedicineDetailModal.value = false;
+  } catch (error) {
+    console.error('Error saving medicine details:', error);
+    alert(error.message);
+  }
 };
 </script>
 
