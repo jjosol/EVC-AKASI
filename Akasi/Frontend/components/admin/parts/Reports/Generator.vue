@@ -81,10 +81,8 @@
               <p class="mt-2">
                 This system generates a comprehensive report including:
                 <ul class="list-disc list-inside">
-                  <li>SUMMARY OF PERCENTAGE OF THE PSHS-EVC COMMUNITY THAT ACQUIRED ILLNESSES</li>
-                  <li>LIST OF COMMON ILLNESSES/INJURIES</li>
-                  <li>INFECTIOUS DISEASE MONITORING TOOL</li>
-                  <li>PERCENTAGE OF INFECTIOUS DISEASES IN PSHS-EVC</li>
+                  <li>SUMMARY OF THE PSHS-EVC COMMUNITY THAT ACQUIRED ILLNESSES and INJURIES</li>
+                  <li>CONSULTATION/APPOINTMENT MONITORING TOOL</li>
                 </ul>
               </p>
             </div>
