@@ -2,12 +2,19 @@
 import { ref, computed, onMounted } from 'vue'
 import { Icon } from '@iconify/vue'
 import * as inventoryService from '~/services/inventoryService';
+import EditMedicineNameModal from './EditMedicineNameModal.vue';
 
 const items = ref([]);
 const categories = ref([]);
 const expandedCategories = ref(new Set());
 const expandedItems = ref(new Set());
 const searchQuery = ref('');
+
+const editMedicineModalOpen = ref(false);
+const currentEditMedicine = ref({
+  name: '',
+  categoryId: null
+});
 
 const fetchCategories = async () => {
   try {
@@ -34,6 +41,17 @@ const refreshInventory = async () => {
 // Format date helper
 const formatDate = (dateString) => {
   return dateString ? new Date(dateString).toISOString().split('T')[0] : '';
+};
+
+// Add function to check if date is expired
+const isExpired = (expirationDate) => {
+  if (!expirationDate) return false;
+  
+  const expDate = new Date(expirationDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Set to beginning of day for fair comparison
+  
+  return expDate < today;
 };
 
 // Group items by category first, then by medicine name
@@ -67,6 +85,15 @@ const groupedByCategory = computed(() => {
     }
     
     groups[categoryId].items[item.medName].push(item);
+    
+    // Sort each medicine's batches by expiration date (closest to expiring first)
+    Object.keys(groups[categoryId].items).forEach(medName => {
+      groups[categoryId].items[medName].sort((a, b) => {
+        if (!a.expiration) return 1; // Items without expiration go to the bottom
+        if (!b.expiration) return -1;
+        return new Date(a.expiration).getTime() - new Date(b.expiration).getTime();
+      });
+    });
   });
   
   return groups;
@@ -103,7 +130,15 @@ const filteredCategories = computed(() => {
 const emit = defineEmits(['openModal', 'editModal', 'openCategoryModal']);
 
 const openModal = (item = null) => {
-  emit('openModal', item);
+  if (item?.isEditMedicine && item?.isEditNameOnly) {
+    currentEditMedicine.value = {
+      name: item.medicineName,
+      categoryId: item.categoryId
+    };
+    editMedicineModalOpen.value = true;
+  } else {
+    emit('openModal', item);
+  }
 };
 
 const openCategoryModal = (category = null) => {
@@ -177,6 +212,19 @@ const deleteCategory = async (categoryId) => {
   }
 };
 
+const addNewBatch = (medicineName, categoryId) => {
+  const newBatchItem = {
+    isNewBatch: true,
+    medicineName: medicineName,
+    categoryId: categoryId
+  };
+  emit('openModal', newBatchItem);
+};
+
+const handleMedicineUpdated = async () => {
+  await refreshInventory();
+};
+
 onMounted(() => {
   refreshInventory();
 });
@@ -246,12 +294,6 @@ defineExpose({ refreshInventory });
                   >
                     Edit
                   </button>
-                  <button 
-                    @click="deleteCategory(categoryId)"
-                    class="px-3 py-1 text-white bg-red-500 rounded hover:bg-red-600"
-                  >
-                    Delete
-                  </button>
                 </div>
               </td>
             </tr>
@@ -272,42 +314,46 @@ defineExpose({ refreshInventory });
                     {{ medicines.reduce((sum, med) => sum + med.count, 0) }}
                   </td>
                   <td class="px-6 py-3 text-sm text-gray-900">
-                    <button 
-                      @click="deleteGroup(name)"
-                      class="px-3 py-1 text-white bg-red-500 rounded hover:bg-red-600"
-                    >
-                      Delete All
-                    </button>
+                    <div class="flex space-x-2">
+                      <button 
+                        @click="addNewBatch(name, categoryId)"
+                        class="px-3 py-1 text-white bg-green-500 rounded hover:bg-green-600"
+                      >
+                        Add Batch
+                      </button>
+                      <button 
+                        @click="openModal({ isEditMedicine: true, isEditNameOnly: true, medicineName: name, categoryId })"
+                        class="px-3 py-1 text-white bg-blue-500 rounded hover:bg-blue-600"
+                      >
+                        Edit
+                      </button>
+                    </div>
                   </td>
                 </tr>
                 
                 <!-- Batch Level (only shown when medicine is expanded) -->
                 <template v-if="expandedItems.has(name)">
-                  <tr v-for="med in medicines" :key="`${categoryId}-${name}-${med.med_id}`" class="bg-gray-100">
+                  <tr 
+                    v-for="med in medicines" 
+                    :key="`${categoryId}-${name}-${med.med_id}`" 
+                    class="bg-gray-100"
+                    :class="{'expired-row': isExpired(med.expiration)}"
+                  >
                     <td class="px-6 py-2 text-sm text-gray-900">
-                      <div class="ml-12">
-                        Batch {{ med.med_id }}
-                        <span v-if="med.expirationDate" class="ml-2 text-xs text-gray-500">
-                          (Expires: {{ med.expirationDate }})
+                      <div class="flex items-center ml-12">
+                        <!-- Display expiration date instead of batch number -->
+                        <span :class="{'text-red-600 font-bold': isExpired(med.expiration)}">
+                          {{ med.expiration ? formatDate(med.expiration) : 'No expiration date' }}
+                        </span>
+                        <!-- Add warning icon for expired items -->
+                        <span v-if="isExpired(med.expiration)" class="ml-2 text-red-600">
+                          <Icon icon="mdi:alert-circle" class="w-5 h-5" />
                         </span>
                       </div>
                     </td>
                     <td class="px-6 py-2 text-sm text-gray-900">{{ med.count }}</td>
                     <td class="px-6 py-2 text-sm text-gray-900">
-                      <div class="flex space-x-2">
-                        <button 
-                          @click="openModal(med)"
-                          class="px-3 py-1 text-white bg-blue-500 rounded hover:bg-blue-600"
-                        >
-                          Edit
-                        </button>
-                        <button 
-                          @click="deleteItem(med)"
-                          class="px-3 py-1 text-white bg-red-500 rounded hover:bg-red-600"
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      <!-- Removed Edit and Delete buttons for batches -->
                     </td>
                   </tr>
                 </template>
@@ -318,4 +364,27 @@ defineExpose({ refreshInventory });
       </table>
     </div>
   </div>
+
+  <EditMedicineNameModal 
+    :isOpen="editMedicineModalOpen"
+    :medicineName="currentEditMedicine.name"
+    :categoryId="currentEditMedicine.categoryId"
+    @closeModal="editMedicineModalOpen = false"
+    @medicineUpdated="handleMedicineUpdated"
+  />
 </template>
+
+<style scoped>
+.expiring-soon {
+  background-color: #fff3cd;
+}
+
+.expired {
+  background-color: #f8d7da;
+  border-color: #f5c2c7;
+}
+
+.expired-row {
+  background-color: #fee2e2; /* Light red background */
+}
+</style>

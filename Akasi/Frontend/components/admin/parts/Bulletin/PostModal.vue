@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue';
-import { getFileUrl } from '../../../../services/bulletinService'; // Import the getFileUrl function
+import { getFileUrl, createPost, updatePost } from '../../../../services/bulletinService'; // Import the getFileUrl, createPost, and updatePost functions
 
 const props = defineProps({
   post: {
@@ -141,39 +141,57 @@ onMounted(() => {
 });
 
 function removeFile(index) {
+  console.log(`Removing file at index ${index}:`, localMediaFiles.value[index]);
   localMediaFiles.value.splice(index, 1);
+  console.log(`Files after removal:`, localMediaFiles.value.map(f => f.name || f.fileId));
 }
 
 const onSubmit = async () => {
   isLoading.value = true;
   try {
-    const formData = new FormData();
-    formData.append('admin_id', '1');
-    formData.append('username', 'admin');
-    formData.append('caption', localText.value);
+    const postData = {
+      admin_id: '1',
+      username: 'admin',
+      caption: localText.value
+    };
 
-    // Append actual file objects
-    localMediaFiles.value.forEach(media => {
-      if (media.file) {
-        formData.append('files', media.file);
-      }
-    });
-
-    const response = await fetch('http://localhost:3001/posts', {
-      method: 'POST',
-      body: formData
+    // Get only the file objects from localMediaFiles
+    const filesToUpload = localMediaFiles.value
+      .filter(media => media.file)
+      .map(media => media.file);
+    
+    // Track existing file IDs to keep them associated with the post
+    const existingFileIds = localMediaFiles.value
+      .filter(media => media.fileId)
+      .map(media => media.fileId);
+    
+    console.log('Submitting update with:', {
+      caption: localText.value,
+      newFiles: filesToUpload.map(f => f.name),
+      existingFileIds: existingFileIds
     });
     
-    if (!response.ok) {
-      throw new Error('Upload failed');
+    let result;
+    
+    if (props.post && props.post.post_id) {
+      // Update existing post
+      result = await updatePost(
+        props.post.post_id,
+        postData,
+        filesToUpload,
+        existingFileIds
+      );
+      console.log('Update result:', result);
+    } else {
+      // Create new post
+      result = await createPost(postData, filesToUpload);
     }
-
-    const data = await response.json();
-    emit('add-post', data);
+    
+    emit('add-post', result);
     emit('close');
   } catch (err) {
-    console.error('Upload error:', err);
-    error.value = 'Failed to upload post';
+    console.error('Upload/Update error:', err);
+    error.value = `Failed to ${props.post ? 'update' : 'upload'} post`;
   } finally {
     isLoading.value = false;
   }

@@ -7,11 +7,39 @@ export class InventoryService {
 
   async getAllItems() {
     try {
-      return await this.prisma.inventory.findMany({
+      // Fetch all items
+      const items = await this.prisma.inventory.findMany({
         include: {
           category: true
         }
       });
+      
+      // Group items by category
+      const categorizedItems: Record<string, typeof items> = items.reduce((acc: Record<string, typeof items>, item) => {
+        const categoryId = item.category_id;
+        if (!acc[categoryId]) {
+          acc[categoryId] = [];
+        }
+        acc[categoryId].push(item);
+        return acc;
+      }, {});
+      
+      // Sort each category's items by expiration date
+      Object.keys(categorizedItems).forEach(categoryId => {
+        categorizedItems[categoryId].sort((a, b) => {
+          if (!a.expiration) return 1;
+          if (!b.expiration) return -1;
+          return new Date(a.expiration).getTime() - new Date(b.expiration).getTime();
+        });
+      });
+      
+      // Flatten back to array
+      let sortedItems: typeof items = [];
+      Object.values(categorizedItems).forEach(categoryItems => {
+        sortedItems = [...sortedItems, ...categoryItems];
+      });
+      
+      return sortedItems;
     } catch (error) {
       throw new BadRequestException('Failed to fetch inventory items');
     }
@@ -19,25 +47,65 @@ export class InventoryService {
 
   async addItem(item: any) {
     try {
+      // Validate expiration date isn't in the past
+      if (item.expirationDate) {
+        const expirationDate = new Date(item.expirationDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (expirationDate < today) {
+          throw new BadRequestException('Expiration date cannot be in the past');
+        }
+      }
+
+      // Check if the medicine already exists
+      const existingMedicine = await this.prisma.inventory.findFirst({
+        where: {
+          medName: item.name,
+          expiration: item.expirationDate ? new Date(item.expirationDate) : null,
+        },
+      });
+
+      if (existingMedicine) {
+        // If batch exists, increase its count
+        return await this.increaseInventory(
+          existingMedicine.med_id,
+          existingMedicine.medName,
+          item.count
+        );
+      }
+
+      // Add a new batch under the same medicine name
       const result = await this.prisma.inventory.create({
         data: {
-          medName: item.name, // Frontend sends 'name', we store as 'medName'
+          medName: item.name, // Use base medicine name
           expiration: item.expirationDate ? new Date(item.expirationDate) : null,
           count: Number(item.count),
-          category_id: Number(item.category_id)
+          category_id: Number(item.category_id),
         },
         include: {
-          category: true
-        }
+          category: true,
+        },
       });
       return result;
     } catch (error) {
-      throw new BadRequestException('Failed to add inventory item');
+      throw new BadRequestException(error.message || 'Failed to add inventory item');
     }
   }
 
   async updateItem(med_id: number, medName: string, data: any) {
     try {
+      // Validate expiration date isn't in the past
+      if (data.expirationDate) {
+        const expirationDate = new Date(data.expirationDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (expirationDate < today) {
+          throw new BadRequestException('Expiration date cannot be in the past');
+        }
+      }
+
       // If name is different, create new entry and delete old one
       if (medName !== data.name) {
         const newItem = await this.prisma.inventory.create({
@@ -83,7 +151,7 @@ export class InventoryService {
         }
       });
     } catch (error) {
-      throw new BadRequestException('Failed to update inventory item');
+      throw new BadRequestException(error.message || 'Failed to update inventory item');
     }
   }
 

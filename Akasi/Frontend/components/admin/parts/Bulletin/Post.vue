@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { 
   fetchPostDetails as fetchPostDetailsAPI, 
   deletePost as deletePostAPI, 
@@ -174,6 +174,13 @@ const getFileIcon = (mimeType) => {
 };
 
 onMounted(loadPostDetails);
+
+// Add this to your <script setup> section
+watch(() => props.post, (newPost) => {
+  if (newPost) {
+    postDetails.value = newPost;
+  }
+}, { deep: true });
 </script>
 
 <template>

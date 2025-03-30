@@ -401,7 +401,6 @@ const savePerson = async () => {
       remarks: selectedPerson.value.remarks || '',
       confined: Boolean(selectedPerson.value.confined),
       medAdministration: Boolean(selectedPerson.value.medicationAdministration),
-      intern: Boolean(selectedPerson.value.intern),
       fatality: Boolean(selectedPerson.value.fatality),
       intervention: selectedPerson.value.intervention || '',
       // Include diagnosis_ids array if present
@@ -605,11 +604,17 @@ const groupedMedicines = computed(() => {
   const groups = {};
   allMedicines.value.forEach(item => {
     if (!medicineSearchQuery.value ||
-      item.name.toLowerCase().includes(medicineSearchQuery.value.toLowerCase())) {
+        item.name.toLowerCase().includes(medicineSearchQuery.value.toLowerCase())) {
       if (!groups[item.name]) {
         groups[item.name] = [];
       }
-      groups[item.name].push(item);
+      
+      // Create a copy of the item with adjusted count
+      const adjustedItem = { ...item };
+      const pendingQty = pendingMedicineQuantities.value[item.med_id] || 0;
+      adjustedItem.displayCount = Math.max(0, item.count - pendingQty); // Subtract pending quantity
+      
+      groups[item.name].push(adjustedItem);
     }
   });
 
@@ -664,7 +669,6 @@ const fetchConsultationRecord = async (consultation_id) => {
   }
 };
 
-// Rest of your existing methods...
 /**
  * Opens edit modal with consultation record data
  * @param {Object} patient - Patient to edit
@@ -672,6 +676,9 @@ const fetchConsultationRecord = async (consultation_id) => {
  */
 const openEditModal = async (patient) => {
   try {
+    // Set view-only mode when opening an existing record
+    isViewOnly.value = true;
+    
     const consultationRecord = await fetchConsultationRecord(patient.consultation_id);
     selectedConsultationRecord.value = consultationRecord;
 
@@ -736,7 +743,6 @@ const openEditModal = async (patient) => {
       complaints: diagnosisComplaints,
       remarks: consultationRecord.remarks,
       confined: consultationRecord.confined,
-      intern: consultationRecord.intern,
       medicationAdministration: consultationRecord.medAdministration,
       fatality: consultationRecord.fatality,
       intervention: consultationRecord.intervention,
@@ -776,6 +782,9 @@ const deleteConsultationRecord = async (consultation_id) => {
 const addPerson = (person) => {
   const now = new Date();
   if (person.name && person.section) {
+    // Set isViewOnly to false when adding a new person
+    isViewOnly.value = false;
+    
     selectedPerson.value = {
       ...person,
       addedAt: now,
@@ -796,6 +805,8 @@ const addPerson = (person) => {
 const cancelEdit = () => {
   showEditModal.value = false;
   currentModalPage.value = 1; // Reset to first page
+  // Reset pending quantities when cancelling
+  pendingMedicineQuantities.value = {};
 };
 
 /**
@@ -803,6 +814,8 @@ const cancelEdit = () => {
  */
 const cancelAdd = () => {
   showAddModal.value = false;
+  // Reset pending quantities when cancelling
+  pendingMedicineQuantities.value = {};
 }
 // Medicine modal
 /**
@@ -829,13 +842,24 @@ const addMedicine = async (medicine) => {
       throw new Error('Invalid medicine data');
     }
 
+    const requestedQty = Number(medicine.requestedQuantity);
+    if (isNaN(requestedQty) || requestedQty <= 0) {
+      throw new Error('Invalid quantity');
+    }
+    
+    // Track this pending quantity
+    if (!pendingMedicineQuantities.value[medicine.med_id]) {
+      pendingMedicineQuantities.value[medicine.med_id] = 0;
+    }
+    pendingMedicineQuantities.value[medicine.med_id] += requestedQty;
+    
     const today = new Date();
     showMedicineDetailModal.value = true;
     selectedMedicine.value = {
       med_id: medicine.med_id,
       name: medicine.name,
-      quantity: medicine.requestedQuantity,  // First set
-      originalQuantity: medicine.requestedQuantity  // Also stored as originalQuantity
+      quantity: medicine.requestedQuantity,
+      originalQuantity: medicine.requestedQuantity
     };
 
   } catch (error) {
@@ -917,10 +941,20 @@ const saveMedicineDetails = async () => {
       throw new Error('Valid quantity is required');
     }
 
-    // Only update local state
+    // If editing an existing medicine, adjust the pending quantity
     if (medicine.index !== undefined) {
+      const oldQty = selectedPerson.value.medicines[medicine.index].quantity || 0;
+      const newQty = medicine.quantity;
+      const qtyDiff = newQty - oldQty;
+      
+      if (qtyDiff !== 0) {
+        pendingMedicineQuantities.value[medicine.med_id] = 
+          (pendingMedicineQuantities.value[medicine.med_id] || 0) + qtyDiff;
+      }
+      
       selectedPerson.value.medicines[medicine.index] = { ...medicine };
     } else {
+      // New medicine being added
       selectedPerson.value.medicines.push({ ...medicine });
     }
 
@@ -936,8 +970,19 @@ const saveMedicineDetails = async () => {
  * @param {number} index - Index of medicine to remove
  */
 const removeMedicine = (index) => {
+  const medicine = selectedPerson.value.medicines[index];
+  if (medicine && medicine.med_id && !medicine.markedForDeletion) {
+    // Release the pending quantity when removing medicine
+    if (pendingMedicineQuantities.value[medicine.med_id]) {
+      pendingMedicineQuantities.value[medicine.med_id] -= medicine.quantity || 0;
+      if (pendingMedicineQuantities.value[medicine.med_id] <= 0) {
+        delete pendingMedicineQuantities.value[medicine.med_id];
+      }
+    }
+  }
+  
   selectedPerson.value.medicines[index].markedForDeletion = true;
-  console.log(index)
+  console.log(index);
 };
 
 /**
@@ -951,6 +996,17 @@ const cancelMedicine = () => {
  * Cancels medicine detail modal
  */
 const cancelMedicineDetails = () => {
+  // If adding a new medicine, release its pending quantity
+  if (selectedMedicine.value && selectedMedicine.value.med_id && selectedMedicine.value.index === undefined) {
+    const medId = selectedMedicine.value.med_id;
+    if (pendingMedicineQuantities.value[medId]) {
+      pendingMedicineQuantities.value[medId] -= selectedMedicine.value.quantity || 0;
+      if (pendingMedicineQuantities.value[medId] <= 0) {
+        delete pendingMedicineQuantities.value[medId];
+      }
+    }
+  }
+  
   showMedicineDetailModal.value = false;
   showMedicineModal.value = false;
 };
@@ -1528,6 +1584,9 @@ const getStatusClass = (status) => {
     default: return 'bg-blue-100 text-blue-800';
   }
 };
+
+// Add this after the other refs at the top level of your script
+const pendingMedicineQuantities = ref({}); // Track quantities that are "reserved" but not yet committed to DB
 </script>
 
 <template>
@@ -1563,7 +1622,7 @@ const getStatusClass = (status) => {
       <!--Confinements-->
       <div v-if="activeTab === 'tab1'">
 
-      <div class="mb-5 mt-5">
+      <div class="mt-5 mb-5">
         <span class="text-2xl font-bold text-[#2f4a71]">{{ selectedDate.monthYear }}</span>
         <span class="text-2xl text-[#2f4a71] float-right">{{ selectedDate.day }}</span>
       </div>
@@ -1613,27 +1672,27 @@ const getStatusClass = (status) => {
 
     <!-- Appointments -->
     <div v-if="activeTab === 'tab2'">
-        <div class="mb-5 mt-5">
+        <div class="mt-5 mb-5">
           <span class="text-2xl font-bold text-[#2f4a71]">{{ selectedDate.monthYear }}</span>
           <span class="text-2xl text-[#2f4a71] float-right">{{ selectedDate.day }}</span>
         </div>
 
         <!--Display all fetched appointments here-->
 <!-- Loading state -->
-<div v-if="loadingAppointments" class="text-center py-6">
+<div v-if="loadingAppointments" class="py-6 text-center">
             <p class="text-gray-600">Loading appointments...</p>
           </div>
           
           <!-- Error state -->
-          <div v-else-if="appointmentsError" class="bg-red-100 text-red-700 p-3 rounded my-4">
+          <div v-else-if="appointmentsError" class="p-3 my-4 text-red-700 bg-red-100 rounded">
             <p>{{ appointmentsError }}</p>
-            <button @click="fetchAppointmentsForSelectedDate" class="text-sm underline mt-1">
+            <button @click="fetchAppointmentsForSelectedDate" class="mt-1 text-sm underline">
               Try again
             </button>
           </div>
           
           <!-- No appointments -->
-          <div v-else-if="appointments.length === 0" class="text-center py-6">
+          <div v-else-if="appointments.length === 0" class="py-6 text-center">
             <p class="text-gray-600">No appointments scheduled for this date</p>
           </div>
           
@@ -1642,9 +1701,9 @@ const getStatusClass = (status) => {
             <div 
               v-for="appointment in appointments" 
               :key="appointment.appointment_id" 
-              class="p-3 border border-gray-200 rounded-lg bg-white hover:shadow-md transition-shadow"
+              class="p-3 transition-shadow bg-white border border-gray-200 rounded-lg hover:shadow-md"
             >
-              <div class="flex justify-between items-start"> 
+              <div class="flex items-start justify-between"> 
                 <div>
                   <h4 class="font-bold">
                     {{ appointment.client?.name || 'Client #' + appointment.client_id }}
@@ -1661,7 +1720,7 @@ const getStatusClass = (status) => {
                     {{ formatTime(appointment.hour, appointment.minute) }}
                   </span>
                   <span 
-                    class="inline-block px-2 py-1 text-xs rounded-full mt-1"
+                    class="inline-block px-2 py-1 mt-1 text-xs rounded-full"
                     :class="getStatusClass(appointment.status || 'pending')"
                   >
                     {{ appointment.status || 'pending' }}
@@ -1669,17 +1728,17 @@ const getStatusClass = (status) => {
                 </div>
               </div>
               
-              <div class="mt-2 p-2 bg-gray-50 rounded text-sm">
+              <div class="p-2 mt-2 text-sm rounded bg-gray-50">
                 <p class="text-gray-700">{{ appointment.complaint }}</p>
               </div>
               
               <!-- Notes (if any) -->
-              <div v-if="appointment.notes" class="mt-2 p-2 bg-yellow-50 rounded text-sm">
+              <div v-if="appointment.notes" class="p-2 mt-2 text-sm rounded bg-yellow-50">
                 <p class="text-gray-700"><span class="font-medium">Notes:</span> {{ appointment.notes }}</p>
               </div>
               
               <!-- Action buttons -->
-              <div class="mt-2 flex justify-end">
+              <div class="flex justify-end mt-2">
                 <button 
                   @click="openStatusModal(appointment)" 
                   class="px-3 py-1 text-sm bg-[#2f4a71] text-white rounded hover:bg-[#8b67db]"
@@ -1795,10 +1854,10 @@ const getStatusClass = (status) => {
           </div>
         </div>
         
-        <!-- Complaint -->
+        <!-- Complaint/Diagnosis Section -->
         <div class="mb-4">
           <label for="complaint" class="block text-sm font-semibold text-gray-600">Diagnosis</label>
-          <div class="flex items-center mb-2 space-x-2">
+          <div v-if="!isViewOnly" class="flex items-center mb-2 space-x-2">
             <div class="relative flex-grow">
               <input 
                 v-model="diagnosisSearchQuery"
@@ -1870,16 +1929,20 @@ const getStatusClass = (status) => {
           <div class="flex flex-wrap gap-2 mb-2">
             <div v-for="complaint in selectedPerson.complaints" :key="complaint.id" class="flex items-center px-3 py-1 bg-purple-100 rounded-full">
               {{ complaint.text }}
-              <button @click="removeComplaint(complaint.id)" class="ml-2 text-red-500 hover:text-red-700">
+              <button v-if="!isViewOnly" @click="removeComplaint(complaint.id)" class="ml-2 text-red-500 hover:text-red-700">
                 <Icon icon="mdi:delete" />
               </button>
             </div>
           </div>
         </div>
 
+        <!-- Remarks -->
         <div class="mb-4">
           <label for="remarks" class="block text-sm font-semibold text-gray-600">Remarks</label>
-          <textarea v-model="selectedPerson.remarks" placeholder="Remarks"
+          <textarea 
+            v-model="selectedPerson.remarks" 
+            placeholder="Remarks"
+            :disabled="isViewOnly"
             class="w-full h-32 px-4 py-2 mt-1 border border-gray-300 rounded-lg"></textarea>
         </div>
 
@@ -1887,22 +1950,45 @@ const getStatusClass = (status) => {
         <div class="flex items-center w-full mb-6 space-x-8">
           <!-- Confined Checkbox -->
           <div class="flex items-center space-x-2">
-            <input type="checkbox" id="confined" v-model="selectedPerson.confined" class="text-blue-500 form-checkbox">
+            <input 
+              type="checkbox" 
+              id="confined" 
+              v-model="selectedPerson.confined" 
+              :disabled="isViewOnly" 
+              class="text-blue-500 form-checkbox">
             <label for="confined" class="text-sm font-semibold">Confined</label>
           </div>
+<<<<<<< HEAD
           <!-- Intern Checkbox -->
           <div class="flex items-center space-x-2">
-            <input type="checkbox" id="intern" v-model="selectedPerson.intern" class="text-blue-500 form-checkbox">
+            <input 
+              type="checkbox" 
+              id="intern" 
+              v-model="selectedPerson.intern" 
+              :disabled="isViewOnly" 
+              class="text-blue-500 form-checkbox">
             <label for="intern" class="text-sm font-semibold">Intern</label>
           </div>
+=======
+>>>>>>> 01cb21145952b9e54151b98a229e618dc974e70d
           <!-- Medicine Administration Checkbox -->
           <div class="flex items-center space-x-2">
-            <input type="checkbox" id="medication-admin" v-model="selectedPerson.medicationAdministration" class="text-blue-500 form-checkbox">
+            <input 
+              type="checkbox" 
+              id="medication-admin" 
+              v-model="selectedPerson.medicationAdministration" 
+              :disabled="isViewOnly" 
+              class="text-blue-500 form-checkbox">
             <label for="medication-admin" class="text-sm font-semibold">Medication Administration</label>
           </div>
           <!-- Add Product Button -->
           <div class="flex justify-end w-7/12">
-            <button v-if="selectedPerson.medicationAdministration" @click="openMedicineModal" class="px-4 text-purple-800 bg-transparent rounded-lg ">Add Product</button>
+            <button 
+              v-if="selectedPerson.medicationAdministration && !isViewOnly" 
+              @click="openMedicineModal" 
+              class="px-4 text-purple-800 bg-transparent rounded-lg">
+              Add Product
+            </button>
           </div>
         </div>
 
@@ -1911,23 +1997,35 @@ const getStatusClass = (status) => {
           <table class="w-full text-left border-t">
             <thead class="text-sm font-semibold text-gray-600">
               <tr>
-                <th class="py-2">Pharmaceutical Product</th>
-                <th class="py-2">Schedule</th>
-                <th class="py-2">Quantity</th>
+                <th class="px-2 py-3">Name</th>
+                <th class="px-2 py-3">Quantity</th>
+                <th class="px-2 py-3">Schedule</th>
+                <th class="px-2 py-3">Start - End</th>
+                <th class="px-2 py-3">Remarks</th>
+                <th v-if="!isViewOnly" class="px-2 py-3">Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(medicine, index) in filteredMedicines" :key="index">
-                <td class="py-2 cursor-pointer" @click="openViewMedicineModal(medicine)">{{ medicine.name }}</td>
-                <td class="py-2">{{ medicine.schedule }}</td>
-                <td class="py-2">{{ medicine.quantity }}</td>
-                <td class="py-2">
+                <td class="px-2 py-2">
+                  <!-- Make medicine name clickable in view-only mode -->
+                  <span v-if="isViewOnly" class="text-blue-600 cursor-pointer hover:underline"
+                    @click="openViewMedicineModal(medicine)">
+                    {{ medicine.name }}
+                  </span>
+                  <span v-else>{{ medicine.name }}</span>
+                </td>
+                <td class="px-2 py-2">{{ medicine.quantity }}</td>
+                <td class="px-2 py-2">{{ medicine.schedule }}</td>
+                <td class="px-2 py-2">{{ medicine.startDate }} - {{ medicine.endDate }}</td>
+                <td class="px-2 py-2">{{ medicine.remarks }}</td>
+                <td class="px-2 py-2" v-if="!isViewOnly">
                   <div class="flex space-x-2">
                     <button @click="editMedicine(medicine, index)" class="text-blue-500 hover:text-blue-700">
                       <Icon icon="mdi:pencil" />
                     </button>
                     <button @click="removeMedicine(index)" class="text-red-500 hover:text-red-700">
-                      <Icon icon="mdi:delete" />
+                      <Icon icon="mdi:trash-can" />
                     </button>
                   </div>
                 </td>
@@ -1946,6 +2044,7 @@ const getStatusClass = (status) => {
               id="action"
               v-model="selectedPerson.action"
               rows="6"
+              :disabled="isViewOnly"
               class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter actions taken...">
             </textarea>
@@ -1957,6 +2056,7 @@ const getStatusClass = (status) => {
               id="disposition"
               v-model="selectedPerson.disposition"
               rows="6"
+              :disabled="isViewOnly"
               class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter student disposition...">
             </textarea>
@@ -1983,7 +2083,7 @@ const getStatusClass = (status) => {
             Next
           </button>
           <button 
-            v-if="currentModalPage === 2" 
+            v-if="currentModalPage === 2 && !isViewOnly" 
             @click="savePerson" 
             class="px-4 py-2 text-white bg-purple-500 rounded-lg">
             Submit
@@ -2028,45 +2128,44 @@ const getStatusClass = (status) => {
           <tr class="border-b border-gray-200">
             <td class="py-2">
               <div class="flex items-center">
-                <button @click="toggleMedicineExpand(name)" class="flex items-center">
-                  <Icon 
-                    :icon="expandedMedicines.has(name) ? 'mdi:chevron-down' : 'mdi:chevron-right'" 
-                    class="mr-2"
-                  />
-                  {{ name }}
+                <button @click="toggleMedicineExpand(name)" class="mr-2">
+                  <Icon :icon="expandedMedicines.has(name) ? 'mdi:chevron-down' : 'mdi:chevron-right'" />
                 </button>
+                <span>{{ name }}</span>
               </div>
             </td>
             <td class="py-2">
-              {{ medicines.reduce((sum, med) => sum + med.count, 0) }}
+              {{ medicines.reduce((sum, med) => sum + (med.displayCount || 0), 0) }}
             </td>
             <td></td>
           </tr>
           <tr v-if="expandedMedicines.has(name)" v-for="medicine in medicines" :key="medicine.med_id">
-            <td colspan="3" class="py-2 pl-6 bg-gray-50">
+            <td colspan="2" class="py-2 pl-6 bg-gray-50">
               <div class="flex items-center justify-between">
                 <div>
-                  <span class="mr-4">Exp: {{ medicine.expirationDate || 'None' }}</span>
-                  <span>Count: {{ medicine.count }}</span>
+                  <div class="font-medium">{{ medicine.name }} ({{ medicine.batch_number || 'No Batch' }})</div>
+                  <div class="text-xs text-gray-500">Exp: {{ medicine.expiry_date }}</div>
                 </div>
-                <div class="flex items-center space-x-2">
-                  <input 
-                    type="number"
-                    v-model.number="medicine.requestedQuantity"
-                    class="w-20 p-1 text-center border rounded"
-                    min="1"
-                    :max="medicine.count"
-                    placeholder="Qty"
-                  >
-                  <button 
-                    @click="addMedicine(medicine)"
-                    class="text-[#2f4a71] hover:text-white hover:bg-[#2f4a71] rounded-md p-2"
-                    :disabled="!canAddMedicine(medicine)"
-                    :class="{ 'opacity-50 cursor-not-allowed': !canAddMedicine(medicine) }"
-                  >
-                    <Icon icon="subway:add-1" />
-                  </button>
-                </div>
+                <div>Available: {{ medicine.displayCount }}</div>
+              </div>
+            </td>
+            <td class="py-2 bg-gray-50">
+              <div class="flex items-center space-x-2">
+                <input
+                  type="number"
+                  min="1"
+                  :max="medicine.displayCount"
+                  v-model="medicine.requestedQuantity"
+                  class="w-16 p-1 border border-gray-300 rounded-md"
+                />
+                <button
+                  @click="addMedicine(medicine)"
+                  :disabled="!canAddMedicine(medicine)"
+                  :class="canAddMedicine(medicine) ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-500'"
+                  class="p-1 rounded-md"
+                >
+                  Add
+                </button>
               </div>
             </td>
           </tr>
@@ -2121,7 +2220,7 @@ const getStatusClass = (status) => {
                 </div>
               </td>
               <td class="py-2">
-                {{ medicines.reduce((sum, med) => sum + med.count, 0) }}
+                {{ medicines.reduce((sum, med) => sum + med.displayCount, 0) }}
               </td>
               <td></td>
             </tr>
@@ -2130,7 +2229,7 @@ const getStatusClass = (status) => {
                 <div class="flex items-center justify-between">
                   <div>
                     <span class="mr-4">Exp: {{ medicine.expirationDate || 'None' }}</span>
-                    <span>Count: {{ medicine.count }}</span>
+                    <span>Count: {{ medicine.displayCount }}</span>
                   </div>
                   <div class="flex items-center space-x-2">
                     <input 
@@ -2138,7 +2237,7 @@ const getStatusClass = (status) => {
                       v-model.number="medicine.requestedQuantity"
                       class="w-20 p-1 text-center border rounded"
                       min="1"
-                      :max="medicine.count"
+                      :max="medicine.displayCount"
                       placeholder="Qty"
                     >
                     <button 
@@ -2422,30 +2521,30 @@ const getStatusClass = (status) => {
   </div>
 
   <!-- Add the Status Modal -->
-  <div v-if="showStatusModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-    <div class="bg-white rounded-lg p-6 w-full max-w-md">
+  <div v-if="showStatusModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div class="w-full max-w-md p-6 bg-white rounded-lg">
       <h3 class="text-xl font-bold text-[#2f4a71] mb-4">Update Appointment Status</h3>
       
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Appointment Status</label>
+        <label class="block mb-2 text-sm font-medium text-gray-700">Appointment Status</label>
         <div class="grid grid-cols-3 gap-2">
           <button 
             @click="appointmentStatus = 'pending'"
-            class="py-2 px-3 rounded-md border flex items-center justify-center text-sm focus:outline-none"
+            class="flex items-center justify-center px-3 py-2 text-sm border rounded-md focus:outline-none"
             :class="appointmentStatus === 'pending' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'border-gray-300 hover:bg-gray-50'"
           >
             <span>Pending</span>
           </button>
           <button 
             @click="appointmentStatus = 'approved'"
-            class="py-2 px-3 rounded-md border flex items-center justify-center text-sm focus:outline-none"
+            class="flex items-center justify-center px-3 py-2 text-sm border rounded-md focus:outline-none"
             :class="appointmentStatus === 'approved' ? 'bg-green-50 border-green-500 text-green-700' : 'border-gray-300 hover:bg-gray-50'"
           >
             <span>Approved</span>
           </button>
           <button 
             @click="appointmentStatus = 'rejected'"
-            class="py-2 px-3 rounded-md border flex items-center justify-center text-sm focus:outline-none"
+            class="flex items-center justify-center px-3 py-2 text-sm border rounded-md focus:outline-none"
             :class="appointmentStatus === 'rejected' ? 'bg-red-50 border-red-500 text-red-700' : 'border-gray-300 hover:bg-gray-50'"
           >
             <span>Rejected</span>
@@ -2454,7 +2553,7 @@ const getStatusClass = (status) => {
       </div>
       
       <div class="mb-4">
-        <label for="notes" class="block text-sm font-medium text-gray-700 mb-2">
+        <label for="notes" class="block mb-2 text-sm font-medium text-gray-700">
           Notes (Optional)
         </label>
         <textarea

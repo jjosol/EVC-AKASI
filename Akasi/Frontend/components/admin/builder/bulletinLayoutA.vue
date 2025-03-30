@@ -1,14 +1,18 @@
 <script setup>
 import { ref, onMounted } from 'vue';
+import { fetchPosts as fetchPostsAPI, deletePost as deletePostAPI } from '~/services/bulletinService';
 
 const posts = ref([]);
 const isModalVisible = ref(false);
 const currentPost = ref(null);
 
-// Add fetchPosts function to make it reusable
+// Use the service function instead of direct fetch
 async function fetchPosts() {
-  const response = await fetch('http://localhost:3001/posts');
-  posts.value = await response.json();
+  try {
+    posts.value = await fetchPostsAPI();
+  } catch (error) {
+    console.error('Error fetching posts:', error);
+  }
 }
 
 onMounted(fetchPosts);
@@ -16,23 +20,46 @@ onMounted(fetchPosts);
 // Modify addPost to properly handle the new post
 async function addPost(newPost) {
   if (currentPost.value) {
-    // Handle edit case
-    const index = posts.value.findIndex(post => post.post_id === newPost.post_id);
-    if (index !== -1) {
-      posts.value[index] = newPost;
+    try {
+      // Enhanced logging to debug what's happening
+      console.log("Received updated post:", newPost);
+      console.log("Files in updated post:", newPost.files);
+      
+      // Find the post index
+      const index = posts.value.findIndex(post => post.post_id === newPost.post_id);
+      
+      if (index !== -1) {
+        // Force Vue reactivity by creating a new object and replacing the element
+        posts.value[index] = { ...newPost };
+        
+        // Further ensure Vue detects the change by using splice
+        // This tells Vue the array was modified
+        posts.value = [...posts.value];
+        
+        console.log("Post updated in local array");
+      } else {
+        console.warn("Could not find post with ID:", newPost.post_id);
+        // Fallback to refetching all posts
+        await fetchPosts(); 
+      }
+    } catch (error) {
+      console.error("Error handling post update:", error);
+      await fetchPosts();
     }
   } else {
-    // For new posts, fetch all posts again to ensure we have the latest data
+    // For new posts, fetch all posts again
     await fetchPosts();
   }
   closeModal();
 }
 
 async function deletePost(id) {
-  await fetch(`http://localhost:3001/posts/${id}`, {
-    method: 'DELETE'
-  });
-  posts.value = posts.value.filter(post => post.post_id !== id);
+  try {
+    await deletePostAPI(id);
+    posts.value = posts.value.filter(post => post.post_id !== id);
+  } catch (error) {
+    console.error(`Error deleting post ${id}:`, error);
+  }
 }
 
 function openEditModal(post) {
@@ -49,8 +76,6 @@ function closeModal() {
   currentPost.value = null;
   isModalVisible.value = false;
 }
-
-
 </script>
 
 <template>

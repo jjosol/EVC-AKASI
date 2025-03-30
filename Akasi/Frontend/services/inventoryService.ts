@@ -1,4 +1,4 @@
-import { get, post, put, del } from './apiService';
+import { get, post, put, del } from './apiService.js';
 
 const BASE_URL = '/inventory';
 const CATEGORY_URL = `${BASE_URL}/category`;
@@ -74,6 +74,18 @@ export const reduceInventory = async (
   }
 ) => {
   return await put(`${BASE_URL}/reduce/${id}/${name}`, data);
+};
+
+export const updateMedicineName = async (
+  oldName: string, 
+  newName: string, 
+  categoryId: number
+) => {
+  return await put(`${BASE_URL}/medicine/update-name`, {
+    oldName,
+    newName,
+    categoryId
+  });
 };
 
 // Helper function to format dates (can be used in components)
