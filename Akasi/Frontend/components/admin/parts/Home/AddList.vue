@@ -69,6 +69,9 @@ const showEditModal = ref(false);
 const showMedicineModal = ref(false);
 const showMedicineDetailModal = ref(false);
 const medicinesVisible = ref(true);
+const showConfirmationModal = ref(false);
+const confirmationMessage = ref('');
+const pendingSaveAction = ref(null);
 // Selected person and record
 const selectedPerson = ref(null);
 const selectedConsultationRecord = ref(null);
@@ -1587,6 +1590,44 @@ const getStatusClass = (status) => {
 
 // Add this after the other refs at the top level of your script
 const pendingMedicineQuantities = ref({}); // Track quantities that are "reserved" but not yet committed to DB
+
+/**
+ * Shows confirmation modal before saving
+ * @param {string} action - Type of action being confirmed
+ */
+const confirmSave = (action) => {
+  if (action === 'consultation') {
+    confirmationMessage.value = 'Are you sure you want to save this consultation record? This action cannot be undone once saved.';
+    pendingSaveAction.value = 'consultation';
+  } else if (action === 'medicine') {
+    confirmationMessage.value = 'Are you sure you want to save these medication details? This action cannot be undone once saved.';
+    pendingSaveAction.value = 'medicine';
+  }
+  showConfirmationModal.value = true;
+};
+
+/**
+ * Proceeds with save action after confirmation
+ */
+const proceedWithSave = async () => {
+  showConfirmationModal.value = false;
+  
+  if (pendingSaveAction.value === 'consultation') {
+    await savePerson();
+  } else if (pendingSaveAction.value === 'medicine') {
+    await saveMedicineDetails();
+  }
+  
+  pendingSaveAction.value = null;
+};
+
+/**
+ * Cancels the confirmation and closes the modal
+ */
+const cancelConfirmation = () => {
+  showConfirmationModal.value = false;
+  pendingSaveAction.value = null;
+};
 </script>
 
 <template>
@@ -1958,19 +1999,6 @@ const pendingMedicineQuantities = ref({}); // Track quantities that are "reserve
               class="text-blue-500 form-checkbox">
             <label for="confined" class="text-sm font-semibold">Confined</label>
           </div>
-<<<<<<< HEAD
-          <!-- Intern Checkbox -->
-          <div class="flex items-center space-x-2">
-            <input 
-              type="checkbox" 
-              id="intern" 
-              v-model="selectedPerson.intern" 
-              :disabled="isViewOnly" 
-              class="text-blue-500 form-checkbox">
-            <label for="intern" class="text-sm font-semibold">Intern</label>
-          </div>
-=======
->>>>>>> 01cb21145952b9e54151b98a229e618dc974e70d
           <!-- Medicine Administration Checkbox -->
           <div class="flex items-center space-x-2">
             <input 
@@ -2084,7 +2112,7 @@ const pendingMedicineQuantities = ref({}); // Track quantities that are "reserve
           </button>
           <button 
             v-if="currentModalPage === 2 && !isViewOnly" 
-            @click="savePerson" 
+            @click="confirmSave('consultation')" 
             class="px-4 py-2 text-white bg-purple-500 rounded-lg">
             Submit
           </button>
@@ -2315,7 +2343,7 @@ const pendingMedicineQuantities = ref({}); // Track quantities that are "reserve
       <div class="flex justify-end mt-6 space-x-4">
           <button @click="cancelMedicineDetails"
             class="px-4 py-2 text-gray-600 bg-gray-200 rounded-md">Cancel</button>
-          <button v-if="!isViewOnly" @click="saveMedicineDetails"
+          <button v-if="!isViewOnly" @click="confirmSave('medicine')"
             class="px-4 py-2 text-white bg-blue-600 rounded-md">Save</button>
         </div>
         
@@ -2578,6 +2606,28 @@ const pendingMedicineQuantities = ref({}); // Track quantities that are "reserve
           class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#2f4a71] hover:bg-[#8b67db] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
         >
           {{ isUpdatingStatus ? 'Updating...' : 'Update Status' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div v-if="showConfirmationModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-800 bg-opacity-75">
+    <div class="p-6 bg-white rounded-lg shadow-xl w-96">
+      <h3 class="mb-4 text-xl font-bold text-red-600">Confirmation Required</h3>
+      <p class="mb-6 text-gray-700">{{ confirmationMessage }}</p>
+      <div class="flex justify-end space-x-3">
+        <button 
+          @click="cancelConfirmation" 
+          class="px-4 py-2 text-gray-700 bg-gray-200 rounded hover:bg-gray-300"
+        >
+          Cancel
+        </button>
+        <button 
+          @click="proceedWithSave" 
+          class="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-700"
+        >
+          Confirm
         </button>
       </div>
     </div>
