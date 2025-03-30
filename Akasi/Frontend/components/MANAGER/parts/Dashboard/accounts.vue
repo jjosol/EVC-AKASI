@@ -43,6 +43,7 @@ const newAccount = ref({
   age: null,
   gender: '',
   category: '',
+  type: '', // Add this line
   grade: null,
   section: ''
 });
@@ -67,6 +68,12 @@ const validateForm = (account, isClient = false) => {
     errorMessage.value = 'Password is required for new accounts';
     return false;
   }
+
+  // Password length validation
+  if (account.password && account.password.length < 8) {
+    errorMessage.value = 'Password must be at least 8 characters long';
+    return false;
+  }
   
   // Additional client validation
   if (isClient) {
@@ -88,6 +95,10 @@ const validateForm = (account, isClient = false) => {
     }
     if (!account.section) {
       errorMessage.value = 'Section is required for client accounts';
+      return false;
+    }
+    if (!account.type) {
+      errorMessage.value = 'Type is required for client accounts';
       return false;
     }
   }
@@ -374,6 +385,7 @@ const resetForm = () => {
     age: null,
     gender: '',
     category: '',
+    type: '', // Reset type field
     grade: null,
     section: ''
   };
@@ -511,7 +523,7 @@ const validateExcelStructure = (data, type) => {
   
   const firstRow = data[0];
   const requiredCommonFields = ['username', 'gmail'];
-  const clientSpecificFields = ['name', 'age', 'gender', 'category', 'section'];
+  const clientSpecificFields = ['name', 'age', 'gender', 'category', 'section', 'type'];
   
   // Check common required fields for all account types
   for (const field of requiredCommonFields) {
@@ -587,15 +599,56 @@ const processExcelImport = async () => {
         importResults.value.total = jsonData.length;
         
         // Process each row based on the type
-        for (const row of jsonData) {
-          try {
-            // Validate required fields before sending to API
-            const validationError = validateExcelRow(row, massImportType.value);
-            if (validationError) {
-              throw new Error(validationError);
+        if (massImportType.value === 'clients') {
+          // First handle existing graduated students (grade 22) - they should be removed
+          const grade22Students = existingAccounts.filter(c => c.grade === 22);
+          
+          if (grade22Students.length > 0) {
+            try {
+              for (const student of grade22Students) {
+                // Delete students at grade 22 as they should be removed on next import
+                await deleteClientAccount(student.client_id);
+                importResults.value.logs.push(`🗑️ Removed graduated student: ${student.name} (exceeded maximum grade level)`);
+              }
+              importResults.value.logs.push(`✅ Removed ${grade22Students.length} students who completed grade 22`);
+              
+              // Refresh the accounts list after removals
+              existingAccounts = await fetchClientAccounts();
+            } catch (error) {
+              importResults.value.logs.push(`❌ Error removing grade 22 students: ${error.message}`);
             }
-            
-            if (massImportType.value === 'clients') {
+          }
+          
+          // Then handle existing grade 12-21 students - they should be promoted
+          const graduatingStudents = existingAccounts.filter(c => c.grade >= 12 && c.grade < 22);
+          
+          if (graduatingStudents.length > 0) {
+            try {
+              for (const student of graduatingStudents) {
+                // Move student to next grade
+                const nextGrade = student.grade + 1;
+                const updatedStudent = { ...student, grade: nextGrade };
+                await updateClientAccount(student.client_id, updatedStudent);
+                importResults.value.logs.push(`ℹ️ Graduated student: ${student.name} moved from grade ${student.grade} to grade ${nextGrade}`);
+              }
+              
+              // Refresh client accounts after processing graduates
+              existingAccounts = await fetchClientAccounts();
+              importResults.value.logs.push(`✅ Processed ${graduatingStudents.length} graduating students`);
+            } catch (error) {
+              importResults.value.logs.push(`❌ Error processing graduating students: ${error.message}`);
+            }
+          }
+          
+          // Now continue with the normal import process...
+          for (const row of jsonData) {
+            try {
+              // Original validation and processing code
+              const validationError = validateExcelRow(row, massImportType.value);
+              if (validationError) {
+                throw new Error(validationError);
+              }
+              
               const clientData = {
                 username: String(row.username || '').trim(),
                 name: String(row.name || '').trim(),
@@ -603,6 +656,7 @@ const processExcelImport = async () => {
                 age: typeof row.age === 'number' ? row.age : parseInt(row.age) || 0,
                 gender: String(row.gender || '').trim(),
                 category: String(row.category || '').trim(),
+                type: String(row.type || '').trim(), // Add this line
                 grade: row.grade ? (typeof row.grade === 'number' ? row.grade : parseInt(row.grade)) : null,
                 section: String(row.section || '').trim()
               };
@@ -632,8 +686,21 @@ const processExcelImport = async () => {
                 importResults.value.success++;
                 importResults.value.logs.push(`✅ Created client: ${clientData.name} (${clientData.username})`);
               }
-            } 
-            else if (massImportType.value === 'admins') {
+            } catch (error) {
+              importResults.value.failed++;
+              importResults.value.logs.push(`❌ Error processing client: ${row.name || row.username || 'Unknown'} - ${error.message}`);
+              console.error(`Error processing account:`, error);
+            }
+          }
+        } 
+        else if (massImportType.value === 'admins') {
+          for (const row of jsonData) {
+            try {
+              const validationError = validateExcelRow(row, massImportType.value);
+              if (validationError) {
+                throw new Error(validationError);
+              }
+              
               const adminData = {
                 username: String(row.username || '').trim(),
                 gmail: String(row.gmail || '').trim(),
@@ -663,8 +730,21 @@ const processExcelImport = async () => {
                 importResults.value.success++;
                 importResults.value.logs.push(`✅ Created admin: ${adminData.username}`);
               }
+            } catch (error) {
+              importResults.value.failed++;
+              importResults.value.logs.push(`❌ Error processing admin: ${row.username || 'Unknown'} - ${error.message}`);
+              console.error(`Error processing account:`, error);
             }
-            else if (massImportType.value === 'managers') {
+          }
+        }
+        else if (massImportType.value === 'managers') {
+          for (const row of jsonData) {
+            try {
+              const validationError = validateExcelRow(row, massImportType.value);
+              if (validationError) {
+                throw new Error(validationError);
+              }
+              
               const managerData = {
                 username: String(row.username || '').trim(),
                 gmail: String(row.gmail || '').trim()
@@ -693,11 +773,11 @@ const processExcelImport = async () => {
                 importResults.value.success++;
                 importResults.value.logs.push(`✅ Created manager: ${managerData.username}`);
               }
+            } catch (error) {
+              importResults.value.failed++;
+              importResults.value.logs.push(`❌ Error processing manager: ${row.username || 'Unknown'} - ${error.message}`);
+              console.error(`Error processing account:`, error);
             }
-          } catch (error) {
-            importResults.value.failed++;
-            importResults.value.logs.push(`❌ Error processing ${massImportType.value.slice(0, -1)}: ${row.name || row.username || 'Unknown'} - ${error.message}`);
-            console.error(`Error processing account:`, error);
           }
         }
         
@@ -764,6 +844,10 @@ const validateExcelRow = (row, type) => {
     if (!row.section || String(row.section).trim() === '') {
       return 'Section is required for client accounts';
     }
+    
+    if (!row.type || String(row.type).trim() === '') {
+      return 'Type is required for client accounts';
+    }
   }
   
   return null; // No validation error
@@ -787,7 +871,8 @@ const downloadSampleTemplate = () => {
         gender: 'Male', // Required
         category: 'Student', // Required
         grade: 10, // Optional
-        section: 'A' // Required
+        section: 'A', // Required
+        type: 'Dormer' // Required
       },
       {
         username: 'sample_faculty1', // Required
@@ -797,7 +882,8 @@ const downloadSampleTemplate = () => {
         age: 35, // Required
         gender: 'Female', // Required
         category: 'Faculty', // Required
-        section: 'Science' // Required
+        section: 'Science', // Required
+        type: 'Extern' // Required
       }
     ];
   } else if (massImportType.value === 'admins' || massImportType.value === 'managers') {
@@ -992,6 +1078,7 @@ const downloadSampleTemplate = () => {
                 Grade-Section
                 <span class="ml-1 text-blue-500" title="Sorted by grade and section">↓</span>
               </th>
+              <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Type</th>
               <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
@@ -1003,6 +1090,7 @@ const downloadSampleTemplate = () => {
               <td class="px-6 py-4 whitespace-nowrap">{{ client.gmail }}</td>
               <td class="px-6 py-4 whitespace-nowrap">{{ client.category }}</td>
               <td class="px-6 py-4 whitespace-nowrap">{{ client.grade || '-' }}-{{ client.section }}</td>
+              <td class="px-6 py-4 whitespace-nowrap">{{ client.type }}</td>
               <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
                 <button @click="openEditModal(client, true)" class="mr-3 text-indigo-600 hover:text-indigo-900">
                   <Icon icon="mdi:pencil" class="w-5 h-5" />
@@ -1013,7 +1101,7 @@ const downloadSampleTemplate = () => {
               </td>
             </tr>
             <tr v-if="filteredClients.length === 0">
-              <td colspan="7" class="px-6 py-4 text-center text-gray-500">No client accounts found</td>
+              <td colspan="8" class="px-6 py-4 text-center text-gray-500">No client accounts found</td>
             </tr>
           </tbody>
         </table>
@@ -1175,6 +1263,23 @@ const downloadSampleTemplate = () => {
                 </select>
               </div>
               
+              <!-- Type -->
+              <div class="mb-4">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="type">
+                  Type*
+                </label>
+                <select
+                  id="type"
+                  v-model="newAccount.type"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                  required
+                >
+                  <option value="">Select Type</option>
+                  <option value="Dormer">Dormer</option>
+                  <option value="Extern">Extern</option>
+                </select>
+              </div>
+              
               <!-- Grade -->
               <div class="mb-4">
                 <label class="block mb-2 text-sm font-bold text-gray-700" for="grade">
@@ -1185,7 +1290,7 @@ const downloadSampleTemplate = () => {
                   type="number"
                   v-model="newAccount.grade"
                   min="1"
-                  max="12"
+                  max="22"
                   class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
                 />
               </div>
@@ -1348,6 +1453,23 @@ const downloadSampleTemplate = () => {
                 </select>
               </div>
               
+              <!-- Type -->
+              <div class="mb-4">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="edit-type">
+                  Type*
+                </label>
+                <select
+                  id="edit-type"
+                  v-model="selectedAccount.type"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                  required
+                >
+                  <option value="">Select Type</option>
+                  <option value="Dormer">Dormer</option>
+                  <option value="Extern">Extern</option>
+                </select>
+              </div>
+              
               <!-- Grade -->
               <div class="mb-4">
                 <label class="block mb-2 text-sm font-bold text-gray-700" for="edit-grade">
@@ -1358,7 +1480,7 @@ const downloadSampleTemplate = () => {
                   type="number"
                   v-model="selectedAccount.grade"
                   min="1"
-                  max="12"
+                  max="22"
                   class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
                 />
               </div>
@@ -1418,7 +1540,7 @@ const downloadSampleTemplate = () => {
               <p class="mb-2 text-sm text-gray-600">
                 Upload an Excel file (.xlsx) with the following columns:
                 <template v-if="massImportType === 'clients'">
-                  username, password, name, gmail, age, gender, category, grade (optional), section
+                  username, password, name, gmail, age, gender, category, grade (optional), section, type
                 </template>
                 <template v-else>
                   username, password, gmail

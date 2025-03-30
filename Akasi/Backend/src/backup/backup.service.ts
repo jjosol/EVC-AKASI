@@ -220,8 +220,8 @@ export class BackupService {
   // Run backup right now and send to Google Drive
   async runBackupNow() {
     try {
-      // Run the auto backup process
-      const backupResult = await this.runAutoBackup();
+      // Create backup of all models directly (don't call runAutoBackup which would create an extra backup)
+      const backupResult = await this.createBackupAll();
       
       // Get auto backup config to check if we should upload to Drive
       const config = await this.getAutoBackupConfig();
@@ -253,6 +253,9 @@ export class BackupService {
           };
         }
       }
+      
+      // Apply retention policy
+      await this.applyRetentionPolicy();
       
       return backupResult;
     } catch (error) {

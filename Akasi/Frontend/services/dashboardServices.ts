@@ -1,4 +1,4 @@
-import { get, post, put, del, uploadFile } from './apiService';
+import { get, post, put, del, uploadFile } from './apiService.js';
 
 // Base URLs for API endpoints
 const ADMIN_URL = '/admins';
@@ -49,8 +49,26 @@ export const createClientAccount = async (clientData: {
   category: string;
   grade?: number;
   section: string;
+  type?: string; // Add the type field
 }) => {
-  return await post(CLIENT_URL, clientData);
+  try {
+    // Add default type if not provided
+    if (!clientData.type) {
+      clientData.type = 'Intern';
+    }
+    
+    console.log('Creating client with data:', JSON.stringify(clientData, null, 2));
+    return await post(CLIENT_URL, clientData);
+  } catch (error) {
+    console.error('Client creation failed with details:', error);
+    // Check if age is being sent as a string instead of a number
+    if (typeof clientData.age === 'string') {
+      clientData.age = parseInt(clientData.age, 10);
+      console.log('Converting age to number and retrying...');
+      return await post(CLIENT_URL, clientData);
+    }
+    throw error;
+  }
 };
 
 export const updateClientAccount = async (
@@ -65,6 +83,7 @@ export const updateClientAccount = async (
     category: string;
     grade?: number;
     section: string;
+    type?: string; // Add the type field
   }
 ) => {
   return await put(`${CLIENT_URL}/${clientId}`, clientData);

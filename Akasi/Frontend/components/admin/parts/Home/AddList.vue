@@ -1670,7 +1670,7 @@ const cancelConfirmation = () => {
       <button @click="showAddModal = true" v-if="!showAddModal"class="w-full p-2 font-bold text-white bg-[#2f4a71] rounded hover:bg-[#8b67db]">Add Consultation Record</button>
 
       
-      <button @click="cancelAdd" v-if="showAddModal" class="block pl-3 pr-3 pt-1 pb-1 float-right ml-5 text-1xl active:bg-blue-700 text-white rounded-sm  bg-[#745dab] ">Cancel</button>
+      <button @click="cancelAdd" v-if="showAddModal" class="block pl-3 pr-3 pt-1 pb-1 float-right ml-5 text-1xl active:bg-blue-700 text-white rounded-lg  bg-[#745dab] "> <Icon icon="mdi:close" class="w-5 h-5" /></button>
       <div v-if="showAddModal">
         <div class="flex items-center mt-1 mb-4">
           <div class="relative w-full">

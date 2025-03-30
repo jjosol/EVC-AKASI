@@ -149,7 +149,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class= "w-7/12 p-20 rounded-3xl bg-white">
+  <div class= "w-full p-4 bg-white lg:w-3/4 md:p-10 lg:p-20 rounded-3xl">
     <h1 class="text-5xl text-[#2f4a71] m-0 font-bold">Confinement Calendar</h1>
     <br>
     <div class="flex items-center border-t gap-16 justify-left text-[#2f4a71]">
@@ -210,7 +210,7 @@ textarea {
   overflow: hidden;
   text-overflow: ellipsis;
   display: block;
-  height: 300rem;
+  height: auto; /* Changed from 300rem */
 }
 .marquee:hover {
   animation: scroll-left 10s linear infinite;
@@ -224,7 +224,7 @@ textarea {
   }
 }
 .calendar-cell {
-  width: 90px;
+  min-width: 70px; /* Changed from width: 90px to be more responsive */
   height: 90px;
 }
 </style>
