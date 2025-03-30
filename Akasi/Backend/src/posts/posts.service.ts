@@ -102,7 +102,7 @@ export class PostsService {
       });
 
       // If existingFileIds is provided, delete files that are no longer associated
-      if (existingFileIds) {
+      if (existingFileIds !== undefined) { // Changed from 'if (existingFileIds)' to handle empty arrays properly
         // Find files that are currently associated but not in existingFileIds
         const currentFiles = await tx.hsu_bulletin_files.findMany({
           where: { post_id: id },
@@ -124,8 +124,8 @@ export class PostsService {
 
       // Handle new files if any
       if (files?.length) {
-        for (const file of files) {
-          await tx.hsu_bulletin_files.create({
+        const filePromises = files.map(file => 
+          tx.hsu_bulletin_files.create({
             data: {
               post_id: id,
               file_name: file.originalname,
@@ -133,8 +133,9 @@ export class PostsService {
               mime_type: file.mimetype,
               data: file.buffer
             }
-          });
-        }
+          })
+        );
+        await Promise.all(filePromises);
       }
 
       // Return complete updated post with files like in create method
