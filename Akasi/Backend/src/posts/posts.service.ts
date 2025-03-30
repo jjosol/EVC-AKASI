@@ -91,7 +91,7 @@ export class PostsService {
     });
   }
 
-  async update(id: number, updateData: { caption?: string }, files?: Express.Multer.File[]) {
+  async update(id: number, updateData: { caption?: string }, files?: Express.Multer.File[], existingFileIds?: number[]) {
     return await this.prisma.$transaction(async (tx) => {
       // Update post details
       const updatedPost = await tx.hsu_bulletin.update({
@@ -100,6 +100,27 @@ export class PostsService {
           caption: updateData.caption
         }
       });
+
+      // If existingFileIds is provided, delete files that are no longer associated
+      if (existingFileIds) {
+        // Find files that are currently associated but not in existingFileIds
+        const currentFiles = await tx.hsu_bulletin_files.findMany({
+          where: { post_id: id },
+          select: { file_id: true }
+        });
+        
+        const currentFileIds = currentFiles.map(file => file.file_id);
+        const filesToDelete = currentFileIds.filter(fileId => !existingFileIds.includes(fileId));
+        
+        if (filesToDelete.length > 0) {
+          await tx.hsu_bulletin_files.deleteMany({
+            where: { 
+              file_id: { in: filesToDelete },
+              post_id: id 
+            }
+          });
+        }
+      }
 
       // Handle new files if any
       if (files?.length) {
@@ -116,7 +137,20 @@ export class PostsService {
         }
       }
 
-      return updatedPost;
+      // Return complete updated post with files like in create method
+      return await tx.hsu_bulletin.findUnique({
+        where: { post_id: id },
+        include: {
+          files: {
+            select: {
+              file_id: true,
+              file_name: true,
+              file_type: true,
+              mime_type: true
+            }
+          }
+        }
+      });
     });
   }
 

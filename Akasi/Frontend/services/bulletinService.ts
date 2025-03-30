@@ -123,13 +123,19 @@ export const createPost = async (postData: PostData, files: File[]): Promise<Pos
  * @param {number} postId - ID of post to update
  * @param {PostData} postData - Updated post data
  * @param {File[]} files - Array of new files to upload
+ * @param {number[]} existingFileIds - IDs of files to keep associated with the post
  * @returns {Promise<PostResponse>} Updated post data
  */
-export const updatePost = async (postId: number, postData: PostData, files: File[]): Promise<PostResponse> => {
+export const updatePost = async (
+  postId: number,
+  postData: PostData,
+  files: File[],
+  existingFileIds?: number[]
+): Promise<PostResponse> => {
   const formData = new FormData();
     
   // Add post data
-  if (postData.caption) formData.append('caption', postData.caption);
+  if (postData.caption !== undefined) formData.append('caption', postData.caption);
   if (postData.text) formData.append('text', postData.text);
   if (postData.admin_id) formData.append('admin_id', postData.admin_id);
   if (postData.username) formData.append('username', postData.username);
@@ -142,22 +148,53 @@ export const updatePost = async (postId: number, postData: PostData, files: File
       }
     });
   }
+  
+  // FIXED: Always include existingFileIds, even if it's an empty array
+  if (existingFileIds !== undefined) {
+    formData.append('existingFiles', JSON.stringify(existingFileIds));
+    console.log(`Sending existingFileIds: ${JSON.stringify(existingFileIds)}`);
+  }
+
+  // Use controller and timeout like in createPost for long uploads
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 minute timeout
 
   try {
-    // Use fetch directly since we need FormData for file uploads
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}${BASE_URL}/${postId}`, {
-      method: 'PATCH',
-      body: formData
+    // Use POST to the alternative update endpoint since the PUT route gives 404.
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}${BASE_URL}/${postId}/update`;
+    console.log(`Sending update request to: ${apiUrl}`, {
+      postId,
+      caption: postData.caption,
+      filesCount: files?.length || 0,
+      existingFileIds
+    });
+    
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal
     });
 
+    clearTimeout(timeoutId);
+
+    console.log(`Update response status: ${response.status} ${response.statusText}`);
+    
     if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error details available');
+      console.error(`Failed update response body:`, errorText);
       throw new Error(`Update failed with status: ${response.status}`);
     }
 
     return await response.json();
-  } catch (error) {
+  } catch (error: unknown) {
+    if ((error as Error).name === 'AbortError') {
+      console.error('Update timed out after 5 minutes');
+      throw new Error('Update timed out. Please try with smaller files or fewer files.');
+    }
     console.error(`Error updating post ${postId}:`, error);
     throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
 };
 

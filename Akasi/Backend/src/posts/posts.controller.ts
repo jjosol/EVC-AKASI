@@ -1,13 +1,17 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFiles, NotFoundException, HttpStatus, HttpCode,InternalServerErrorException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFiles, NotFoundException, HttpStatus, HttpCode, InternalServerErrorException, Put, OnModuleInit } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { PostsService } from './posts.service';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
-import { Multer } from 'multer';
-
 @Controller('posts')
-export class PostsController {
+export class PostsController implements OnModuleInit {
   constructor(private readonly postsService: PostsService) {}
+
+  onModuleInit() {
+    console.log('Posts controller initialized with routes:');
+    console.log('PUT /posts/:id - Update post endpoint registered');
+    console.log('POST /posts/:id/update - Alternative update endpoint registered');
+  }
 
   @Post()
   @UseInterceptors(FilesInterceptor('files'))
@@ -20,18 +24,39 @@ export class PostsController {
   findAll() {
     return this.postsService.findAll();
   }
+  
+  @Post(':id/update')
+  @UseInterceptors(FilesInterceptor('files'))
+  async updateAlternative(
+    @Param('id') id: string, 
+    @Body() updatePostDto: { caption?: string, existingFiles?: string },
+    @UploadedFiles() files: Express.Multer.File[]
+  ) {
+    // Parse existingFiles JSON string if it exists
+    let existingFileIds: number[] | undefined = undefined;
+    if (updatePostDto.existingFiles) {
+      try {
+        existingFileIds = JSON.parse(updatePostDto.existingFiles);
+      } catch (e) {
+        console.error('Failed to parse existingFiles:', e);
+      }
+    }
+
+    return this.postsService.update(
+      +id, 
+      { caption: updatePostDto.caption }, 
+      files,
+      existingFileIds
+    );
+  }
 
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.postsService.findOne(+id);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updatePostDto: any) {
-    return this.postsService.update(+id, updatePostDto);
-  }
 
- 
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id') id: string) {
