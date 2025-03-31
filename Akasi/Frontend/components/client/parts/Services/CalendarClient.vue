@@ -1,5 +1,9 @@
 <script setup>
 import moment from 'moment-timezone';
+import { ref, watch, onMounted } from 'vue';
+
+const daysWithAvailableSlots = ref({});
+const isLoadingAvailability = ref(false);
 
 const findEarliestAvailableDate = () => {
   const now = moment().tz("Asia/Manila");
@@ -19,8 +23,21 @@ const findEarliestAvailableDate = () => {
       continue;
     }
     
-    // Found a valid date (MWF and either not today or today morning)
-    return candidate.toDate();
+    // Check if this day has available slots
+    const dateStr = candidate.format('YYYY-MM-DD');
+    if (daysWithAvailableSlots.value[dateStr] === true) {
+      return candidate.toDate();
+    }
+    
+    // If we don't have availability data yet or first pass, add this as a candidate
+    if (Object.keys(daysWithAvailableSlots.value).length === 0 || daysWithAvailableSlots.value[dateStr] === undefined) {
+      // We'll keep this as a potential candidate but continue searching if we have data
+      if (Object.keys(daysWithAvailableSlots.value).length === 0) {
+        return candidate.toDate();
+      }
+    }
+    
+    candidate.add(1, 'day');
   }
   
   // Fallback - should never reach here
@@ -55,6 +72,118 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['day-selected', 'update-date']);
+
+// Add this function to update the selected date after availability data is loaded
+const updateSelectedDateBasedOnAvailability = () => {
+  // Only run if we have availability data
+  if (Object.keys(daysWithAvailableSlots.value).length === 0) {
+    return;
+  }
+  
+  const currentSelectedDate = moment(selectedDate.value).tz("Asia/Manila");
+  
+  // If current selection has available slots, keep it
+  const currentDateStr = currentSelectedDate.format('YYYY-MM-DD');
+  if (daysWithAvailableSlots.value[currentDateStr] === true) {
+    return;
+  }
+  
+  // Otherwise find the earliest date with available slots
+  const newDate = findEarliestAvailableDate();
+  selectedDate.value = newDate;
+  
+  // Emit the updated date
+  emit('day-selected', { date: newDate });
+};
+
+const fetchAvailableSlotsForDate = async (date) => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) return false;
+    
+    const formattedDate = moment(date).format('YYYY-MM-DD');
+    const response = await fetch(`http://localhost:3001/add-appointment/booked-slots?date=${formattedDate}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) return false;
+    
+    const data = await response.json();
+    
+    // Check if there are any available slots (3 possible slots per hour, 2 hours)
+    const allPossibleSlots = 6; // 2 hours (15-16) x 3 slots per hour (0, 20, 40)
+    const bookedSlots = Array.isArray(data) ? data.length : 0;
+    
+    return bookedSlots < allPossibleSlots;
+  } catch (error) {
+    console.error(`Error checking availability for ${date}:`, error);
+    return false;
+  }
+};
+
+// NEW: Function to fetch availability for the entire month
+const fetchMonthAvailability = async () => {
+  isLoadingAvailability.value = true;
+  
+  const firstDayOfMonth = moment.tz({ 
+    year: selectedYear.value, 
+    month: selectedMonth.value, 
+    day: 1 
+  }, "Asia/Manila");
+  
+  const daysInMonth = firstDayOfMonth.daysInMonth();
+  
+  // Clear previous data for this month
+  for (let i = 1; i <= daysInMonth; i++) {
+    const dateStr = moment.tz({ 
+      year: selectedYear.value, 
+      month: selectedMonth.value, 
+      day: i 
+    }, "Asia/Manila").format('YYYY-MM-DD');
+    
+    daysWithAvailableSlots.value[dateStr] = null;
+  }
+  
+  // Check availability only for MWF days
+  for (let i = 1; i <= daysInMonth; i++) {
+    const currentDate = moment.tz({ 
+      year: selectedYear.value, 
+      month: selectedMonth.value, 
+      day: i 
+    }, "Asia/Manila");
+    
+    // Only check MWF (1, 3, 5)
+    const dayOfWeek = currentDate.day();
+    if (dayOfWeek !== 1 && dayOfWeek !== 3 && dayOfWeek !== 5) {
+      continue;
+    }
+    
+    // Skip past dates
+    if (currentDate.isBefore(moment().tz("Asia/Manila").startOf('day'))) {
+      continue;
+    }
+    
+    // Skip today afternoon
+    if (currentDate.isSame(moment().tz("Asia/Manila").startOf('day')) && 
+        moment().tz("Asia/Manila").hour() >= 12) {
+      continue;
+    }
+    
+    const dateStr = currentDate.format('YYYY-MM-DD');
+    const hasAvailableSlots = await fetchAvailableSlotsForDate(currentDate.toDate());
+    daysWithAvailableSlots.value[dateStr] = hasAvailableSlots;
+  }
+  
+  isLoadingAvailability.value = false;
+
+  // At the end of the fetchMonthAvailability function, add:
+  isLoadingAvailability.value = false;
+
+  // Update selected date if needed
+  updateSelectedDateBasedOnAvailability();
+};
 
 // Define updateCalendar function first
 const updateCalendar = async () => {
@@ -93,7 +222,9 @@ const updateCalendar = async () => {
     year: selectedYear.value, 
     month: selectedMonth.value 
   });
-
+  
+  // Fetch availability data for this month
+  fetchMonthAvailability();
 };
 
 // Now we can watch for changes
@@ -130,6 +261,13 @@ const isSelected = (date) => {
   );
 };
 
+// UPDATED: Check if day has available slots
+const hasSlotsAvailable = (date) => {
+  if (!date) return false;
+  const dateStr = moment(date).tz("Asia/Manila").format('YYYY-MM-DD');
+  return daysWithAvailableSlots.value[dateStr] === true;
+};
+
 // Replace the existing isDayClickable function with this updated version
 const isDayClickable = (date) => {
   if (!date) return false; // null dates are not clickable
@@ -151,7 +289,31 @@ const isDayClickable = (date) => {
   const isToday = dateToCheck.isSame(currentDate);
   const isMorning = currentHour < 12;
   
-  return isValidDay && !isPastDay && (!isToday || (isToday && isMorning));
+  // Date string for checking availability
+  const dateStr = dateToCheck.format('YYYY-MM-DD');
+  
+  // Basic checks (same as before)
+  const basicChecks = isValidDay && !isPastDay && (!isToday || (isToday && isMorning));
+  
+  // No availability data yet means we should allow selection
+  if (basicChecks && daysWithAvailableSlots.value[dateStr] === undefined) {
+    return true;
+  }
+  
+  // If we have availability data, check if this date has slots
+  return basicChecks && (daysWithAvailableSlots.value[dateStr] === true);
+};
+
+// Add this helper method to safely check if a date has no available slots
+const hasNoAvailableSlots = (date) => {
+  if (!date) return false;
+  
+  // Format date consistently with timezone like in AddAppointment.vue
+  const dateStr = moment(date).tz("Asia/Manila").format('YYYY-MM-DD');
+  
+  // Only return true if the date exists in our map and is explicitly set to false
+  return dateStr in daysWithAvailableSlots.value && 
+         daysWithAvailableSlots.value[dateStr] === false;
 };
 
 onMounted(() => {
@@ -183,6 +345,13 @@ defineExpose({
           <option v-for="year in years" :key="year" :value="year" class="text-xl">{{ year }}</option>
         </select>
       </div>
+      <div v-if="isLoadingAvailability" class="ml-auto text-sm text-gray-500 flex items-center">
+        <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        Checking availability...
+      </div>
     </div>
     <table class="w-full text-lg text-[#2f4a71] font-bold text-center border border-collapse border-gray-300">
       <thead>
@@ -201,27 +370,35 @@ defineExpose({
           <td @click="openAddingList(day)" v-for="day in week" :key="day.date" :class="{
             'bg-green-200': isSelected(day.date),
             'relative border border-gray-300 calendar-cell': true,
-            'hover:bg-blue-100': day.date && isDayClickable(day.date)
+            'hover:bg-blue-100': day.date && isDayClickable(day.date),
+            'bg-gray-100': day.date && !isDayClickable(day.date) && hasSlotsAvailable(day.date) === false
           }">
             <div 
-              class="flex items-center justify-center w-full"
+              class="flex items-center justify-center w-full h-full"
               :class="{ 
                 'cursor-pointer': day.date && isDayClickable(day.date),
                 'cursor-not-allowed': day.date && !isDayClickable(day.date),
               }"
             >
-              <span :class="{
-                'border-b-4 border-[#2f4a71]': isToday(day.date),
-                'opacity-50': day.date && !isDayClickable(day.date)
-              }">
-                {{ day.date ? day.date.getDate() : '' }}
-              </span>
+            <span :class="{
+              'border-b-4 border-[#2f4a71]': isToday(day.date),
+              'opacity-50': day.date && !isDayClickable(day.date),
+              'line-through': day.date && !isDayClickable(day.date) && hasSlotsAvailable(day.date) === false
+            }">
+              {{ day.date ? day.date.getDate() : '' }}
+              <span v-if="day.date && hasNoAvailableSlots(day.date)" 
+                class="block text-xs text-red-500 font-normal">No slots</span>
+            </span>
+
             </div>
           </td>
         </tr>
       </tbody>
     </table>
-
+    
+    <div v-if="Object.values(daysWithAvailableSlots).filter(Boolean).length === 0" class="mt-4 p-3 text-center bg-yellow-50 rounded-lg border border-yellow-100">
+      <p class="text-yellow-700">No available appointment slots found for this month. Please try a different month.</p>
+    </div>
   </div>
 </template>
 

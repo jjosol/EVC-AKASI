@@ -265,7 +265,15 @@ const closeOnOverlayClick = ref(true);
 const isSelectedTimeAvailable = ref(true);
 
 // Define emits
-const emit = defineEmits(['update-hour', 'update-minute', 'modal-closed', 'modal-opened']);
+// Update emits to include consultation-saved
+const emit = defineEmits([
+  'update-hour', 
+  'update-minute', 
+  'modal-closed', 
+  'modal-opened',
+  'consultation-saved', 
+  'update-confined'
+]);
 
 const formatBookedTime = (timeSlot) => {
   const [hour, minute] = timeSlot.split(':').map(Number);
@@ -633,6 +641,7 @@ watch(() => selectedDate.value.rawDate, (newDate) => {
 
 
 // Update the submitAppointment function
+// In AddAppointment.vue, update the submitAppointment function
 const submitAppointment = async () => {
   console.log(selectedDate.value.rawDate);
   try {
@@ -690,10 +699,16 @@ const submitAppointment = async () => {
     // Reset form
     complaint.value = '';
     
-    // Call parent callbacks
+    // Immediately refresh available time slots for the current date
+    await fetchAvailableTimeSlots(selectedDate.value.rawDate);
+    
+    // Call parent callbacks - this will trigger refreshCalendar in ServicesLayout
     if (props.onConsultationSaved) {
       props.onConsultationSaved();
     }
+    
+    // Emit event for parent components to handle
+    emit('consultation-saved');
     
     // Refresh the appointments list
     fetchUpcomingAppointments();
@@ -709,6 +724,21 @@ const submitAppointment = async () => {
     statusType.value = 'error';
   } finally {
     isSubmitting.value = false;
+  }
+};
+
+const handleDateSelected = (dateInfo) => {
+  if (dateInfo && dateInfo.date) {
+    console.log('Date selected:', dateInfo.date);
+    selectedDate.value = {
+      day: new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(dateInfo.date),
+      monthYear: new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).format(dateInfo.date),
+      date: new Intl.DateTimeFormat('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(dateInfo.date),
+      rawDate: dateInfo.date
+    };
+    
+    // Fetch available slots immediately when date is selected
+    fetchAvailableTimeSlots(dateInfo.date);
   }
 };
 
@@ -921,7 +951,8 @@ onMounted(() => {
 defineExpose({
   openModal,
   closeModal,
-  fetchUpcomingAppointments
+  fetchUpcomingAppointments,
+  handleDateSelected
 });
 </script>
 
