@@ -850,11 +850,12 @@ const addMedicine = async (medicine) => {
       throw new Error('Invalid quantity');
     }
     
-    // Track this pending quantity
-    if (!pendingMedicineQuantities.value[medicine.med_id]) {
-      pendingMedicineQuantities.value[medicine.med_id] = 0;
-    }
-    pendingMedicineQuantities.value[medicine.med_id] += requestedQty;
+    // Don't track the pending quantity yet - only when saved
+    // Remove these lines:
+    // if (!pendingMedicineQuantities.value[medicine.med_id]) {
+    //   pendingMedicineQuantities.value[medicine.med_id] = 0;
+    // }
+    // pendingMedicineQuantities.value[medicine.med_id] += requestedQty;
     
     const today = new Date();
     showMedicineDetailModal.value = true;
@@ -862,7 +863,7 @@ const addMedicine = async (medicine) => {
       med_id: medicine.med_id,
       name: medicine.name,
       quantity: medicine.requestedQuantity,
-      originalQuantity: medicine.requestedQuantity
+      originalQuantity: 0 // Set to 0 since it's not yet saved
     };
 
   } catch (error) {
@@ -955,16 +956,16 @@ const cancelMedicine = () => {
  * Cancels medicine detail modal
  */
 const cancelMedicineDetails = () => {
-  // If adding a new medicine, release its pending quantity
-  if (selectedMedicine.value && selectedMedicine.value.med_id && selectedMedicine.value.index === undefined) {
-    const medId = selectedMedicine.value.med_id;
-    if (pendingMedicineQuantities.value[medId]) {
-      pendingMedicineQuantities.value[medId] -= selectedMedicine.value.quantity || 0;
-      if (pendingMedicineQuantities.value[medId] <= 0) {
-        delete pendingMedicineQuantities.value[medId];
-      }
-    }
-  }
+  // // If adding a new medicine, release its pending quantity
+  // if (selectedMedicine.value && selectedMedicine.value.med_id && selectedMedicine.value.index === undefined) {
+  //   const medId = selectedMedicine.value.med_id;
+  //   if (pendingMedicineQuantities.value[medId]) {
+  //     pendingMedicineQuantities.value[medId] -= selectedMedicine.value.quantity || 0;
+  //     if (pendingMedicineQuantities.value[medId] <= 0) {
+  //       delete pendingMedicineQuantities.value[medId];
+  //     }
+  //   }
+  // }
   
   showMedicineDetailModal.value = false;
   showMedicineModal.value = false;
@@ -1629,8 +1630,21 @@ const saveMedicineDetails = async () => {
 
     // Check if requested quantity exceeds available count
     const availableMedicine = groupedMedicines.value[medicine.name]?.find(m => m.med_id === medicine.med_id);
-    if (availableMedicine && medicine.quantity > availableMedicine.displayCount) {
-      throw new Error('The requested quantity exceeds the available count');
+    if (!availableMedicine) {
+      throw new Error('Medicine not found in inventory');
+    }
+    
+    // Calculate available quantity after accounting for pending quantities
+    const pendingQty = pendingMedicineQuantities.value[medicine.med_id] || 0;
+    const effectiveAvailableQty = availableMedicine.count - pendingQty;
+    
+    // When editing, we need to add back the original quantity since it's already accounted for in pendingQty
+    const adjustedAvailableQty = medicine.index !== undefined 
+      ? effectiveAvailableQty + (selectedPerson.value.medicines[medicine.index].quantity || 0)
+      : effectiveAvailableQty;
+    
+    if (medicine.quantity > adjustedAvailableQty) {
+      throw new Error(`The requested quantity exceeds the available count (${adjustedAvailableQty} remaining)`);
     }
 
     // If editing an existing medicine, adjust the pending quantity
@@ -1646,7 +1660,13 @@ const saveMedicineDetails = async () => {
       
       selectedPerson.value.medicines[medicine.index] = { ...medicine };
     } else {
-      // New medicine being added
+      // New medicine being added - track the pending quantity now
+      if (!pendingMedicineQuantities.value[medicine.med_id]) {
+        pendingMedicineQuantities.value[medicine.med_id] = 0;
+      }
+      pendingMedicineQuantities.value[medicine.med_id] += medicine.quantity;
+      
+      // Add to medicines list
       selectedPerson.value.medicines.push({ ...medicine });
     }
 
