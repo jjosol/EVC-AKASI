@@ -61,6 +61,7 @@ export const increaseInventory = async (
   data: { 
     medName: string;
     quantity: number;
+    cause?: string;
   }
 ) => {
   return await post(`${BASE_URL}/increase/${id}`, data);
@@ -71,6 +72,7 @@ export const reduceInventory = async (
   name: string, 
   data: { 
     quantity: number;
+    cause?: string;
   }
 ) => {
   return await put(`${BASE_URL}/reduce/${id}/${name}`, data);
@@ -86,6 +88,10 @@ export const updateMedicineName = async (
     newName,
     categoryId
   });
+};
+
+export const fetchInventoryEdits = async () => {
+  return await get(`${BASE_URL}/edits`);
 };
 
 // Helper function to format dates (can be used in components)

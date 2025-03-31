@@ -19,17 +19,27 @@ export class InventoryController {
   async reduceInventory(
     @Param('med_id') med_id: string,
     @Param('medName') medName: string,
-    @Body('quantity') quantity: number  // now accepting quantity directly from the body
+    @Body() data: { quantity: number, cause?: string }
   ) {
-    return this.inventoryService.reduceInventory(Number(med_id), medName, quantity);
+    return this.inventoryService.reduceInventory(
+      Number(med_id), 
+      medName, 
+      data.quantity,
+      data.cause || 'Manual reduction'
+    );
   }
 
   @Post('increase/:med_id')
   async increaseInventory(
     @Param('med_id') med_id: string,
-    @Body() data: { medName: string, quantity: number }
+    @Body() data: { medName: string, quantity: number, cause?: string }
   ) {
-    return this.inventoryService.increaseInventory(Number(med_id), data.medName, data.quantity);
+    return this.inventoryService.increaseInventory(
+      Number(med_id), 
+      data.medName, 
+      data.quantity,
+      data.cause || 'Manual addition'
+    );
   }
 
   // Changed route parameters for consistency: use med_id and medName
@@ -78,5 +88,10 @@ export class InventoryController {
     @Body() data: { name: string }
   ) {
     return this.inventoryService.updateCategory(Number(id), data.name);
+  }
+
+  @Get('edits')
+  async getInventoryEdits() {
+    return this.inventoryService.getInventoryEdits();
   }
 }

@@ -472,7 +472,7 @@ const savePerson = async () => {
         continue; // Skip to next medicine
       }
       
-      // Create new medicine record
+      // Create new medicine record with tracking information
       const medAdminData = {
         consultation_id: consultationId,
         client_id: selectedPerson.value.clientId,
@@ -485,7 +485,8 @@ const savePerson = async () => {
         end_date: medicine.endDate || new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0],
         remarks: medicine.remarks || '',
         date: new Date().toISOString(),
-        patient: selectedPerson.value.name
+        patient: selectedPerson.value.name,
+        cause: `Dispensed to ${selectedPerson.value.name} in consultation #${consultationId}`
       };
 
       try {
