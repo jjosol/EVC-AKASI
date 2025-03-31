@@ -198,6 +198,17 @@ export class ConsultationRecordsService {
               }
             }
           });
+          
+          // Log the return to inventory
+          await prisma.editsInverntory.create({
+            data: {
+              med_id: record.med_id,
+              medName: record.medName,
+              date: new Date(),
+              cause: `Returned to inventory (Consultation #${consultation_id} deleted)`,
+              addSubCount: record.count // Positive for return
+            }
+          });
         }
 
         // Delete all medicine administration records

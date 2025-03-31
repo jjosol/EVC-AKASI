@@ -67,11 +67,12 @@ export class InventoryService {
       });
 
       if (existingMedicine) {
-        // If batch exists, increase its count
+        // If batch exists, increase its count with tracking
         return await this.increaseInventory(
           existingMedicine.med_id,
           existingMedicine.medName,
-          item.count
+          item.count,
+          'New batch added'
         );
       }
 
@@ -87,6 +88,18 @@ export class InventoryService {
           category: true,
         },
       });
+
+      // Log the new item addition
+      await this.prisma.editsInverntory.create({
+        data: {
+          med_id: result.med_id,
+          medName: result.medName,
+          date: new Date(),
+          cause: 'Initial inventory',
+          addSubCount: Number(item.count)
+        }
+      });
+
       return result;
     } catch (error) {
       throw new BadRequestException(error.message || 'Failed to add inventory item');
@@ -184,7 +197,7 @@ export class InventoryService {
     }
   }
 
-  async reduceInventory(med_id: number, medName: string, quantity: number) {
+  async reduceInventory(med_id: number, medName: string, quantity: number, cause: string = 'Unspecified reduction') {
     try {
       // Find the inventory item by med_id and medName
       const item = await this.prisma.inventory.findUnique({
@@ -205,13 +218,24 @@ export class InventoryService {
         data: { count: item.count - quantity }
       });
 
+      // Log the change to EditsInverntory
+      await this.prisma.editsInverntory.create({
+        data: {
+          med_id: med_id,
+          medName: medName,
+          date: new Date(),
+          cause: cause,
+          addSubCount: -quantity // Negative for reduction
+        }
+      });
+
       return updatedItem;
     } catch (error) {
       throw new BadRequestException(error.message || 'Failed to reduce inventory');
     }
   }
 
-  async increaseInventory(med_id: number, medName: string, quantity: number) {
+  async increaseInventory(med_id: number, medName: string, quantity: number, cause: string = 'Unspecified addition') {
     try {
       // Find the inventory item by med_id and medName
       const item = await this.prisma.inventory.findUnique({
@@ -226,6 +250,17 @@ export class InventoryService {
       const updatedItem = await this.prisma.inventory.update({
         where: { med_id_medName: { med_id, medName } },
         data: { count: item.count + quantity }
+      });
+
+      // Log the change to EditsInverntory
+      await this.prisma.editsInverntory.create({
+        data: {
+          med_id: med_id,
+          medName: medName,
+          date: new Date(),
+          cause: cause,
+          addSubCount: quantity // Positive for addition
+        }
       });
 
       return updatedItem;
@@ -298,6 +333,53 @@ export class InventoryService {
     } catch (error) {
       console.error('Error fetching medicines by category:', error);
       throw new BadRequestException('Failed to fetch medicines by category');
+    }
+  }
+
+  async getInventoryEdits() {
+    try {
+      // Get all edit records with joined inventory data for expiration dates
+      const edits = await this.prisma.editsInverntory.findMany({
+        include: {
+          inventory: {
+            select: {
+              expiration: true
+            }
+          }
+        },
+        orderBy: {
+          date: 'desc'
+        }
+      });
+      
+      // Calculate totals by medicine name and batch
+      const medicineTotals = {};
+      edits.forEach(edit => {
+        // Create a key that combines medicine name and expiration date
+        const batchKey = edit.inventory?.expiration 
+          ? `${edit.medName} (Exp: ${new Date(edit.inventory.expiration).toISOString().split('T')[0]})`
+          : edit.medName;
+        
+        if (!medicineTotals[batchKey]) {
+          medicineTotals[batchKey] = 0;
+        }
+        medicineTotals[batchKey] += edit.addSubCount;
+      });
+      
+      // Format the edits to include expiration date
+      const formattedEdits = edits.map(edit => ({
+        ...edit,
+        batchInfo: edit.inventory?.expiration
+          ? new Date(edit.inventory.expiration).toISOString().split('T')[0]
+          : 'No batch info'
+      }));
+      
+      return {
+        edits: formattedEdits,
+        medicineTotals
+      };
+    } catch (error) {
+      throw new BadRequestException('Failed to fetch inventory edits');
     }
   }
 }
