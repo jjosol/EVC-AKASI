@@ -216,8 +216,12 @@ function resetPost() {
       </div>
     </div>
     <div class="flex space-x-2">
-      <button @click="resetPost" :disabled="isLoading" class="text-purple-600">Cancel</button>
-      <button @click="onSubmit" :disabled="isLoading" class="p-2 text-white bg-purple-500 rounded">
+      <button @click="resetPost" :disabled="isLoading" 
+        class="px-3 py-1 text-[#2f4a71] hover:text-purple-800 transition-colors duration-200 rounded">
+        Cancel
+      </button>
+      <button @click="onSubmit" :disabled="isLoading" 
+        class="p-2 text-white bg-[#28436b] hover:bg-purple-600 transition-colors duration-200 rounded">
         {{ isLoading ? 'Posting...' : 'Post' }}
       </button>
     </div>
@@ -225,12 +229,17 @@ function resetPost() {
 
   <!-- Post Caption -->
   <div class="mt-4">
-    <textarea v-model="localText" placeholder="Caption" class="w-full p-2 mb-2 border rounded"></textarea>
+    <textarea 
+      v-model="localText" 
+      placeholder="Caption" 
+      class="w-full p-2 mb-2 border rounded textarea-focus-effect"
+    >
+    </textarea>
   </div>
 
   <!-- File Upload and Media Preview Section -->
   <div class="flex items-center justify-between mt-2">
-    <label for="file-upload" class="flex items-center space-x-1 text-gray-500 cursor-pointer">
+    <label for="file-upload" class="flex items-center space-x-1 text-gray-500 hover:text-[#28436b] cursor-pointer transition-colors duration-200">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
       </svg>
@@ -292,7 +301,7 @@ function resetPost() {
       <!-- Remove Button -->
       <button 
         @click="removeFile(index)" 
-        class="absolute p-1 text-white bg-red-500 rounded-full -top-2 -right-2 hover:bg-red-600"
+        class="absolute p-1 text-white bg-red-500 rounded-full -top-2 -right-2 hover:bg-red-600 hover:scale-110 transform transition-all duration-200"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -338,5 +347,25 @@ function resetPost() {
 .error-message {
   color: red;
   margin-top: 1rem;
+}
+
+/* Add cursor styling and transitions */
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.textarea-focus-effect {
+  transition: border-color 0.2s ease;
+}
+
+.textarea-focus-effect:focus {
+  border-color: #7462A9; /* [#28436b] */
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
 }
 </style>

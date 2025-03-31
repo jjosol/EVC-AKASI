@@ -234,71 +234,80 @@ watch(() => props.post, (newPost) => {
           </div>
 
           <!-- Videos -->
-          <div v-else-if="file.file_type === 'video'" class="relative">
+          <div v-else-if="file.file_type === 'video'" class="relative bg-gray-50 rounded-lg shadow-lg p-4 transition-all duration-300 hover:shadow-xl">
             <div class="flex items-center justify-between mb-4">
               <div class="flex items-center space-x-2">
                 <Icon icon="mdi:video" class="w-6 h-6 text-blue-500" />
-                <span>{{ file.file_name }}</span>
+                <span class="font-medium text-gray-800">{{ file.file_name }}</span>
               </div>
               <a 
                 :href="getFileUrl(file.file_id)"
-                class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
+                class="px-4 py-2 text-white bg-blue-500 rounded-md hover:bg-blue-600 transition-all duration-200 transform hover:shadow-md hover:translate-y-[-2px] cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-300 flex items-center gap-2"
                 download
               >
-                Download Video
+                <Icon icon="mdi:download" class="w-4 h-4" />
+                Download
               </a>
             </div>
-            <div class="relative">
+            <div class="relative overflow-hidden rounded-lg">
               <video 
                 :src="getFileUrl(file.file_id)" 
                 controls
                 preload="metadata"
-                class="w-full rounded-lg shadow-md"
+                class="w-full rounded-lg shadow-md transition-opacity duration-300"
                 @error="(e) => handleVideoError(e, file)"
               >
                 Your browser does not support video playback.
               </video>
-              <div v-if="fileLoadErrors[file.file_id]" class="p-4 text-center text-red-500">
-                Failed to load video: {{ file.file_name }}
-                <div class="mt-2">
-                  <a 
-                    :href="getFileUrl(file.file_id)"
-                    class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
-                    download
-                  >
-                    Download Video
-                  </a>
-                </div>
+              <div v-if="fileLoadErrors[file.file_id]" class="p-6 text-center bg-red-50 border border-red-200 rounded-lg">
+                <p class="text-red-500 font-medium mb-3">Failed to load video: {{ file.file_name }}</p>
+                <a 
+                  :href="getFileUrl(file.file_id)"
+                  class="px-4 py-2 text-white bg-blue-500 rounded-md hover:bg-blue-600 transition-all duration-200 inline-flex items-center gap-2"
+                  download
+                >
+                  <Icon icon="mdi:download" class="w-4 h-4" />
+                  Download Instead
+                </a>
               </div>
             </div>
           </div>
 
           <!-- PDFs -->
-          <div v-else-if="getFileViewerComponent(file) === 'pdf'" class="p-4 border rounded-lg shadow-md">
+          <div v-else-if="getFileViewerComponent(file) === 'pdf'" class="p-6 border border-gray-200 rounded-lg shadow-lg transition-all duration-300 hover:shadow-xl bg-white">
             <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center space-x-2">
-                <Icon icon="mdi:file-pdf" class="w-6 h-6 text-red-500" />
-                <span>{{ file.file_name }}</span>
+              <div class="flex items-center space-x-3">
+                <Icon icon="mdi:file-pdf" class="w-7 h-7 text-red-500" />
+                <span class="font-medium text-gray-800 truncate max-w-xs">{{ file.file_name }}</span>
               </div>
               <a 
                 :href="getFileUrl(file.file_id)"
-                class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
+                class="px-4 py-2 text-white bg-blue-500 rounded-md hover:bg-blue-600 transition-all duration-200 transform hover:shadow-md hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-300 flex items-center gap-2"
                 target="_blank"
               >
-                Open PDF in New Tab
+                <Icon icon="mdi:open-in-new" class="w-4 h-4" />
+                Open PDF
               </a>
             </div>
             <object
               :data="getFileUrl(file.file_id)"
               type="application/pdf"
-              class="w-full h-[600px]"
+              class="w-full h-[600px] border border-gray-200 rounded-md"
               @error="handleIframeError(file.file_id)"
             >
-              <p>
-                It appears you don't have a PDF plugin for this browser or the PDF couldn't be loaded.
-                You can <a :href="getFileUrl(file.file_id)" download>download the PDF file</a>
-                to view it.
-              </p>
+              <div class="p-4 text-center">
+                <p class="text-gray-600 mb-4">
+                  It appears you don't have a PDF plugin for this browser or the PDF couldn't be loaded.
+                </p>
+                <a 
+                  :href="getFileUrl(file.file_id)" 
+                  download
+                  class="px-4 py-2 text-white bg-blue-500 rounded-md hover:bg-blue-600 transition-all duration-200 inline-flex items-center gap-2"
+                >
+                  <Icon icon="mdi:download" class="w-4 h-4" />
+                  Download PDF
+                </a>
+              </div>
             </object>
           </div>
 
@@ -366,5 +375,36 @@ img, video {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Enhanced button styles */
+a[download], a[target="_blank"], button {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+a[download]:hover, a[target="_blank"]:hover, button:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+a[download]:active, a[target="_blank"]:active, button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Improved file containers */
+.rounded-lg {
+  border-radius: 0.5rem;
+}
+
+.shadow-md {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.hover\:shadow-xl:hover {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 </style>
