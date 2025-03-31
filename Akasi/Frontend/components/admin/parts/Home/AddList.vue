@@ -1627,6 +1627,12 @@ const saveMedicineDetails = async () => {
       throw new Error('Valid quantity is required');
     }
 
+    // Check if requested quantity exceeds available count
+    const availableMedicine = groupedMedicines.value[medicine.name]?.find(m => m.med_id === medicine.med_id);
+    if (availableMedicine && medicine.quantity > availableMedicine.displayCount) {
+      throw new Error('The requested quantity exceeds the available count');
+    }
+
     // If editing an existing medicine, adjust the pending quantity
     if (medicine.index !== undefined) {
       const oldQty = selectedPerson.value.medicines[medicine.index].quantity || 0;
