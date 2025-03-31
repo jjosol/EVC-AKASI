@@ -1,11 +1,14 @@
 // med-administration.service.ts
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { Prisma } from '@prisma/client';
+import { InventoryService } from '../inventory/inventory.service'; // Add this import
 
 @Injectable()
 export class MedAdministrationService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private inventoryService: InventoryService // Add this dependency
+  ) {}
 
   async getMedAdministrationByConsultation(consultationId: number) {
     try {
@@ -17,8 +20,6 @@ export class MedAdministrationService {
       throw new BadRequestException('Failed to fetch med administration records');
     }
   }
-
-  // Update the med-administration.service.ts file
 
   async createMedAdministration(data: any) {
     return await this.prisma.$transaction(async (prisma) => {
@@ -48,21 +49,15 @@ export class MedAdministrationService {
           throw new BadRequestException(`Insufficient inventory. Available: ${inventory.count}`);
         }
 
-        // 3. Update inventory (reduce quantity)
-        await prisma.inventory.update({
-          where: {
-            med_id_medName: {
-              med_id: data.med_id,
-              medName: data.medName,
-            },
-          },
-          data: {
-            count: inventory.count - data.count,
-          },
-        });
+        // 3. Use inventoryService.reduceInventory instead of direct update
+        await this.inventoryService.reduceInventory(
+          data.med_id,
+          data.medName,
+          data.count,
+          `Dispensed to ${data.patient} in consultation #${data.consultation_id}`
+        );
 
         // 4. Create new med administration record
-        // Now we create a new record for each medicine
         return await prisma.medAdministration.create({
           data: {
             consultation_id: data.consultation_id,
@@ -74,14 +69,13 @@ export class MedAdministrationService {
             schedule: data.schedule,
             start_date: new Date(data.start_date),
             end_date: new Date(data.end_date),
+            date: new Date(), // Use current date
+            patient: data.patient,
             remarks: data.remarks || null,
-            date: new Date(data.date),
-            patient: data.patient
-          }
+            intervention: data.intervention || null,
+          },
         });
       } catch (error) {
-        // All operations will be rolled back if any error occurs
-        console.error('Transaction error:', error);
         throw new BadRequestException(error.message);
       }
     });
@@ -113,17 +107,13 @@ export class MedAdministrationService {
             throw new BadRequestException('Insufficient inventory');
           }
 
-          await prisma.inventory.update({
-            where: {
-              med_id_medName: {
-                med_id: currentRecord.med_id,
-                medName: currentRecord.medName
-              }
-            },
-            data: {
-              count: inventory.count - quantityDiff
-            }
-          });
+          // Use inventoryService.reduceInventory instead of direct update
+          await this.inventoryService.reduceInventory(
+            currentRecord.med_id,
+            currentRecord.medName,
+            quantityDiff,
+            `Updated for med administration #${id}`
+          );
         }
 
         return await prisma.medAdministration.update({
