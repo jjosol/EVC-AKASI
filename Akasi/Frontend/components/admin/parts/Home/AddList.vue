@@ -1617,6 +1617,11 @@ const saveMedicineDetails = async () => {
     if (endDate < startDate) {
       throw new Error('End date cannot be before start date');
     }
+    
+    // Validate that start date and end date are not the same
+    if (startDate.getTime() === endDate.getTime()) {
+      throw new Error('End date cannot be the same as start date');
+    }
 
     if (!medicine.quantity || medicine.quantity <= 0) {
       throw new Error('Valid quantity is required');
@@ -2360,7 +2365,7 @@ const saveMedicineDetails = async () => {
       <div class="flex justify-end mt-6 space-x-4">
           <button @click="cancelMedicineDetails"
             class="px-4 py-2 text-gray-600 bg-gray-200 rounded-md">Cancel</button>
-          <button v-if="!isViewOnly" @click="confirmSave('medicine')"
+          <button v-if="!isViewOnly" @click="saveMedicineDetails()"
             class="px-4 py-2 text-white bg-blue-600 rounded-md">Save</button>
         </div>
         
