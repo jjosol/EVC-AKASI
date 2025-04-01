@@ -5,6 +5,8 @@ import moment from 'moment-timezone';
 import { useProfile } from '~/composables/useProfile'
 import { useAppointmentsByDate } from '~/composables/useAppointmentsByDate';
 import * as consultationRecordService from '~/services/consultationRecordService';
+// Import the confirmation modal component
+import ConfirmationModal from '~/components/SHARED/parts/confirmationModal.vue';
 
 // Properly initialize the profile composable
 const { profile, loading: profileLoading, fetchProfile } = useProfile();
@@ -506,7 +508,7 @@ const savePerson = async () => {
     // Map the med admin records to match the expected format
     const mappedMedicines = medAdminRecords.map(record => ({
       med_id: record.med_id,
-      consultation_id: record.consultation_id, // Add this line
+      consultation_id: record.consultation_id,
       name: record.medName,
       quantity: record.count,
       schedule: record.schedule,
@@ -1558,39 +1560,45 @@ const getStatusClass = (status) => {
 const pendingMedicineQuantities = ref({}); // Track quantities that are "reserved" but not yet committed to DB
 
 /**
- * Shows confirmation modal before saving
- * @param {string} action - Type of action being confirmed
+ * Shows confirmation modal for actions that need confirmation
  */
-const confirmSave = (action) => {
+const confirmAction = (action) => {
+  pendingSaveAction.value = action;
+  
   if (action === 'consultation') {
     confirmationMessage.value = 'Are you sure you want to save this consultation record? This action cannot be undone once saved.';
-    pendingSaveAction.value = 'consultation';
-  } else if (action === 'medicine') {
-    confirmationMessage.value = 'Are you sure you want to save these medication details? This action cannot be undone once saved.';
-    pendingSaveAction.value = 'medicine';
+  } else {
+    confirmationMessage.value = 'Are you sure you want to proceed with this action?';
   }
+  
   showConfirmationModal.value = true;
 };
 
 /**
- * Proceeds with save action after confirmation
+ * Handle confirmation from the modal
  */
-const proceedWithSave = async () => {
-  showConfirmationModal.value = false;
-  
-  if (pendingSaveAction.value === 'consultation') {
-    await savePerson();
-  } else if (pendingSaveAction.value === 'medicine') {
-    await saveMedicineDetails();
+const handleConfirm = async () => {
+  try {
+    if (pendingSaveAction.value === 'consultation') {
+      await savePerson();
+    } else if (pendingSaveAction.value === 'medicine') {
+      await saveMedicineDetails();
+    } else if (pendingSaveAction.value === 'delete' && selectedConsultationRecord.value) {
+      await deleteConsultationRecord(selectedConsultationRecord.value.consultation_id);
+    }
+  } catch (error) {
+    console.error('Error processing confirmed action:', error);
+  } finally {
+    // Always clean up the modal state
+    showConfirmationModal.value = false;
+    pendingSaveAction.value = null;
   }
-  
-  pendingSaveAction.value = null;
 };
 
 /**
- * Cancels the confirmation and closes the modal
+ * Handle cancellation from the modal
  */
-const cancelConfirmation = () => {
+const handleCancel = () => {
   showConfirmationModal.value = false;
   pendingSaveAction.value = null;
 };
@@ -1665,6 +1673,13 @@ const saveMedicineDetails = async () => {
     console.error('Error saving medicine details:', error);
     alert(error.message);
   }
+};
+
+// Add this helper function to handle delayed actions (fixes setTimeout issue)
+const delayedAction = (callback, delay) => {
+  window.setTimeout(() => {
+    callback();
+  }, delay);
 };
 </script>
 
@@ -1742,7 +1757,7 @@ const saveMedicineDetails = async () => {
           <span @click="openEditModal(patient)" class="cursor-pointer confinement-details">
             {{ patient.name }} - {{ patient.time }} 
           </span>
-          <button @click="deleteConsultationRecord(patient.consultation_id)" class="p-1 .text-white bg-red-500 rounded ">
+          <button @click="confirmAction('delete')" class="p-1 .text-white bg-red-500 rounded ">
             <Icon icon="fluent:delete-28-regular" />
           </button>
         </li>
@@ -1943,8 +1958,7 @@ const saveMedicineDetails = async () => {
                 type="text"
                 placeholder="Search or select diagnoses..."
                 class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md"
-                @focus="showDiagnosisDropdown = true"
-                @blur="setTimeout(() => closeDiagnosisDropdown(), 200)"
+                @blur="(e) => delayedAction(() => { closeDiagnosisDropdown() }, 200)"
               />
               <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                 <Icon icon="mdi:magnify" class="w-5 h-5 text-gray-400" />
@@ -1988,13 +2002,7 @@ const saveMedicineDetails = async () => {
             </div>
             
             <!-- Buttons for managing diagnoses/categories -->
-            <button 
-              @click="openAddDiagnosisModal" 
-              class="flex items-center px-3 py-2 text-white bg-purple-600 rounded-md hover:bg-purple-700"
-            >
-              <Icon icon="mdi:plus" class="mr-1" />
-              New
-            </button>
+            
             <button 
               @click="openManageModal" 
               class="flex items-center px-3 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700"
@@ -2150,7 +2158,7 @@ const saveMedicineDetails = async () => {
           </button>
           <button 
             v-if="currentModalPage === 2 && !isViewOnly" 
-            @click="confirmSave('consultation')" 
+            @click="confirmAction('consultation')" 
             class="px-4 py-2 text-white bg-purple-500 rounded-lg">
             Submit
           </button>
@@ -2650,27 +2658,12 @@ const saveMedicineDetails = async () => {
   </div>
 
   <!-- Confirmation Modal -->
-  <div v-if="showConfirmationModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-800 bg-opacity-75">
-    <div class="p-6 bg-white rounded-lg shadow-xl w-96">
-      <h3 class="mb-4 text-xl font-bold text-red-600">Confirmation Required</h3>
-      <p class="mb-6 text-gray-700">{{ confirmationMessage }}</p>
-      <div class="flex justify-end space-x-3">
-        <button 
-          @click="cancelConfirmation" 
-          class="px-4 py-2 text-gray-700 bg-gray-200 rounded hover:bg-gray-300"
-        >
-          Cancel
-        </button>
-        <button 
-          @click="proceedWithSave" 
-          class="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-700"
-        >
-          Confirm
-        </button>
-      </div>
-    </div>
-  </div>
-
+  <ConfirmationModal
+    :show="showConfirmationModal"
+    :message="confirmationMessage"
+    @confirm="handleConfirm"
+    @cancel="handleCancel"
+  />
 </template>
 <style scoped>
 textarea {
