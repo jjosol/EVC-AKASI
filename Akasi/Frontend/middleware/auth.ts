@@ -1,9 +1,9 @@
 // middleware/auth.ts
 import { defineNuxtRouteMiddleware, navigateTo } from 'nuxt/app';
-import { useAuth } from '~/composables/useAuth';
+import { useAuth } from '~/composables/useAuth.js';
 
 export default defineNuxtRouteMiddleware((to) => {
-  if (!import.meta.client) return;
+  if (process.server) return;
 
   const { checkToken, userRole } = useAuth();
 
@@ -11,7 +11,7 @@ export default defineNuxtRouteMiddleware((to) => {
     return navigateTo('/login');
   }
 
-  let requiredRole: string[] = to.meta.requiredRole as string[];
+  let requiredRole = to.meta.requiredRole as string[];
 
   // Ensure requiredRole is always an array
   if (requiredRole && !Array.isArray(requiredRole)) {

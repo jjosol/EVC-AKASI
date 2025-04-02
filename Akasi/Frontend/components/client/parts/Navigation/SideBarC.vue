@@ -5,10 +5,26 @@ import { useProfile } from '~/composables/useProfile';
 const route = useRoute();
 const { profile, loading: profileLoading, fetchProfile } = useProfile();
 
-const links = [
+// Define all possible links
+const allLinks = [
   { path: '/bulletin', label: 'Bulletin' },
   { path: '/services', label: 'Services' },
 ];
+
+// Filtered links based on user profile
+const links = computed(() => {
+  if (!profile.value) return allLinks;
+  
+  return allLinks.filter(link => {
+    // Hide services link for students with grade 13 or higher
+    if (link.path === '/services' && 
+        profile.value.category === 'Student' && 
+        profile.value.grade >= 13) {
+      return false;
+    }
+    return true;
+  });
+});
 
 // Separate profile link for special formatting
 const profileLink = { path: '/profile', label: 'Profile' };
@@ -38,7 +54,7 @@ onMounted(() => {
       </div>
       
       <div class="flex flex-col space-y-5 w-full px-6">
-        <!-- Regular navigation links -->
+        <!-- Regular navigation links (now using computed property) -->
         <router-link
           v-for="link in links" 
           :key="link.path"

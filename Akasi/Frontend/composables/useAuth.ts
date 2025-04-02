@@ -6,6 +6,8 @@ import { navigateTo, useRouter } from 'nuxt/app';
 export const useAuth = () => {
   const isAuthenticated = ref(false);
   const userRole = ref<string | null>(null);
+  const userCategory = ref<string | null>(null);
+  const userGrade = ref<number | null>(null);
   const router = useRouter(); // Get the router instance
   let tokenCheckInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -30,6 +32,8 @@ export const useAuth = () => {
 
       isAuthenticated.value = true;
       userRole.value = decoded.role || null;
+      userCategory.value = decoded.category || null;
+      userGrade.value = decoded.grade || null;
       return true;
     } catch (error) {
       console.error('Error decoding token:', error);
@@ -42,6 +46,8 @@ export const useAuth = () => {
     localStorage.removeItem('token');
     isAuthenticated.value = false;
     userRole.value = null;
+    userCategory.value = null;
+    userGrade.value = null;
     navigateTo('/login');
   };
 
@@ -70,15 +76,24 @@ export const useAuth = () => {
   const isClient = computed(() => userRole.value === 'client');
   const isManager = computed(() => userRole.value === 'manager');
 
+  // New computed property for student check with grade condition
+  const isEligibleStudent = computed(() =>
+    isClient.value &&
+    userCategory.value?.toLowerCase() === 'student' &&
+    (userGrade.value === null || userGrade.value < 13)
+  );
 
   startTokenCheck(); // Start token check immediately
 
   return {
     isAuthenticated,
     userRole,
+    userCategory,
+    userGrade,
     isAdmin,
     isClient,
     isManager,
+    isEligibleStudent,
     checkToken,
     handleLogout,
     startTokenCheck,

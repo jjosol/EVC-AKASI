@@ -58,6 +58,10 @@ model client {
   medical_certificates medical_certificates[]
   dental_certificates  dental_certificates[]
   consultation_records consultation_records[]
+  hh_pds               hh_pds[]
+  md_consent           md_consent[]
+  dh_record            dh_record[]
+  laboratory           laboratory[]
   appointment          appointment[]
 
   @@id([client_id, username])
@@ -141,20 +145,6 @@ model consultation_diagnosis {
   @@index([diagnosis_id])
 }
 
-model dental_certificates {
-  client_id Int
-  grade     Int
-  date      DateTime @db.Date
-  dental    Bytes    @db.LongBlob
-  dental_id Int      @id @default(autoincrement())
-  status    String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
-  notes     String?  @db.VarChar(500)
-
-  client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([client_id], map: "FK_client_TO_dental_certificates")
-}
-
 model inventory {
   med_id      Int      @default(autoincrement())
   medName     String   @db.VarChar(225)
@@ -212,6 +202,20 @@ model EditsInverntory {
   @@index([med_id, medName], map: "FK_inventory_TO_EditsInverntory")
 }
 
+model dental_certificates {
+  client_id Int
+  grade     Int
+  date      DateTime @db.Date
+  dental    Bytes    @db.LongBlob
+  dental_id Int      @id @default(autoincrement())
+  status    String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
+  notes     String?  @db.VarChar(500)
+
+  client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([client_id], map: "FK_client_TO_dental_certificates")
+}
+
 model medical_certificates {
   client_id  Int
   grade      Int
@@ -252,6 +256,63 @@ model physical_exam {
   client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([client_id], map: "FK_client_TO_physical_exam")
+}
+
+model hh_pds {
+  client_id Int
+  grade     Int
+  date      DateTime @db.Date
+  pds       Bytes    @db.LongBlob
+  pds_id    Int      @id @default(autoincrement())
+  status    String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
+  notes     String?  @db.VarChar(500)
+
+  client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([client_id], map: "FK_client_TO_hh_pds")
+}
+
+model md_consent {
+  client_id  Int
+  grade      Int
+  date       DateTime @db.Date
+  consent    Bytes    @db.LongBlob
+  consent_id Int      @id @default(autoincrement())
+  status     String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
+  notes      String?  @db.VarChar(500)
+
+  client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([client_id], map: "FK_client_TO_md_consent")
+}
+
+model dh_record {
+  client_id Int
+  grade     Int
+  date      DateTime @db.Date
+  record    Bytes    @db.LongBlob
+  record_id Int      @id @default(autoincrement())
+  status    String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
+  notes     String?  @db.VarChar(500)
+
+  client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([client_id], map: "FK_client_TO_dh_record")
+}
+
+model laboratory {
+  client_id Int
+  grade     Int
+  date      DateTime @db.Date
+  lab_type  String   @db.VarChar(225)
+  lab       Bytes    @db.LongBlob
+  lab_id    Int      @id @default(autoincrement())
+  status    String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
+  notes     String?  @db.VarChar(500)
+
+  client client @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([client_id], map: "FK_client_TO_laboratory")
 }
 
 model hsu_bulletin {

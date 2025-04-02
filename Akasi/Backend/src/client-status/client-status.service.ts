@@ -11,8 +11,23 @@ export class ClientStatusService {
      * @param clientId The ID of the client to update
      * @returns The updated client object
      */
+
     async updateClientStatus(clientId: number) {
         try {
+            // First get the client to check their category and grade
+            const client = await this.prisma.client.findUnique({
+                where: { client_id: clientId },
+                select: {
+                    category: true,
+                    grade: true,
+                    status: true
+                }
+            });
+
+            if (!client) {
+                throw new Error(`Client with ID ${clientId} not found`);
+            }
+
             // Get all files from the various certificate tables for this client
             const [
                 medicalCerts,
@@ -22,19 +37,19 @@ export class ClientStatusService {
             ] = await Promise.all([
                 this.prisma.medical_certificates.findMany({
                     where: { client_id: clientId },
-                    select: { status: true },
+                    select: { status: true, grade: true },
                 }),
                 this.prisma.dental_certificates.findMany({
                     where: { client_id: clientId },
-                    select: { status: true },
+                    select: { status: true, grade: true },
                 }),
                 this.prisma.opthal_certificates.findMany({
                     where: { client_id: clientId },
-                    select: { status: true },
+                    select: { status: true, grade: true },
                 }),
                 this.prisma.physical_exam.findMany({
                     where: { client_id: clientId },
-                    select: { status: true },
+                    select: { status: true, grade: true },
                 }),
             ]);
 
@@ -46,25 +61,52 @@ export class ClientStatusService {
                 ...physicalExams,
             ].map(file => file.status);
 
-            // If no files are found, keep status as is
+            // If no files are found, keep status as pending
             if (allFileStatuses.length === 0) {
-                return null;
+                const updatedClient = await this.prisma.client.update({
+                    where: { client_id: clientId },
+                    data: { status: 'pending' },
+                });
+                return updatedClient;
             }
 
-            // Determine client status based on file statuses
-            let newStatus = 'complete';
+            let newStatus = 'pending';
 
-            // If any file is 'pending' or 'rejected', client status should be 'pending'
-            if (allFileStatuses.some(status => status === 'pending' || status === 'rejected')) {
-                newStatus = 'pending';
-            }
-            // If all files are 'complete', client status should be 'complete'
-            else if (allFileStatuses.every(status => status === 'complete')) {
-                newStatus = 'complete';
-            }
-            // If none of the above (e.g., some files are 'pending'), keep client as 'pending'
-            else {
-                newStatus = 'pending';
+            // Check if all existing files are complete
+            const allFilesComplete = allFileStatuses.every(status => status === 'complete');
+
+            // For students, we need additional checks for required files by grade level
+            if (client.category === 'Student') {
+                const currentGrade = client.grade;
+
+                if (!currentGrade) {
+                    // If grade is not set, can't be complete
+                    newStatus = 'pending';
+                } else {
+                    // Check if all required file types exist for the current grade and are complete
+                    const hasMedicalForGrade = medicalCerts.some(cert =>
+                        cert.grade === currentGrade && cert.status === 'complete');
+                    const hasDentalForGrade = dentalCerts.some(cert =>
+                        cert.grade === currentGrade && cert.status === 'complete');
+                    const hasOpthalForGrade = opthalCerts.some(cert =>
+                        cert.grade === currentGrade && cert.status === 'complete');
+                    const hasPhysicalForGrade = physicalExams.some(exam =>
+                        exam.grade === currentGrade && exam.status === 'complete');
+
+                    // Only mark as complete if student has all required file types for their grade AND all files are complete
+                    if (hasMedicalForGrade && hasDentalForGrade && hasOpthalForGrade && hasPhysicalForGrade && allFilesComplete) {
+                        newStatus = 'complete';
+                    } else {
+                        newStatus = 'pending';
+                    }
+                }
+            } else {
+                // For non-students, just check if all files are complete
+                if (allFilesComplete) {
+                    newStatus = 'complete';
+                } else {
+                    newStatus = 'pending';
+                }
             }
 
             // Update the client status in the database

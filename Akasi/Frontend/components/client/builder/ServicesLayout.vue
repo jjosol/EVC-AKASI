@@ -53,11 +53,6 @@ const refreshCalendar = async () => {
         appointmentRef.value.fetchAvailableTimeSlots(currentDay.value.date);
     }
 };
-
-definePageMeta({
-    middleware: 'auth',
-    layout: 'main',
-});
 </script>
 
 <template>

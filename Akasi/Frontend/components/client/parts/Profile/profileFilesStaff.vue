@@ -900,7 +900,7 @@
         @click="activeTab = 'tab1'" 
         :class="['tab-button', activeTab === 'tab1' ? 'active' : '']"
         >
-        Enrollment Files
+        Medical Files
         </button>
         <button 
         @click="activeTab = 'tab2'" 
@@ -911,7 +911,7 @@
     </div>
     
     <div class="tab-content">
-        <!-- Enrollment Files -->
+        <!-- Medical Files -->
         <div v-if="activeTab === 'tab1'" class="tab-panel">
         <div class="p-6 border-b border-gray-100">
             <div class="flex items-center justify-between">
