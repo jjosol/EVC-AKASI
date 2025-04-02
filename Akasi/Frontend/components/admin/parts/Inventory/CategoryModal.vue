@@ -88,6 +88,9 @@ const submitForm = async () => {
     
     emit('addCategory', result);
     resetForm();
+    
+    // Close the modal after successful submission
+    showConfirmModal.value = false;
   } catch (error) {
     console.error('Error submitting category:', error);
     formError.value = 'Failed to save category';

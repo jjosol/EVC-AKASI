@@ -2,7 +2,6 @@
 import { ref, watch, computed } from 'vue'
 import * as inventoryService from '~/services/inventoryService';
 
-
 const props = defineProps({
   isOpen: Boolean,
   editData: {
@@ -11,7 +10,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['closeModal', 'equipmentSaved'])
+const emit = defineEmits(['closeModal', 'equipmentSaved', 'refreshEquipment'])
 
 const equipment = ref({
   name: '',
@@ -74,7 +73,7 @@ const validateForm = () => {
   }
   
   if (!equipment.value.count || equipment.value.count <= 0) {
-    formErrors.value.count = 'Count must be greater than 0';
+    formErrors.value.count = 'Quantity must be greater than 0';
     isValid = false;
   }
   
@@ -92,8 +91,8 @@ const prepareSubmit = () => {
   
   // Set confirmation message
   confirmationMessage.value = isEditMode.value
-    ? `Warning: You're about to update "${equipment.value.name}". This may affect inventory counts.`
-    : `Warning: You're about to add "${equipment.value.name}" to inventory. This action cannot be undone!`;
+    ? `Warning: You're about to update ${equipment.value.name}. This will be logged.`
+    : `Warning: You're about to add ${equipment.value.name} to equipment inventory. This action cannot be undone!`;
   
   showConfirmModal.value = true;
 }
@@ -124,7 +123,9 @@ const submitForm = async () => {
       });
     }
     
+    showConfirmModal.value = false;
     emit('equipmentSaved', result);
+    emit('refreshEquipment'); // Add this line to refresh equipment list
     resetForm();
   } catch (error) {
     console.error('Error saving equipment:', error);
@@ -150,87 +151,75 @@ const isExpired = (expirationDate) => {
 
 <template>
   <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center">
-    <div class="absolute inset-0 bg-black opacity-50" @click="$emit('closeModal')"></div>
+    <div class="absolute inset-0 bg-black opacity-50" @click="emit('closeModal')"></div>
     <div class="z-10 w-full max-w-md p-6 bg-white rounded-lg shadow-lg">
       <h2 class="mb-4 text-lg font-semibold">{{ modalTitle }}</h2>
+      
       <form @submit.prevent="prepareSubmit">
-        <!-- Equipment Name -->
         <div class="mb-4">
           <label class="block mb-1 text-sm font-medium">Equipment Name</label>
           <input 
             type="text" 
             v-model="equipment.name"
             class="w-full px-3 py-2 border rounded-lg" 
+            :disabled="isEditMode"
+            :class="{'bg-gray-100': isEditMode}"
+            placeholder="Enter equipment name"
             required
           />
-          <span v-if="formErrors.name" class="text-sm text-red-500">{{ formErrors.name }}</span>
+          <p v-if="formErrors.name" class="mt-1 text-sm text-red-500">{{ formErrors.name }}</p>
+          <p v-if="isEditMode" class="mt-1 text-xs text-gray-500">
+            Equipment name cannot be changed. Create a new item if needed.
+          </p>
         </div>
         
-        <!-- Count -->
         <div class="mb-4">
-          <label class="block mb-1 text-sm font-medium">Count</label>
+          <label class="block mb-1 text-sm font-medium">Quantity</label>
           <input 
             type="number" 
             v-model="equipment.count"
             class="w-full px-3 py-2 border rounded-lg" 
             min="1"
-            required 
+            placeholder="Enter quantity"
+            required
           />
-          <span v-if="formErrors.count" class="text-sm text-red-500">{{ formErrors.count }}</span>
+          <p v-if="formErrors.count" class="mt-1 text-sm text-red-500">{{ formErrors.count }}</p>
         </div>
         
-        <!-- Unit -->
         <div class="mb-4">
           <label class="block mb-1 text-sm font-medium">Unit</label>
           <input 
             type="text" 
             v-model="equipment.unit"
-            placeholder="e.g., pieces, rolls, boxes"
             class="w-full px-3 py-2 border rounded-lg" 
+            placeholder="e.g., pieces, boxes, rolls"
             required
           />
-          <span v-if="formErrors.unit" class="text-sm text-red-500">{{ formErrors.unit }}</span>
+          <p v-if="formErrors.unit" class="mt-1 text-sm text-red-500">{{ formErrors.unit }}</p>
         </div>
         
-        <!-- Expiration Date (Optional) -->
         <div class="mb-4">
-          <label class="block mb-1 text-sm font-medium">
-            Expiration Date <span class="text-xs text-gray-500">(Optional)</span>
-          </label>
-          <div class="relative">
-            <input 
-              type="date" 
-              v-model="equipment.expirationDate"
-              class="w-full px-3 py-2 border rounded-lg" 
-              :class="{'border-red-500': isExpired(equipment.expirationDate)}"
-            />
-            <span v-if="isExpired(equipment.expirationDate)" 
-                  class="absolute right-3 top-2.5 text-red-500 font-bold" 
-                  title="Expired">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-              </svg>
-            </span>
-          </div>
-          <span v-if="isExpired(equipment.expirationDate)" class="text-sm text-red-500">
-            Warning: This date is in the past
-          </span>
+          <label class="block mb-1 text-sm font-medium">Expiration Date (optional)</label>
+          <input 
+            type="date" 
+            v-model="equipment.expirationDate"
+            class="w-full px-3 py-2 border rounded-lg" 
+          />
         </div>
         
-        <!-- Form Buttons -->
         <div class="flex justify-end space-x-2">
           <button 
             type="button"
-            @click="$emit('closeModal')"
-            class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg"
+            @click="emit('closeModal')"
+            class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg"
           >
             Cancel
           </button>
           <button 
             type="submit"
-            class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+            class="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
           >
-            {{ isEditMode ? 'Update' : 'Add' }} Equipment
+            {{ isEditMode ? 'Update Equipment' : 'Add Equipment' }}
           </button>
         </div>
       </form>
@@ -239,9 +228,8 @@ const isExpired = (expirationDate) => {
   
   <!-- Confirmation Modal -->
   <ConfirmationModal
-    :show="showConfirmModal"
+    v-if="showConfirmModal"
     :message="confirmationMessage"
-    :confirmButtonText="isEditMode ? 'Update' : 'Add'"
     @confirm="submitForm"
     @cancel="showConfirmModal = false"
   />

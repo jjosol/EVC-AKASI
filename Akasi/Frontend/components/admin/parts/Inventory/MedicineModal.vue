@@ -16,7 +16,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['closeModal', 'addItem', 'fetchCategories'])
+const emit = defineEmits(['closeModal', 'addItem', 'fetchCategories', 'refreshInventory'])
 
 const newItem = ref({
   name: '',
@@ -29,14 +29,25 @@ const newItem = ref({
 const showConfirmModal = ref(false)
 const confirmationMessage = ref('')
 
+// Update computed properties to lock fields appropriately
+const isCategoryLocked = computed(() => {
+  return (!!props.prefillData?.isNewMedicine && !!props.prefillData?.categoryId) || 
+         !!props.prefillData?.isNewBatch;
+})
+
+// Add computed property to lock medicine name
+const isMedicineNameLocked = computed(() => {
+  return !!props.prefillData?.isNewBatch;
+})
+
 // Watch for prefill data changes
 watch(() => props.prefillData, (data) => {
   if (data && Object.keys(data).length > 0) {
     // Pre-fill form with provided data
     if (data.medicineName) {
-      newItem.value.name = data.medicineName; // This line is correct
+      newItem.value.name = data.medicineName;
     } else if (data.name) {
-      newItem.value.name = data.name; // Add this line to handle both property names
+      newItem.value.name = data.name;
     }
     
     if (data.categoryId) {
@@ -116,8 +127,9 @@ const submitForm = async () => {
       count: newItem.value.count,
       category_id: newItem.value.category_id,
     });
-    
+    showConfirmModal.value = false;
     emit('addItem', result);
+    emit('refreshInventory'); // Add this line to refresh the inventory
     resetForm();
   } catch (error) {
     console.error('Error submitting inventory item:', error);
@@ -153,7 +165,9 @@ const formatDate = inventoryService.formatDate;
   <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center">
     <div class="absolute inset-0 bg-black opacity-50" @click="$emit('closeModal')"></div>
     <div class="z-10 w-full max-w-md p-6 bg-white rounded-lg shadow-lg">
-      <h2 class="mb-4 text-lg font-semibold">Add New Item</h2>
+      <h2 class="mb-4 text-lg font-semibold">
+        {{ props.prefillData?.isNewBatch ? 'Add New Batch' : 'Add New Medicine' }}
+      </h2>
       <form @submit.prevent="prepareSubmit">
         <div>
           <div class="mb-4">
@@ -161,6 +175,8 @@ const formatDate = inventoryService.formatDate;
             <select 
               v-model="newItem.category_id" 
               class="w-full px-3 py-2 border rounded-lg"
+              :disabled="isCategoryLocked"
+              :class="{'bg-gray-100': isCategoryLocked}"
               required
             >
               <option value="">Select Category</option>
@@ -168,6 +184,11 @@ const formatDate = inventoryService.formatDate;
                 {{ category.name }}
               </option>
             </select>
+            <span v-if="isCategoryLocked" class="mt-1 text-xs text-gray-500">
+              {{ props.prefillData?.isNewBatch ? 
+                'Category is locked when adding a new batch' : 
+                'Category is locked because you\'re adding to a specific category' }}
+            </span>
             <span v-if="formErrors.category_id" class="text-sm text-red-500">{{ formErrors.category_id }}</span>
           </div>
           <div class="mb-4">
@@ -175,9 +196,14 @@ const formatDate = inventoryService.formatDate;
             <input 
               type="text" 
               v-model="newItem.name"
-              class="w-full px-3 py-2 border rounded-lg" 
+              class="w-full px-3 py-2 border rounded-lg"
+              :disabled="isMedicineNameLocked"
+              :class="{'bg-gray-100': isMedicineNameLocked}" 
               required
             />
+            <span v-if="isMedicineNameLocked" class="mt-1 text-xs text-gray-500">
+              Medicine name is locked when adding a new batch
+            </span>
             <span v-if="formErrors.name" class="text-sm text-red-500">{{ formErrors.name }}</span>
           </div>
           <div class="mb-4">
@@ -227,7 +253,7 @@ const formatDate = inventoryService.formatDate;
             type="submit"
             class="px-4 py-2 text-sm text-white bg-purple-600 rounded-lg"
           >
-            Add Item
+            {{ props.prefillData?.isNewBatch ? 'Add Batch' : 'Add Medicine' }}
           </button>
         </div>
       </form>

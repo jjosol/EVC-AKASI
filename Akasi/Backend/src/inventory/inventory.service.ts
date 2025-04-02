@@ -310,6 +310,8 @@ export class InventoryService {
 
   async updateCategory(id: number, name: string, admin_id: any) {
     try {
+      console.log('Updating category:', { id, name }); // Add debugging
+      
       // Get old category info before updating
       const oldCategory = await this.prisma.medicineCategory.findUnique({
         where: { category_id: id }
@@ -319,7 +321,7 @@ export class InventoryService {
         throw new BadRequestException('Category not found');
       }
 
-      // Update category
+      // Update category - ensure proper schema
       const updatedCategory = await this.prisma.medicineCategory.update({
         where: { category_id: id },
         data: { name }
@@ -327,6 +329,7 @@ export class InventoryService {
 
       return updatedCategory;
     } catch (error) {
+      console.error('Category update error:', error);
       throw new BadRequestException('Failed to update category');
     }
   }
@@ -366,11 +369,13 @@ export class InventoryService {
 
   async updateMedicineName(oldName: string, newName: string, categoryId: number, admin_id?: number) {
     try {
+      const numericCategoryId = Number(categoryId);
+
       // Get all medicine batches with this name
       const medicineBatches = await this.prisma.inventory.findMany({
         where: { 
           medName: oldName,
-          category_id: categoryId
+          category_id: numericCategoryId 
         }
       });
 
@@ -378,38 +383,33 @@ export class InventoryService {
         throw new BadRequestException('Medicine not found');
       }
 
-      // Update all batches to the new name
-      const updatePromises = medicineBatches.map(batch => 
-        this.prisma.inventory.update({
-          where: { 
-            med_id_medName: {
-              med_id: batch.med_id,
-              medName: batch.medName
+      // Use a transaction to ensure all updates happen together
+      await this.prisma.$transaction(async (prisma) => {
+        // 1. Update medicine name in inventory records
+        for (const batch of medicineBatches) {
+          await prisma.inventory.update({
+            where: { 
+              med_id_medName: {
+                med_id: batch.med_id,
+                medName: batch.medName
+              }
+            },
+            data: { 
+              medName: newName 
             }
-          },
-          data: { 
-            medName: newName 
-          }
-        })
-      );
-
-      // Execute all updates
-      await Promise.all(updatePromises);
-
-      // Create a record for the name change using the first batch
-      const firstBatch = medicineBatches[0];
-      
-      await this.prisma.editsInverntory.create({
-        data: {
-          med_id: firstBatch.med_id,
-          medName: newName, // Use the new name since the record has been updated
-          date: new Date(),
-          cause: `Medicine renamed from "${oldName}" to "${newName}"`,
-          addSubCount: 0, // No quantity change
-          runningTotal: firstBatch.count, // Current count remains the same
-          category_id: categoryId,
-          admin_id: admin_id || null
+          });
         }
+
+        // 2. Update all references in editsInverntory table
+        await prisma.editsInverntory.updateMany({
+          where: {
+            medName: oldName,
+            category_id: numericCategoryId
+          },
+          data: {
+            medName: newName
+          }
+        });
       });
 
       return { 

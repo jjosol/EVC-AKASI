@@ -8,7 +8,7 @@ const props = defineProps({
   categoryId: [String, Number]
 })
 
-const emit = defineEmits(['closeModal', 'medicineUpdated'])
+const emit = defineEmits(['closeModal', 'medicineUpdated', 'refreshInventory'])
 
 const newName = ref('')
 const isLoading = ref(false)
@@ -27,22 +27,17 @@ watch(() => props.medicineName, (value) => {
   }
 })
 
-const updateMedicineName = async () => {
-  if (!newName.value.trim()) {
-    errorMessage.value = 'Medicine name is required'
-    return
-  }
-
-  if (newName.value === props.medicineName) {
+const handleSubmit = async () => {
+  if (!newName.value.trim() || newName.value === props.medicineName) {
     emit('closeModal')
     return
   }
 
   try {
     isLoading.value = true
-    // Assume the inventoryService has a method to update medicine name
     await inventoryService.updateMedicineName(props.medicineName, newName.value, props.categoryId)
     emit('medicineUpdated')
+    emit('refreshInventory')
     emit('closeModal')
   } catch (error) {
     errorMessage.value = error.message || 'Failed to update medicine name'
@@ -58,7 +53,7 @@ const updateMedicineName = async () => {
     <div class="absolute inset-0 bg-black opacity-50" @click="$emit('closeModal')"></div>
     <div class="z-10 w-full max-w-md p-6 bg-white rounded-lg shadow-lg">
       <h2 class="mb-4 text-lg font-semibold">Edit Medicine Name</h2>
-      <form @submit.prevent="updateMedicineName">
+      <form @submit.prevent="handleSubmit">
         <div class="mb-4">
           <label class="block mb-1 text-sm font-medium">Medicine Name</label>
           <input 

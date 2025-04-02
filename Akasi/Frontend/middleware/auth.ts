@@ -1,6 +1,6 @@
 // middleware/auth.ts
 import { defineNuxtRouteMiddleware, navigateTo } from 'nuxt/app';
-import { useAuth } from '~/composables/useAuth';
+import { useAuth } from '~/composables/useAuth.js';
 
 export default defineNuxtRouteMiddleware((to) => {
   if (!import.meta.client) return;

@@ -161,7 +161,6 @@ model inventory {
   med_id      Int      @default(autoincrement())
   medName     String   @db.VarChar(225)
   category_id Int      @default(1)
-  category_id Int      @default(1)
   expiration  DateTime @db.Date
   count       Int
   otc         Boolean  @default(true)   // Add OTC flag - true means over-the-counter (no prescription needed)

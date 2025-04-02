@@ -5,11 +5,15 @@
       @openModal="openModal"
       @editModal="editModal"
       @openCategoryModal="openCategoryModal"
+      @refreshNeeded="refreshInventoryData"
     />
     <DisplayEquip
       ref="displayEquipRef"
+      @refreshNeeded="refreshInventoryData"
     />
-    <InventoryHistory/>
+    <InventoryHistory
+      ref="historyRef"
+    />
     <MedicineModal 
       :isOpen="isModalOpen && modalType === 'medicine'" 
       :categories="categories"
@@ -17,6 +21,7 @@
       @closeModal="closeModal"
       @addItem="handleAddItem"
       @fetchCategories="fetchCategories"
+      @refreshInventory="refreshInventoryData"
     />
     <CategoryModal
       :isOpen="isModalOpen && modalType === 'category'"
@@ -40,6 +45,7 @@ const isModalOpen = ref(false)
 const currentItem = ref(null)
 const displayInvRef = ref(null)
 const displayEquipRef = ref(null)
+const historyRef = ref(null)
 const modalType = ref('medicine') // 'medicine' or 'category'
 const categories = ref([])
 
@@ -47,8 +53,8 @@ const openModal = (data = {}) => {
   modalType.value = 'medicine'
   if (data.isNewBatch) {
     currentItem.value = { 
-      name: data.medicineName, // This should be consistent with what MedicineModal expects
-      medicineName: data.medicineName, // Add this line to be consistent
+      name: data.medicineName,
+      medicineName: data.medicineName,
       isNewBatch: true,
       categoryId: data.categoryId
     }
@@ -88,15 +94,45 @@ const fetchCategories = async () => {
   }
 }
 
+// Comprehensive refresh function that updates all components
+const refreshInventoryData = async () => {
+  console.log("Refreshing all inventory data...")
+  
+  // Refresh medicine inventory
+  if (displayInvRef.value && typeof displayInvRef.value.refreshInventory === 'function') {
+    console.log("Refreshing medicine inventory...")
+    await displayInvRef.value.refreshInventory()
+  }
+  
+  // Refresh equipment inventory
+  if (displayEquipRef.value && typeof displayEquipRef.value.refreshEquipment === 'function') {
+    console.log("Refreshing equipment inventory...")
+    await displayEquipRef.value.refreshEquipment()
+  }
+  
+  // Refresh history component
+  if (historyRef.value) {
+    console.log("Refreshing inventory history...")
+    if (typeof historyRef.value.fetchInventoryEdits === 'function') {
+      await historyRef.value.fetchInventoryEdits()
+    }
+    if (typeof historyRef.value.fetchEquipmentEdits === 'function') {
+      await historyRef.value.fetchEquipmentEdits()
+    }
+  }
+  
+  console.log("All inventory data refreshed!")
+}
+
 const handleAddItem = async (item) => {
-  await displayInvRef.value?.refreshInventory()
+  await refreshInventoryData()
   closeModal()
 }
 
 const handleAddCategory = async (category) => {
   // Immediately fetch updated categories after adding/updating one
   await fetchCategories()
-  await displayInvRef.value?.refreshInventory()
+  await refreshInventoryData()
   closeModal()
 }
 

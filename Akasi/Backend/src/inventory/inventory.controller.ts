@@ -18,7 +18,21 @@ export class InventoryController {
     const admin_id = req.user?.admin_id;
     return this.inventoryService.addItem(item, admin_id);
   }
+  @Post('category')
+  async addCategory(@Body() data: { name: string }, @Request() req) {
+    const admin_id = req.user?.admin_id;
+    return this.inventoryService.addCategory(data, admin_id);
+  }
 
+  @Put('category/:id')
+  async updateCategory(
+    @Param('id') id: string,
+    @Body() data: { name: string },
+    @Request() req
+  ) {
+    const admin_id = req.user?.admin_id;
+    return this.inventoryService.updateCategory(Number(id), data.name, admin_id);
+  }
   @Put('reduce/:med_id/:medName')
   async reduceInventory(
     @Param('med_id') med_id: string,
@@ -48,6 +62,20 @@ export class InventoryController {
       data.medName, 
       data.quantity,
       data.cause || 'Manual addition',
+      admin_id
+    );
+  }
+
+  @Put('medicine/update-name')
+  async updateMedicineName(
+    @Body() data: { oldName: string, newName: string, categoryId: number },
+    @Request() req
+  ) {
+    const admin_id = req.user?.admin_id;
+    return this.inventoryService.updateMedicineName(
+      data.oldName,
+      data.newName,
+      data.categoryId,
       admin_id
     );
   }
@@ -90,21 +118,7 @@ export class InventoryController {
     return this.inventoryService.getAllCategories();
   }
 
-  @Post('category')
-  async addCategory(@Body() data: { name: string }, @Request() req) {
-    const admin_id = req.user?.admin_id;
-    return this.inventoryService.addCategory(data, admin_id);
-  }
-
-  @Put('category/:id')
-  async updateCategory(
-    @Param('id') id: string,
-    @Body() data: { name: string },
-    @Request() req
-  ) {
-    const admin_id = req.user?.admin_id;
-    return this.inventoryService.updateCategory(Number(id), data.name, admin_id);
-  }
+ 
 
   @Get('edits')
   async getInventoryEdits(@Request() req) {
@@ -112,39 +126,5 @@ export class InventoryController {
     return this.inventoryService.getInventoryEdits(admin_id);
   }
 
-  @Put('medicine/update-name')
-  async updateMedicineName(
-    @Body() data: { oldName: string, newName: string, categoryId: number },
-    @Request() req
-  ) {
-    const admin_id = req.user?.admin_id;
-    return this.inventoryService.updateMedicineName(
-      data.oldName,
-      data.newName,
-      data.categoryId,
-      admin_id
-    );
-  }
-
-  @Post('dispense-consultation')
-  async dispenseConsultation(
-    @Body() data: { 
-      med_id: number, 
-      medName: string, 
-      quantity: number, 
-      consultationId: number,
-      patientName: string 
-    },
-    @Request() req
-  ) {
-    const admin_id = req.user?.admin_id;
-    return this.inventoryService.logConsultationDispensing(
-      data.med_id,
-      data.medName,
-      data.quantity,
-      data.consultationId,
-      data.patientName,
-      admin_id
-    );
-  }
+ 
 }

@@ -70,4 +70,3 @@ export class EquipmentController {
     return this.equipmentService.getEquipmentEdits();
   }
 }
-

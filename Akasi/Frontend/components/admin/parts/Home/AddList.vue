@@ -5,6 +5,8 @@ import moment from 'moment-timezone';
 import { useProfile } from '~/composables/useProfile'
 import { useAppointmentsByDate } from '~/composables/useAppointmentsByDate';
 import * as consultationRecordService from '~/services/consultationRecordService';
+// Add this if not already present
+import * as inventoryService from '~/services/inventoryService';
 // Import the confirmation modal component
 import ConfirmationModal from '~/components/SHARED/parts/confirmationModal.vue';
 
@@ -535,22 +537,16 @@ const savePerson = async () => {
  * Fetches medicine inventory from API
  * @returns {Promise<void>}
  */
-const fetchInventory = async () => {
+/**
+ * Fetches inventory items using the inventoryService
+ */
+ const fetchInventory = async () => {
   try {
-    const response = await fetch('http://localhost:3001/inventory');
-    if (!response.ok) {
-      throw new Error('Failed to fetch inventory');
-    }
-    const data = await response.json();
-    allMedicines.value = data.map(item => ({
-      med_id: item.med_id,
-      name: item.medName,
-      expirationDate: formatDate(item.expiration),
-      count: parseInt(item.count),
-      requestedQuantity: 1
-    }));
+    const data = await consultationRecordService.fetchInventory();
+    allMedicines.value = data || [];
   } catch (error) {
     console.error('Error fetching inventory:', error);
+    // Provide user-friendly error notification if needed
   }
 };
 
@@ -613,31 +609,28 @@ const groupedMedicines = computed(() => {
   today.setHours(0, 0, 0, 0); // Set to beginning of day for comparison
   
   allMedicines.value.forEach(item => {
-    // Check if medicine matches search and is not expired
-    const expirationDate = new Date(item.expirationDate);
-    const isExpired = expirationDate < today;
-    
-    if ((!medicineSearchQuery.value || 
-        item.name.toLowerCase().includes(medicineSearchQuery.value.toLowerCase())) && 
-        !isExpired) {
-      if (!groups[item.name]) {
-        groups[item.name] = [];
-      }
-      
-      // Create a copy of the item with adjusted count
-      const adjustedItem = { ...item };
-      const pendingQty = pendingMedicineQuantities.value[item.med_id] || 0;
-      adjustedItem.displayCount = Math.max(0, item.count - pendingQty); // Subtract pending quantity
-      
-      groups[item.name].push(adjustedItem);
+    // Use medName property (from backend API) instead of name
+    const name = item.medName;
+    if (!groups[name]) {
+      groups[name] = [];
     }
+    
+    // Add expiration status check
+    const expired = item.expiration && new Date(item.expiration) < today;
+    
+    groups[name].push({
+      ...item,
+      expired
+    });
   });
 
   // Sort each group by expiration date
   Object.keys(groups).forEach(name => {
-    groups[name].sort((a, b) =>
-      new Date(a.expirationDate) - new Date(b.expirationDate)
-    );
+    groups[name].sort((a, b) => {
+      if (!a.expiration) return 1;
+      if (!b.expiration) return -1;
+      return new Date(a.expiration).getTime() - new Date(b.expiration).getTime();
+    });
   });
 
   return groups;

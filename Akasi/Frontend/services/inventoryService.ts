@@ -37,7 +37,8 @@ export const addCategoryWithAdmin = async (data: { name: string }, adminId?: num
 };
 
 export const updateCategory = async (id: number, data: { name: string }) => {
-  return await put(`${CATEGORY_URL}/${id}`, data);
+  // Change the data format to match what the backend expects
+  return await put(`${CATEGORY_URL}/${id}`, { name: data.name });
 };
 
 export const deleteCategory = async (id: number) => {
@@ -105,12 +106,12 @@ export const reduceInventory = async (
 export const updateMedicineName = async (
   oldName: string, 
   newName: string, 
-  categoryId: number
+  categoryId: number | string
 ) => {
   return await put(`${BASE_URL}/medicine/update-name`, {
     oldName,
     newName,
-    categoryId
+    categoryId: Number(categoryId) // Ensure it's sent as a number
   });
 };
 

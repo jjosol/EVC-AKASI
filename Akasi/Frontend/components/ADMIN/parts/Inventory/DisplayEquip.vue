@@ -109,6 +109,53 @@ const handleAdjustment = async () => {
   }
 };
 
+// Quick increment equipment
+const quickIncrementEquipment = async (item) => {
+  try {
+    await inventoryService.increaseEquipment(
+      item.equip_id,
+      { 
+        quantity: 1,
+        cause: `Quick increase`
+      }
+    );
+    
+    // Refresh data
+    emit('refreshNeeded');
+    await refreshEquipment();
+    
+  } catch (error) {
+    console.error('Error increasing equipment:', error);
+    alert(error.message || 'Failed to increase equipment');
+  }
+};
+
+// Quick decrement equipment
+const quickDecrementEquipment = async (item) => {
+  // Don't allow decreasing below 0
+  if (item.count <= 0) {
+    return;
+  }
+  
+  try {
+    await inventoryService.decreaseEquipment(
+      item.equip_id,
+      { 
+        quantity: 1,
+        cause: `Quick decrease`
+      }
+    );
+    
+    // Refresh data
+    emit('refreshNeeded');
+    await refreshEquipment();
+    
+  } catch (error) {
+    console.error('Error decreasing equipment:', error);
+    alert(error.message || 'Failed to decrease equipment');
+  }
+};
+
 // Close equipment modal
 const closeEquipmentModal = () => {
   showEquipmentModal.value = false;
@@ -127,6 +174,9 @@ onMounted(() => {
 
 // Expose refreshEquipment for parent component
 defineExpose({ refreshEquipment });
+
+// Add emit for component events 
+const emit = defineEmits(['refreshNeeded']);
 </script>
 
 <template>
@@ -165,7 +215,9 @@ defineExpose({ refreshEquipment });
              class="grid items-center grid-cols-12 gap-2 p-4 hover:bg-gray-50"
              :class="{'bg-red-50': isExpired(item.expiration)}">
           <div class="col-span-4 font-medium">{{ item.equipName }}</div>
-          <div class="col-span-2">{{ item.count }}</div>
+          <div class="col-span-2 text-center">
+            {{ item.count }}
+          </div>
           <div class="col-span-2">{{ item.unit }}</div>
           <div class="col-span-2" :class="{'text-red-600': isExpired(item.expiration)}">
             {{ formatDate(item.expiration) }}
@@ -173,16 +225,18 @@ defineExpose({ refreshEquipment });
           </div>
           <div class="flex justify-end col-span-2 space-x-1">
             <button 
-              @click="openAdjustModal(item, 'increase')"
+              @click="quickIncrementEquipment(item)"
               class="p-1 text-white bg-green-500 rounded hover:bg-green-600" 
-              title="Add to Inventory"
+              title="Quick Add"
             >
               <Icon icon="mdi:plus" width="16" />
             </button>
             <button 
-              @click="openAdjustModal(item, 'decrease')"
-              class="p-1 text-white bg-orange-500 rounded hover:bg-orange-600" 
-              title="Remove from Inventory"
+              @click="quickDecrementEquipment(item)"
+              class="p-1 text-white bg-red-500 rounded hover:bg-red-600" 
+              title="Quick Remove"
+              :disabled="item.count <= 0"
+              :class="{'opacity-50 cursor-not-allowed': item.count <= 0}"
             >
               <Icon icon="mdi:minus" width="16" />
             </button>
@@ -208,12 +262,13 @@ defineExpose({ refreshEquipment });
       </div>
     </div>
     
-    <!-- Equipment Modal (Will be implemented as a separate component) -->
+    <!-- Equipment Modal -->
     <EquipmentModal
       :isOpen="showEquipmentModal"
       :editData="currentEquipment"
       @closeModal="closeEquipmentModal"
       @equipmentSaved="handleEquipmentSaved"
+      @refreshEquipment="refreshEquipment"
     />
     
     <!-- Adjustment Modal -->

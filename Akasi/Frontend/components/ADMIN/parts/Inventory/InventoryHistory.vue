@@ -148,6 +148,9 @@ onMounted(() => {
   fetchInventoryEdits();
   fetchEquipmentEdits();
 });
+
+// Expose methods for parent component
+defineExpose({ fetchInventoryEdits, fetchEquipmentEdits });
 </script>
 
 <template>
