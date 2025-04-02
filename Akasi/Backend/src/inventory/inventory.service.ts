@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class InventoryService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async getAllItems() {
     try {
@@ -45,7 +45,7 @@ export class InventoryService {
     }
   }
 
-  async addItem(item: any) {
+  async addItem(item: any, admin_id?: number) {
     try {
       // Validate expiration date isn't in the past
       if (item.expirationDate) {
@@ -72,14 +72,15 @@ export class InventoryService {
           existingMedicine.med_id,
           existingMedicine.medName,
           item.count,
-          'New batch added'
+          'New batch added',
+          admin_id
         );
       }
 
       // Add a new batch under the same medicine name
       const result = await this.prisma.inventory.create({
         data: {
-          medName: item.name, // Use base medicine name
+          medName: item.name,
           expiration: item.expirationDate ? new Date(item.expirationDate) : null,
           count: Number(item.count),
           category_id: Number(item.category_id),
@@ -89,24 +90,28 @@ export class InventoryService {
         },
       });
 
-      // Log the new item addition
+      // Log the new item addition with running total
       await this.prisma.editsInverntory.create({
         data: {
           med_id: result.med_id,
           medName: result.medName,
           date: new Date(),
           cause: 'Initial inventory',
-          addSubCount: Number(item.count)
+          addSubCount: Number(item.count),
+          runningTotal: Number(item.count), // Initial count is the running total
+          category_id: Number(item.category_id),
+          admin_id: admin_id || null
         }
       });
 
       return result;
     } catch (error) {
+      console.error('Error adding inventory item:', error);
       throw new BadRequestException(error.message || 'Failed to add inventory item');
     }
   }
 
-  async updateItem(med_id: number, medName: string, data: any) {
+  async updateItem(med_id: number, medName: string, data: any, admin_id: any) {
     try {
       // Validate expiration date isn't in the past
       if (data.expirationDate) {
@@ -168,7 +173,7 @@ export class InventoryService {
     }
   }
 
-  async deleteItem(med_id: number, medName: string) {
+  async deleteItem(med_id: number, medName: string, admin_id: any) {
     try {
       const result = await this.prisma.inventory.delete({
         where: {
@@ -184,7 +189,7 @@ export class InventoryService {
     }
   }
 
-  async deleteGroupByName(medName: string) {
+  async deleteGroupByName(medName: string, admin_id: any) {
     try {
       const result = await this.prisma.inventory.deleteMany({
         where: {
@@ -197,7 +202,7 @@ export class InventoryService {
     }
   }
 
-  async reduceInventory(med_id: number, medName: string, quantity: number, cause: string = 'Unspecified reduction') {
+  async reduceInventory(med_id: number, medName: string, quantity: number, cause: string = 'Unspecified reduction', admin_id?: number) {
     try {
       // Find the inventory item by med_id and medName
       const item = await this.prisma.inventory.findUnique({
@@ -218,14 +223,20 @@ export class InventoryService {
         data: { count: item.count - quantity }
       });
 
-      // Log the change to EditsInverntory
+      // Calculate new running total
+      const newTotal = item.count - quantity;
+
+      // Log the change to EditsInverntory with running total
       await this.prisma.editsInverntory.create({
         data: {
           med_id: med_id,
           medName: medName,
           date: new Date(),
           cause: cause,
-          addSubCount: -quantity // Negative for reduction
+          addSubCount: -quantity, // Negative for reduction
+          runningTotal: newTotal, // Include running total
+          category_id: item.category_id, // Include category
+          admin_id: admin_id || null
         }
       });
 
@@ -235,7 +246,7 @@ export class InventoryService {
     }
   }
 
-  async increaseInventory(med_id: number, medName: string, quantity: number, cause: string = 'Unspecified addition') {
+  async increaseInventory(med_id: number, medName: string, quantity: number, cause: string = 'Unspecified addition', admin_id?: number) {
     try {
       // Find the inventory item by med_id and medName
       const item = await this.prisma.inventory.findUnique({
@@ -252,14 +263,20 @@ export class InventoryService {
         data: { count: item.count + quantity }
       });
 
-      // Log the change to EditsInverntory
+      // Calculate new running total
+      const newTotal = item.count + quantity;
+
+      // Log the change to EditsInverntory with running total
       await this.prisma.editsInverntory.create({
         data: {
           med_id: med_id,
           medName: medName,
           date: new Date(),
           cause: cause,
-          addSubCount: quantity // Positive for addition
+          addSubCount: quantity, // Positive for addition
+          runningTotal: newTotal, // Include running total
+          category_id: item.category_id, // Include category
+          admin_id: admin_id || null
         }
       });
 
@@ -277,30 +294,44 @@ export class InventoryService {
     }
   }
 
-  async addCategory(categoryData: { name: string }) {
+  async addCategory(categoryData: { name: string; }, admin_id: any) {
     try {
-      return await this.prisma.medicineCategory.create({
+      const newCategory = await this.prisma.medicineCategory.create({
         data: {
           name: categoryData.name
         }
       });
+
+      return newCategory;
     } catch (error) {
       throw new BadRequestException('Failed to add category');
     }
   }
 
-  async updateCategory(id: number, name: string) {
+  async updateCategory(id: number, name: string, admin_id: any) {
     try {
-      return await this.prisma.medicineCategory.update({
+      // Get old category info before updating
+      const oldCategory = await this.prisma.medicineCategory.findUnique({
+        where: { category_id: id }
+      });
+      
+      if (!oldCategory) {
+        throw new BadRequestException('Category not found');
+      }
+
+      // Update category
+      const updatedCategory = await this.prisma.medicineCategory.update({
         where: { category_id: id },
         data: { name }
       });
+
+      return updatedCategory;
     } catch (error) {
       throw new BadRequestException('Failed to update category');
     }
   }
 
-  async deleteCategory(id: number) {
+  async deleteCategory(id: number, admin_id: any) {
     try {
       // First, delete all inventory items associated with this category
       await this.prisma.inventory.deleteMany({
@@ -326,9 +357,6 @@ export class InventoryService {
     try {
       return await this.prisma.inventory.findMany({
         where: { category_id: categoryId },
-        // include: {
-        //   category: true
-        // }
       });
     } catch (error) {
       console.error('Error fetching medicines by category:', error);
@@ -336,14 +364,82 @@ export class InventoryService {
     }
   }
 
-  async getInventoryEdits() {
+  async updateMedicineName(oldName: string, newName: string, categoryId: number, admin_id?: number) {
     try {
-      // Get all edit records with joined inventory data for expiration dates
+      // Get all medicine batches with this name
+      const medicineBatches = await this.prisma.inventory.findMany({
+        where: { 
+          medName: oldName,
+          category_id: categoryId
+        }
+      });
+
+      if (medicineBatches.length === 0) {
+        throw new BadRequestException('Medicine not found');
+      }
+
+      // Update all batches to the new name
+      const updatePromises = medicineBatches.map(batch => 
+        this.prisma.inventory.update({
+          where: { 
+            med_id_medName: {
+              med_id: batch.med_id,
+              medName: batch.medName
+            }
+          },
+          data: { 
+            medName: newName 
+          }
+        })
+      );
+
+      // Execute all updates
+      await Promise.all(updatePromises);
+
+      // Create a record for the name change using the first batch
+      const firstBatch = medicineBatches[0];
+      
+      await this.prisma.editsInverntory.create({
+        data: {
+          med_id: firstBatch.med_id,
+          medName: newName, // Use the new name since the record has been updated
+          date: new Date(),
+          cause: `Medicine renamed from "${oldName}" to "${newName}"`,
+          addSubCount: 0, // No quantity change
+          runningTotal: firstBatch.count, // Current count remains the same
+          category_id: categoryId,
+          admin_id: admin_id || null
+        }
+      });
+
+      return { 
+        success: true, 
+        message: `Updated ${medicineBatches.length} batches from "${oldName}" to "${newName}"` 
+      };
+    } catch (error) {
+      throw new BadRequestException(error.message || 'Failed to update medicine name');
+    }
+  }
+
+  async getInventoryEdits(admin_id: any) {
+    try {
+      // Get all edit records with joined inventory, admin and category data
       const edits = await this.prisma.editsInverntory.findMany({
         include: {
           inventory: {
             select: {
               expiration: true
+            }
+          },
+          admin: {
+            select: {
+              name: true,
+              username: true
+            }
+          },
+          category: {
+            select: {
+              name: true
             }
           }
         },
@@ -352,34 +448,77 @@ export class InventoryService {
         }
       });
       
-      // Calculate totals by medicine name and batch
-      const medicineTotals = {};
-      edits.forEach(edit => {
-        // Create a key that combines medicine name and expiration date
-        const batchKey = edit.inventory?.expiration 
-          ? `${edit.medName} (Exp: ${new Date(edit.inventory.expiration).toISOString().split('T')[0]})`
-          : edit.medName;
-        
-        if (!medicineTotals[batchKey]) {
-          medicineTotals[batchKey] = 0;
-        }
-        medicineTotals[batchKey] += edit.addSubCount;
-      });
-      
-      // Format the edits to include expiration date
+      // Format the edits to include expiration date, admin info, and category
       const formattedEdits = edits.map(edit => ({
         ...edit,
         batchInfo: edit.inventory?.expiration
           ? new Date(edit.inventory.expiration).toISOString().split('T')[0]
-          : 'No batch info'
+          : 'No batch info',
+        adminInfo: edit.admin
+          ? `${edit.admin.name} (${edit.admin.username})`
+          : 'No admin info',
+        categoryName: edit.category.name || 'Unknown Category'
       }));
       
       return {
-        edits: formattedEdits,
-        medicineTotals
+        edits: formattedEdits
       };
     } catch (error) {
       throw new BadRequestException('Failed to fetch inventory edits');
+    }
+  }
+
+  /**
+   * Log medicine dispensing from consultation
+   */
+  async logConsultationDispensing(
+    med_id: number, 
+    medName: string, 
+    quantity: number, 
+    consultationId: number, 
+    patientName: string,
+    admin_id?: number
+  ) {
+    try {
+      // Find the inventory item by med_id and medName
+      const item = await this.prisma.inventory.findUnique({
+        where: { med_id_medName: { med_id, medName } }
+      });
+
+      if (!item) {
+        throw new BadRequestException('Item not found');
+      }
+
+      if (item.count < quantity) {
+        throw new BadRequestException('Insufficient inventory');
+      }
+
+      // Update the inventory count
+      const updatedItem = await this.prisma.inventory.update({
+        where: { med_id_medName: { med_id, medName } },
+        data: { count: item.count - quantity }
+      });
+
+      // Calculate new running total
+      const newTotal = item.count - quantity;
+
+      // Log the dispensing to EditsInverntory with running total
+      await this.prisma.editsInverntory.create({
+        data: {
+          med_id: med_id,
+          medName: medName,
+          date: new Date(),
+          cause: `Dispensed to patient ${patientName} (Consultation #${consultationId})`,
+          addSubCount: -quantity, // Negative for dispensing
+          runningTotal: newTotal, // Include running total
+          category_id: item.category_id, // Include category
+          admin_id: admin_id || null
+        }
+      });
+
+      return updatedItem;
+    } catch (error) {
+      throw new BadRequestException(error.message || 'Failed to log dispensing');
     }
   }
 }

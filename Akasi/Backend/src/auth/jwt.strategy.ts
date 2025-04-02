@@ -64,6 +64,26 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       } catch (err) {
         this.logger.error('[JWT] Error looking up admin:', err);
       }
+    } else if (payload.sub && payload.role === 'manager') {
+      try {
+        const manager = await this.prisma.manager.findUnique({
+          where: {
+            manager_id: payload.sub,
+          },
+        });
+
+        if (manager) {
+          userData = {
+            id: manager.manager_id,
+            manager_id: manager.manager_id,
+            username: manager.username,
+            role: 'manager',
+          };
+          this.logger.debug(`[JWT] Found manager: ${manager.manager_id}`);
+        }
+      } catch (err) {
+        this.logger.error('[JWT] Error looking up manager:', err);
+      }
     }
 
     if (!userData) {
