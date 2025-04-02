@@ -2,24 +2,13 @@
 import { Injectable, ExecutionContext, UnauthorizedException, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Observable } from 'rxjs';
-import { Reflector } from '@nestjs/core';
-import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
   private readonly logger = new Logger(JwtAuthGuard.name);
-  private reflector = new Reflector();
 
   canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
-    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-    
-    if (isPublic) {
-      return true;
-    }
-    
+    // Add additional pre-authentication checks here if needed
     return super.canActivate(context);
   }
 
@@ -58,15 +47,6 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     } else if (user.id && !user.admin_id && user.role === 'admin') {
       user.admin_id = user.id;
       this.logger.debug(`Added admin_id field (${user.admin_id}) for admin consistency`);
-    }
-
-    // For manager users: ensure we have both id and manager_id
-    if (user.manager_id && !user.id) {
-      user.id = user.manager_id;
-      this.logger.debug(`Added id field (${user.id}) for manager consistency`);
-    } else if (user.id && !user.manager_id && user.role === 'manager') {
-      user.manager_id = user.id;
-      this.logger.debug(`Added manager_id field (${user.manager_id}) for manager consistency`);
     }
 
     this.logger.log(`Authenticated user: ${user.id}, role: ${user.role}, path: ${request.path}`);

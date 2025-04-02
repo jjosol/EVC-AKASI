@@ -1,7 +1,6 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import * as inventoryService from '~/services/inventoryService';
-import { useProfile } from '~/composables/useProfile'; // Import the profile composable
 
 const props = defineProps({
   isOpen: Boolean,
@@ -9,7 +8,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['closeModal', 'addCategory'])
-const { profile } = useProfile(); // Get the current admin profile
 
 const newCategory = ref({
   category_id: null,
@@ -17,8 +15,6 @@ const newCategory = ref({
 })
 
 const formError = ref('')
-const showConfirmModal = ref(false)
-const confirmationMessage = ref('')
 
 const modalTitle = computed(() => {
   return props.editItem ? 'Edit Category' : 'Add New Category'
@@ -54,23 +50,11 @@ const validateForm = () => {
   return true
 }
 
-const prepareSubmit = () => {
+const submitForm = async () => {
   if (!validateForm()) {
     return;
   }
 
-  // For editing existing category, submit directly without confirmation
-  if (props.editItem?.category_id) {
-    submitForm();
-    return;
-  }
-  
-  // Only show confirmation for adding new category
-  confirmationMessage.value = `Warning: You're about to add a new category "${newCategory.value.name}". This action cannot be undone!`;
-  showConfirmModal.value = true;
-}
-
-const submitForm = async () => {
   try {
     let result;
     if (props.editItem?.category_id) {
@@ -80,10 +64,10 @@ const submitForm = async () => {
         { name: newCategory.value.name }
       );
     } else {
-      // Add new category with the admin ID
-      result = await inventoryService.addCategoryWithAdmin({ 
+      // Add new category
+      result = await inventoryService.addCategory({ 
         name: newCategory.value.name 
-      }, profile.value?.admin_id);
+      });
     }
     
     emit('addCategory', result);
@@ -100,7 +84,7 @@ const submitForm = async () => {
     <div class="absolute inset-0 bg-black opacity-50" @click="$emit('closeModal')"></div>
     <div class="z-10 w-full max-w-md p-6 bg-white rounded-lg shadow-lg">
       <h2 class="mb-4 text-lg font-semibold">{{ modalTitle }}</h2>
-      <form @submit.prevent="prepareSubmit">
+      <form @submit.prevent="submitForm">
         <div class="mb-4">
           <label class="block mb-1 text-sm font-medium">Category Name</label>
           <input 
@@ -130,12 +114,4 @@ const submitForm = async () => {
       </form>
     </div>
   </div>
-  
-  <ConfirmationModal
-    :show="showConfirmModal"
-    :message="confirmationMessage"
-    :confirmButtonText="props.editItem ? 'Update' : 'Add'"
-    @confirm="submitForm"
-    @cancel="showConfirmModal = false"
-  />
 </template>

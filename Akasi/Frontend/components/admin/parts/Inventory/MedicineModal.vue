@@ -1,7 +1,6 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import * as inventoryService from '~/services/inventoryService';
-import ConfirmationModal from '~/components/SHARED/parts/confirmationModal.vue';
 
 const props = defineProps({
   isOpen: Boolean,
@@ -24,10 +23,6 @@ const newItem = ref({
   count: 0,
   category_id: null
 })
-
-// Add confirmation modal state
-const showConfirmModal = ref(false)
-const confirmationMessage = ref('')
 
 // Watch for prefill data changes
 watch(() => props.prefillData, (data) => {
@@ -97,18 +92,9 @@ const validateForm = () => {
   return isValid
 }
 
-const prepareSubmit = () => {
-  if (!validateForm()) return;
-  
-  // Set confirmation message with warning about irreversibility
-  confirmationMessage.value = props.prefillData?.isNewBatch 
-    ? `Warning: You're about to add a new batch of ${newItem.value.name}. This action cannot be undone!`
-    : `Warning: You're about to add ${newItem.value.name} to inventory. This action cannot be undone!`;
-    
-  showConfirmModal.value = true;
-}
-
 const submitForm = async () => {
+  if (!validateForm()) return;
+
   try {
     const result = await inventoryService.addInventoryItem({
       name: newItem.value.name,
@@ -154,7 +140,7 @@ const formatDate = inventoryService.formatDate;
     <div class="absolute inset-0 bg-black opacity-50" @click="$emit('closeModal')"></div>
     <div class="z-10 w-full max-w-md p-6 bg-white rounded-lg shadow-lg">
       <h2 class="mb-4 text-lg font-semibold">Add New Item</h2>
-      <form @submit.prevent="prepareSubmit">
+      <form @submit.prevent="submitForm">
         <div>
           <div class="mb-4">
             <label class="block mb-1 text-sm font-medium">Category</label>
@@ -233,15 +219,6 @@ const formatDate = inventoryService.formatDate;
       </form>
     </div>
   </div>
-  
-  <!-- Confirmation Modal -->
-  <ConfirmationModal
-    :show="showConfirmModal"
-    :message="confirmationMessage"
-    confirmButtonText="Add"
-    @confirm="submitForm"
-    @cancel="showConfirmModal = false"
-  />
 </template>
 
 <style scoped>

@@ -185,22 +185,7 @@ export class ConsultationRecordsService {
 
         // Return quantities to inventory
         for (const record of medAdminRecords) {
-          // Get the current inventory item to get its category and current count
-          const inventoryItem = await prisma.inventory.findUnique({
-            where: {
-              med_id_medName: {
-                med_id: record.med_id,
-                medName: record.medName
-              }
-            }
-          });
-
-          if (!inventoryItem) {
-            continue; // Skip if inventory item doesn't exist anymore
-          }
-
-          // Update the inventory count
-          const updatedItem = await prisma.inventory.update({
+          await prisma.inventory.update({
             where: {
               med_id_medName: {
                 med_id: record.med_id,
@@ -214,9 +199,6 @@ export class ConsultationRecordsService {
             }
           });
           
-          // Calculate new running total
-          const newTotal = inventoryItem.count + record.count;
-          
           // Log the return to inventory
           await prisma.editsInverntory.create({
             data: {
@@ -224,9 +206,7 @@ export class ConsultationRecordsService {
               medName: record.medName,
               date: new Date(),
               cause: `Returned to inventory (Consultation #${consultation_id} deleted)`,
-              addSubCount: record.count, // Positive for return
-              runningTotal: newTotal, // Add the running total
-              category_id: inventoryItem.category_id // Add the category ID
+              addSubCount: record.count // Positive for return
             }
           });
         }

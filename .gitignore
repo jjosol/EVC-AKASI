@@ -3,4 +3,3 @@ Miscellaneous/
 google-credentials.json
 Akasi/Backend/src/backup/backup.service.ts
 Akasi/Backend/src/backup/google-drive.service.ts
-/node_modules

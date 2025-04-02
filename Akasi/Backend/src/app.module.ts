@@ -32,7 +32,6 @@ import { BackupModule } from './backup/backup.module';
 import { ChangePasswordModule } from './change-password/changePass.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { EquipmentModule } from './equipment/equipment.module';
 
 @Module({
   imports: [
@@ -64,8 +63,7 @@ import { EquipmentModule } from './equipment/equipment.module';
     ClientFilesStaffModule,
     DiagnosisModule,
     ManagersModule,
-    GetClientConsultationsModule,
-    EquipmentModule
+    GetClientConsultationsModule
   ],
   providers: [AppService], // ONLY services directly used by AppModule
   controllers: [AppController], // ONLY controllers directly in AppModule
