@@ -27,13 +27,15 @@ model admin {
   username String @db.VarChar(225)
   password String @db.VarChar(225)
   gmail    String @db.VarChar(225)
-  name     String @db.VarChar(225) // Added from schema2
+  name     String @db.VarChar(225) 
 
   // Relations
   hsu_bulletin         hsu_bulletin[]
   consultation_records consultation_records[]
   medAdministration    medAdministration[]
   created_diagnoses    diagnosis[]
+  equipment_edits      EditsEquipment[]     // Add this line
+  inventory_edits      EditsInverntory[]    // Add relation to EditsInverntory
 
   @@id([admin_id, username])
 }
@@ -99,7 +101,7 @@ model consultation_records {
   admin              admin                    @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction)
   client             client                   @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
   diagnoses          consultation_diagnosis[]
-  medAdministrations medAdministration[]      @relation("ConsultationToMedAdministration")
+  medAdministrations medAdministration[] @relation("ConsultationToMedAdministration")
   prescriptions      prescription[]
 
   @@index([admin_id], map: "FK_admin_TO_consultation_records")
@@ -159,15 +161,16 @@ model inventory {
   med_id      Int      @default(autoincrement())
   medName     String   @db.VarChar(225)
   category_id Int      @default(1)
+  category_id Int      @default(1)
   expiration  DateTime @db.Date
   count       Int
-  otc         Boolean  @default(true) // Add OTC flag - true means over-the-counter (no prescription needed)
+  otc         Boolean  @default(true)   // Add OTC flag - true means over-the-counter (no prescription needed)
 
   // Relations
   category          medicineCategory    @relation(fields: [category_id], references: [category_id])
   EditsInverntory   EditsInverntory[]
   medAdministration medAdministration[]
-  prescriptions     prescription[] // Add relation to prescriptions
+  prescriptions     prescription[]      // Add relation to prescriptions
 
   @@id([med_id, medName])
   @@index([category_id])
@@ -177,39 +180,57 @@ model medicineCategory {
   category_id Int         @id @default(autoincrement())
   name        String      @unique @db.VarChar(225)
   inventory   inventory[]
+  edits       EditsInverntory[]
 }
 
 model equipment {
-  equip_id       Int              @id @default(autoincrement())
-  equipName      String           @unique @db.VarChar(225)
-  count          Int
-  expiration     DateTime?        @db.Date // Optional expiration date
+  equip_id      Int        @id @default(autoincrement())
+  equipName     String     @unique @db.VarChar(225)
+  count         Int
+  unit          String     @db.VarChar(225) 
+  expiration    DateTime?  @db.Date    // Optional expiration date
   EditsEquipment EditsEquipment[]
 
   @@map("equipment")
 }
 
 model EditsEquipment {
-  edit_id     Int       @id @default(autoincrement())
-  equip_id    Int
-  date        DateTime  @db.DateTime(0)
-  cause       String    @db.VarChar(225)
-  addSubCount Int
-  equipment   equipment @relation(fields: [equip_id], references: [equip_id])
+  edit_id      Int       @id @default(autoincrement())
+  equip_id     Int
+  equipName    String    @db.VarChar(225)
+  date         DateTime  @db.DateTime(0)
+  cause        String    @db.VarChar(225)
+  addSubCount  Int
+  runningTotal Int       // Add this field
+  admin_id     Int?
+  admin        admin?    @relation(fields: [admin_id], references: [admin_id])
+  equipment    equipment @relation(fields: [equip_id], references: [equip_id])
 
   @@index([equip_id])
+  @@index([admin_id])
 }
 
 model EditsInverntory {
-  edit_id     Int       @id @default(autoincrement())
-  med_id      Int
-  medName     String    @db.VarChar(225)
-  date        DateTime  @db.DateTime(0)
-  cause       String    @db.VarChar(225)
-  addSubCount Int
-  inventory   inventory @relation(fields: [med_id, medName], references: [med_id, medName])
+  edit_id      Int       @id @default(autoincrement())
+  med_id       Int
+  medName      String    @db.VarChar(225)
+  date         DateTime  @db.DateTime(0)
+  cause        String    @db.VarChar(225)
+  addSubCount  Int
+  runningTotal Int       // Add this to track total after each change
+  category_id  Int       // Add this to track medicine category
+  admin_id     Int?      // Make admin_id optional to handle existing records
+  admin        admin?    @relation(fields: [admin_id], references: [admin_id])
 
-  @@index([med_id, medName], map: "FK_inventory_TO_EditsInverntory")
+  // Add relation to medicineCategory
+  category     medicineCategory @relation(fields: [category_id], references: [category_id])
+  
+  // Existing relation
+  inventory    inventory @relation(fields: [med_id, medName], references: [med_id, medName])
+
+  @@index([med_id, medName])
+  @@index([admin_id])
+  @@index([category_id])  // Add index for category_id
 }
 
 model medical_certificates {
@@ -307,17 +328,17 @@ model medAdministration {
 }
 
 model prescription {
-  prescription_id Int      @id @default(autoincrement())
-  consultation_id Int
-  med_id          Int? // Optional connection to medicine
-  medName         String?  @db.VarChar(225)
-  image           Bytes    @db.LongBlob
-  date_uploaded   DateTime @default(now())
-  notes           String?  @db.VarChar(500)
-
+  prescription_id  Int      @id @default(autoincrement())
+  consultation_id  Int
+  med_id           Int?     // Optional connection to medicine
+  medName          String?  @db.VarChar(225)
+  image            Bytes    @db.LongBlob
+  date_uploaded    DateTime @default(now())
+  notes            String?  @db.VarChar(500)
+  
   // Relations
-  consultation consultation_records @relation(fields: [consultation_id], references: [consultation_id], onDelete: Cascade)
-  medicine     inventory?           @relation(fields: [med_id, medName], references: [med_id, medName], onDelete: SetNull)
+  consultation     consultation_records @relation(fields: [consultation_id], references: [consultation_id], onDelete: Cascade)
+  medicine         inventory?           @relation(fields: [med_id, medName], references: [med_id, medName], onDelete: SetNull)
 
   @@index([consultation_id])
   @@index([med_id, medName])
