@@ -7,6 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+generator erd {
+  provider  = "prisma-erd-generator"
+  tableOnly = false
+  erdDebug  = false
+}
+
 model manager {
   manager_id Int    @unique(map: "manager_id") @default(autoincrement())
   username   String @db.VarChar(225)
@@ -154,6 +160,7 @@ model dental_certificates {
 model inventory {
   med_id      Int      @default(autoincrement())
   medName     String   @db.VarChar(225)
+  category_id Int      @default(1)
   category_id Int      @default(1)
   expiration  DateTime @db.Date
   count       Int
