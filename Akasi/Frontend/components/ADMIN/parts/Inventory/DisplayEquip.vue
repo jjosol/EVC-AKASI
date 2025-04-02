@@ -229,7 +229,7 @@ const emit = defineEmits(['refreshNeeded']);
               class="p-1 text-white bg-green-500 rounded hover:bg-green-600" 
               title="Quick Add"
             >
-              <Icon icon="mdi:plus" width="16" />
+              <Icon icon="mdi:plus" width="16" /> 
             </button>
             <button 
               @click="quickDecrementEquipment(item)"

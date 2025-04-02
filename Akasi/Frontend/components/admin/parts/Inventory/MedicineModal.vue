@@ -22,7 +22,8 @@ const newItem = ref({
   name: '',
   expirationDate: '',
   count: 0,
-  category_id: null
+  category_id: null,
+  isOTC: false // Add OTC property
 })
 
 // Add confirmation modal state
@@ -40,6 +41,11 @@ const isMedicineNameLocked = computed(() => {
   return !!props.prefillData?.isNewBatch;
 })
 
+// Add computed property to lock OTC toggle
+const isOTCLocked = computed(() => {
+  return !!props.prefillData?.isNewBatch;
+})
+
 // Watch for prefill data changes
 watch(() => props.prefillData, (data) => {
   if (data && Object.keys(data).length > 0) {
@@ -52,6 +58,11 @@ watch(() => props.prefillData, (data) => {
     
     if (data.categoryId) {
       newItem.value.category_id = Number(data.categoryId);
+    }
+    
+    // Pre-fill OTC status if available
+    if (data.isOTC !== undefined) {
+      newItem.value.isOTC = data.isOTC;
     }
     
     // Set today's date as default for new batches
@@ -81,8 +92,10 @@ const resetForm = () => {
     name: '',
     expirationDate: '',
     count: 0,
-    category_id: null
+    category_id: null,
+    isOTC: false // Reset OTC value too
   }
+  formErrors.value = { name: '', expirationDate: '', count: '', category_id: '' }
 }
 
 const validateForm = () => {
@@ -126,10 +139,11 @@ const submitForm = async () => {
       expirationDate: newItem.value.expirationDate,
       count: newItem.value.count,
       category_id: newItem.value.category_id,
+      isOTC: newItem.value.isOTC, // Include OTC status in API call
     });
     showConfirmModal.value = false;
     emit('addItem', result);
-    emit('refreshInventory'); // Add this line to refresh the inventory
+    emit('refreshInventory'); 
     resetForm();
   } catch (error) {
     console.error('Error submitting inventory item:', error);
@@ -191,6 +205,7 @@ const formatDate = inventoryService.formatDate;
             </span>
             <span v-if="formErrors.category_id" class="text-sm text-red-500">{{ formErrors.category_id }}</span>
           </div>
+          
           <div class="mb-4">
             <label class="block mb-1 text-sm font-medium">Medicine Name</label>
             <input 
@@ -206,8 +221,39 @@ const formatDate = inventoryService.formatDate;
             </span>
             <span v-if="formErrors.name" class="text-sm text-red-500">{{ formErrors.name }}</span>
           </div>
+          
+          <!-- New OTC toggle switch -->
+          <div class="mb-4">
+            <div class="flex items-center justify-between">
+              <label class="block text-sm font-medium">Over The Counter (OTC)</label>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  v-model="newItem.isOTC"
+                  :disabled="isOTCLocked"
+                  class="sr-only peer"
+                />
+                <div 
+                  class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer 
+                        peer-checked:after:translate-x-full peer-checked:after:border-white 
+                        after:content-[''] after:absolute after:top-[2px] after:left-[2px] 
+                        after:bg-white after:border-gray-300 after:border after:rounded-full 
+                        after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"
+                  :class="{'opacity-50': isOTCLocked}"
+                ></div>
+                <span class="ml-3 text-sm font-medium">
+                  {{ newItem.isOTC ? 'Yes' : 'No' }}
+                </span>
+              </label>
+            </div>
+            <span v-if="isOTCLocked" class="mt-1 text-xs text-gray-500">
+              OTC status is locked when adding a new batch
+            </span>
+          </div>
+          
           <div class="mb-4">
             <label class="block mb-1 text-sm font-medium">Expiration Date</label>
+            <!-- Existing expiration date input -->
             <div class="relative">
               <input 
                 type="date" 
@@ -229,6 +275,7 @@ const formatDate = inventoryService.formatDate;
             </span>
             <span v-if="formErrors.expirationDate" class="text-sm text-red-500">{{ formErrors.expirationDate }}</span>
           </div>
+          
           <div class="mb-4">
             <label class="block mb-1 text-sm font-medium">Count</label>
             <input 
@@ -241,6 +288,7 @@ const formatDate = inventoryService.formatDate;
             <span v-if="formErrors.count" class="text-sm text-red-500">{{ formErrors.count }}</span>
           </div>
         </div>
+        
         <div class="flex justify-end space-x-2">
           <button 
             type="button"

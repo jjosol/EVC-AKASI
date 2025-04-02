@@ -2,7 +2,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { Icon } from '@iconify/vue'
 import * as inventoryService from '~/services/inventoryService';
+import { defineEmits } from 'vue';
 
+const emit = defineEmits(['openModal', 'editModal', 'openCategoryModal', 'refreshNeeded']); // Add 'refreshNeeded' here
 
 // Existing refs
 const items = ref([]);
@@ -132,8 +134,6 @@ const filteredCategories = computed(() => {
   
   return filtered;
 });
-
-const emit = defineEmits(['openModal', 'editModal', 'openCategoryModal']);
 
 const openModal = (item = null) => {
   if (item?.isEditMedicine && item?.isEditNameOnly) {

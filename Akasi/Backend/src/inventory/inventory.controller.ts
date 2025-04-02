@@ -118,13 +118,17 @@ export class InventoryController {
     return this.inventoryService.getAllCategories();
   }
 
- 
+  @Get(':med_id/:medName/otc')
+  async getOtcStatus(
+    @Param('med_id') med_id: string,
+    @Param('medName') medName: string
+  ) {
+    return this.inventoryService.getOtcStatus(Number(med_id), medName);
+  }
 
   @Get('edits')
   async getInventoryEdits(@Request() req) {
     const admin_id = req.user?.admin_id;
     return this.inventoryService.getInventoryEdits(admin_id);
   }
-
- 
 }

@@ -56,8 +56,16 @@ export const addInventoryItem = async (data: {
   expirationDate: string;
   count: number;
   category_id: number;
+  isOTC?: boolean;
 }) => {
-  return await post(BASE_URL, data);
+  // Map isOTC to otc before sending to backend
+  return await post(BASE_URL, {
+    name: data.name,
+    expirationDate: data.expirationDate,
+    count: data.count,
+    category_id: data.category_id,
+    otc: data.isOTC // Make sure this property matches your backend expectation
+  });
 };
 
 export const updateInventoryItem = async (
@@ -68,9 +76,13 @@ export const updateInventoryItem = async (
     expirationDate: string;
     count: number;
     category_id: number;
+    isOTC?: boolean;
   }
 ) => {
-  return await put(`${BASE_URL}/${id}/${name}`, data);
+  return await put(`${BASE_URL}/${id}/${name}`, {
+    ...data,
+    otc: data.isOTC // Make sure this property matches your backend expectation
+  });
 };
 
 export const deleteInventoryItem = async (id: number, name: string) => {
@@ -133,6 +145,11 @@ export const logConsultationDispensing = async (
     consultationId,
     patientName
   });
+};
+
+// Add this function to get OTC status
+export const getOtcStatus = async (id: number, name: string) => {
+  return await get(`${BASE_URL}/${id}/${name}/otc`);
 };
 
 // Helper function to format dates (can be used in components)

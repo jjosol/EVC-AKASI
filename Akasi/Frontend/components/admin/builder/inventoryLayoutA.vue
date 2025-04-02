@@ -4,8 +4,8 @@
       ref="displayInvRef"
       @openModal="openModal"
       @editModal="editModal"
+      @refreshNeeded="handleRefreshNeeded"
       @openCategoryModal="openCategoryModal"
-      @refreshNeeded="refreshInventoryData"
     />
     <DisplayEquip
       ref="displayEquipRef"
@@ -135,6 +135,16 @@ const handleAddCategory = async (category) => {
   await refreshInventoryData()
   closeModal()
 }
+// Add this to your <script setup> section
+const handleRefreshNeeded = () => {
+  // This triggers a refresh of inventory data
+  refreshAllData();
+};
+
+// Make sure to expose this method to child components
+defineExpose({
+  handleRefreshNeeded
+});
 
 onMounted(() => {
   fetchCategories()

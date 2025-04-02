@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
@@ -47,16 +47,21 @@ export class InventoryService {
 
   async addItem(item: any, admin_id?: number) {
     try {
+      // Make sure to explicitly handle the otc field
+      const otc = item.otc !== undefined ? item.otc : true; // Default to true if not provided
+
       // Validate expiration date isn't in the past
       if (item.expirationDate) {
         const expirationDate = new Date(item.expirationDate);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-
         if (expirationDate < today) {
           throw new BadRequestException('Expiration date cannot be in the past');
         }
       }
+
+      // Log the incoming OTC value for debugging
+      console.log('Received OTC value:', item.isOTC, typeof item.isOTC);
 
       // Check if the medicine already exists
       const existingMedicine = await this.prisma.inventory.findFirst({
@@ -77,13 +82,20 @@ export class InventoryService {
         );
       }
 
-      // Add a new batch under the same medicine name
+      // Fix the OTC conversion
+      const otcValue = typeof item.isOTC === 'boolean' ? item.isOTC : 
+                      (item.otc !== undefined ? item.otc : true);
+      
+      console.log('Processing OTC value:', otcValue, typeof otcValue);
+      
+      // Add a new batch under the same medicine name with OTC flag
       const result = await this.prisma.inventory.create({
         data: {
           medName: item.name,
           expiration: item.expirationDate ? new Date(item.expirationDate) : null,
           count: Number(item.count),
           category_id: Number(item.category_id),
+          otc: otcValue,  // Use the properly converted boolean value
         },
         include: {
           category: true,
@@ -98,9 +110,9 @@ export class InventoryService {
           date: new Date(),
           cause: 'Initial inventory',
           addSubCount: Number(item.count),
-          runningTotal: Number(item.count), // Initial count is the running total
+          runningTotal: Number(item.count),
           category_id: Number(item.category_id),
-          admin_id: admin_id || null
+          admin_id: admin_id || null,
         }
       });
 
@@ -118,11 +130,20 @@ export class InventoryService {
         const expirationDate = new Date(data.expirationDate);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
         if (expirationDate < today) {
           throw new BadRequestException('Expiration date cannot be in the past');
         }
       }
+      
+      // Log the incoming OTC value for debugging
+      console.log('Update OTC value:', data.isOTC, typeof data.isOTC);
+      console.log('Processed isOTC value:', data.isOTC, typeof data.isOTC);
+
+      // Fix the OTC conversion
+      const otcValue = typeof data.isOTC === 'boolean' ? data.isOTC : 
+                     (data.otc !== undefined ? data.otc : true);
+      
+      console.log('Processing OTC value:', otcValue, typeof otcValue);
 
       // If name is different, create new entry and delete old one
       if (medName !== data.name) {
@@ -131,13 +152,13 @@ export class InventoryService {
             medName: data.name,
             expiration: data.expirationDate ? new Date(data.expirationDate) : null,
             count: Number(data.count),
-            category_id: Number(data.category_id) // Add the missing category_id field
+            category_id: Number(data.category_id),
+            otc: otcValue, 
           },
           include: {
-            category: true // Include related category data in response
-          }
+            category: true,
+          },
         });
-
         // Delete old entry
         await this.prisma.inventory.delete({
           where: {
@@ -147,7 +168,6 @@ export class InventoryService {
             }
           }
         });
-
         return newItem;
       }
 
@@ -162,10 +182,11 @@ export class InventoryService {
         data: {
           expiration: data.expirationDate ? new Date(data.expirationDate) : null,
           count: Number(data.count),
-          category_id: Number(data.category_id) // Also update category_id here for consistency
+          category_id: Number(data.category_id),
+          otc: otcValue,  // Use the properly converted boolean value
         },
         include: {
-          category: true // Include related category data in response
+          category: true
         }
       });
     } catch (error) {
@@ -519,6 +540,28 @@ export class InventoryService {
       return updatedItem;
     } catch (error) {
       throw new BadRequestException(error.message || 'Failed to log dispensing');
+    }
+  }
+
+  async getOtcStatus(med_id: number, medName: string) {
+    try {
+      const medicine = await this.prisma.inventory.findFirst({
+        where: {
+          med_id: med_id,
+          medName: medName
+        },
+        select: {
+          otc: true
+        }
+      });
+      
+      if (!medicine) {
+        throw new NotFoundException(`Medicine with ID ${med_id} and name ${medName} not found`);
+      }
+      
+      return { otc: medicine.otc };
+    } catch (error) {
+      throw new InternalServerErrorException(`Failed to get OTC status: ${error.message}`);
     }
   }
 }
