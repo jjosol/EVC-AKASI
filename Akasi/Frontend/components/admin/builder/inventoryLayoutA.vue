@@ -6,6 +6,10 @@
       @editModal="editModal"
       @openCategoryModal="openCategoryModal"
     />
+    <DisplayEquip
+      ref="displayEquipRef"
+    />
+    <InventoryHistory/>
     <MedicineModal 
       :isOpen="isModalOpen && modalType === 'medicine'" 
       :categories="categories"
@@ -20,6 +24,7 @@
       @closeModal="closeModal"
       @addCategory="handleAddCategory"
     />
+    <!-- Equipment modals are handled within the DisplayEquip component -->
   </NuxtLayout>
 </template>
 
@@ -34,6 +39,7 @@ definePageMeta({
 const isModalOpen = ref(false)
 const currentItem = ref(null)
 const displayInvRef = ref(null)
+const displayEquipRef = ref(null)
 const modalType = ref('medicine') // 'medicine' or 'category'
 const categories = ref([])
 

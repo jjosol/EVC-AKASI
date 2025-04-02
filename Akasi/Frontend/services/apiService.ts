@@ -22,8 +22,14 @@ const fetchWithTimeout = async (url: string, options: RequestInit, timeout = 300
 };
 
 export async function get(endpoint: string) {
+  // Add token to GET requests
+  const token = localStorage.getItem('token');
   try {
-    const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {}, 30000);
+    const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : ''
+      }
+    }, 30000);
     if (!response.ok) {
       throw new Error(`GET ${endpoint} failed: ${response.statusText}`);
     }
@@ -35,7 +41,8 @@ export async function get(endpoint: string) {
 }
 
 export async function post(endpoint: string, data: any) {
-  const token = localStorage.getItem('authToken');
+  // Change authToken to token
+  const token = localStorage.getItem('token');
   try {
     const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {
       method: 'POST',
@@ -57,7 +64,7 @@ export async function post(endpoint: string, data: any) {
 }
 
 export async function put(endpoint: string, data: any) {
-  const token = localStorage.getItem('authToken');
+  const token = localStorage.getItem('token'); // Change from 'authToken' to 'token'
   try {
     const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {
       method: 'PUT',
@@ -79,7 +86,7 @@ export async function put(endpoint: string, data: any) {
 }
 
 export async function del(endpoint: string) {
-  const token = localStorage.getItem('authToken');
+  const token = localStorage.getItem('token'); // Change from 'authToken' to 'token'
   
   try {
     const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {
@@ -121,7 +128,7 @@ export async function del(endpoint: string) {
 
 // Add this new function to your apiService.ts
 export async function uploadFile(endpoint: string, formData: FormData) {
-  const token = localStorage.getItem('authToken');
+  const token = localStorage.getItem('token'); // Change from 'authToken' to 'token'
   
   try {
     const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {
