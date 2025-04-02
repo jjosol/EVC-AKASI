@@ -265,13 +265,13 @@ const closeOnOverlayClick = ref(true);
 const isSelectedTimeAvailable = ref(true);
 
 // Define emits
-// Update emits to include consultation-saved
 const emit = defineEmits([
   'update-hour', 
   'update-minute', 
   'modal-closed', 
   'modal-opened',
-  'consultation-saved', 
+  'consultation-saved',
+  'consultation-deleted',
   'update-confined'
 ]);
 
@@ -851,7 +851,7 @@ const closeDeleteConfirmModal = () => {
   deleteStatusMessage.value = '';
 };
 
-// Function to delete appointment
+// Function to delete appointment - update around line 850
 const deleteAppointment = async () => {
   if (!appointmentToDelete.value) return;
   
@@ -888,6 +888,32 @@ const deleteAppointment = async () => {
     // Show success message as a temporary notification
     statusMessage.value = 'Appointment deleted successfully!';
     statusType.value = 'success';
+    
+    // Immediately refresh available time slots for the current date
+    await fetchAvailableTimeSlots(selectedDate.value.rawDate);
+    
+    // Call parent callbacks
+    if (props.onConsultationSaved) {
+      props.onConsultationSaved();
+    }
+    
+    // Emit event for parent components to handle
+    emit('consultation-deleted');
+    
+    // Refresh the calendar in ServicesLayout
+    if (appointmentToDelete.value.date) {
+      // If the canceled appointment was on the current day, refresh the slots
+      const appointmentDate = new Date(appointmentToDelete.value.date);
+      const currentDate = selectedDate.value.rawDate;
+      
+      if (
+        appointmentDate.getFullYear() === currentDate.getFullYear() &&
+        appointmentDate.getMonth() === currentDate.getMonth() &&
+        appointmentDate.getDate() === currentDate.getDate()
+      ) {
+        await fetchAvailableTimeSlots(currentDate);
+      }
+    }
     
     // Clear the success message after a few seconds
     setTimeout(() => {
@@ -952,7 +978,8 @@ defineExpose({
   openModal,
   closeModal,
   fetchUpcomingAppointments,
-  handleDateSelected
+  handleDateSelected,
+  fetchAvailableTimeSlots
 });
 </script>
 

@@ -7,6 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+generator erd {
+  provider  = "prisma-erd-generator"
+  tableOnly = false
+  erdDebug  = false
+}
+
 model manager {
   manager_id Int    @unique(map: "manager_id") @default(autoincrement())
   username   String @db.VarChar(225)
@@ -93,9 +99,8 @@ model consultation_records {
   admin              admin                    @relation(fields: [admin_id], references: [admin_id], onDelete: NoAction, onUpdate: NoAction)
   client             client                   @relation(fields: [client_id], references: [client_id], onDelete: NoAction, onUpdate: NoAction)
   diagnoses          consultation_diagnosis[]
-  medAdministrations medAdministration[] @relation("ConsultationToMedAdministration")
-
-
+  medAdministrations medAdministration[]      @relation("ConsultationToMedAdministration")
+  prescriptions      prescription[]
 
   @@index([admin_id], map: "FK_admin_TO_consultation_records")
   @@index([client_id], map: "FK_client_TO_consultation_records")
@@ -153,14 +158,16 @@ model dental_certificates {
 model inventory {
   med_id      Int      @default(autoincrement())
   medName     String   @db.VarChar(225)
-  category_id Int      @default(1) // Use a valid existing category_id
+  category_id Int      @default(1)
   expiration  DateTime @db.Date
   count       Int
+  otc         Boolean  @default(true) // Add OTC flag - true means over-the-counter (no prescription needed)
 
   // Relations
   category          medicineCategory    @relation(fields: [category_id], references: [category_id])
   EditsInverntory   EditsInverntory[]
   medAdministration medAdministration[]
+  prescriptions     prescription[] // Add relation to prescriptions
 
   @@id([med_id, medName])
   @@index([category_id])
@@ -173,11 +180,24 @@ model medicineCategory {
 }
 
 model equipment {
-  equip_id  Int    @id @default(autoincrement())
-  equipName String @unique @db.VarChar(225)
-  count     Int
+  equip_id       Int              @id @default(autoincrement())
+  equipName      String           @unique @db.VarChar(225)
+  count          Int
+  expiration     DateTime?        @db.Date // Optional expiration date
+  EditsEquipment EditsEquipment[]
 
   @@map("equipment")
+}
+
+model EditsEquipment {
+  edit_id     Int       @id @default(autoincrement())
+  equip_id    Int
+  date        DateTime  @db.DateTime(0)
+  cause       String    @db.VarChar(225)
+  addSubCount Int
+  equipment   equipment @relation(fields: [equip_id], references: [equip_id])
+
+  @@index([equip_id])
 }
 
 model EditsInverntory {
@@ -283,5 +303,22 @@ model medAdministration {
 
   @@index([admin_id])
   @@index([client_id])
+  @@index([med_id, medName])
+}
+
+model prescription {
+  prescription_id Int      @id @default(autoincrement())
+  consultation_id Int
+  med_id          Int? // Optional connection to medicine
+  medName         String?  @db.VarChar(225)
+  image           Bytes    @db.LongBlob
+  date_uploaded   DateTime @default(now())
+  notes           String?  @db.VarChar(500)
+
+  // Relations
+  consultation consultation_records @relation(fields: [consultation_id], references: [consultation_id], onDelete: Cascade)
+  medicine     inventory?           @relation(fields: [med_id, medName], references: [med_id, medName], onDelete: SetNull)
+
+  @@index([consultation_id])
   @@index([med_id, medName])
 }

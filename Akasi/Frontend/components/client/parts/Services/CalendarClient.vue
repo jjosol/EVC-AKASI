@@ -383,7 +383,6 @@ defineExpose({
             <span :class="{
               'border-b-4 border-[#2f4a71]': isToday(day.date),
               'opacity-50': day.date && !isDayClickable(day.date),
-              'line-through': day.date && !isDayClickable(day.date) && hasSlotsAvailable(day.date) === false
             }">
               {{ day.date ? day.date.getDate() : '' }}
               <span v-if="day.date && hasNoAvailableSlots(day.date)" 
