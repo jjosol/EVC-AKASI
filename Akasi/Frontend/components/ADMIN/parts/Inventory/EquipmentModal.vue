@@ -228,7 +228,8 @@ const isExpired = (expirationDate) => {
   
   <!-- Confirmation Modal -->
   <ConfirmationModal
-    v-if="showConfirmModal"
+    :show="showConfirmModal"
+    :confirmButtonText="isEditMode ? 'Update' : 'Add'"
     :message="confirmationMessage"
     @confirm="submitForm"
     @cancel="showConfirmModal = false"

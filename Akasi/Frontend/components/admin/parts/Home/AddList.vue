@@ -540,14 +540,38 @@ const savePerson = async () => {
 /**
  * Fetches inventory items using the inventoryService
  */
+/**
+ * Fetches inventory items using the consultationRecordService
+ */
  const fetchInventory = async () => {
   try {
+    // Use the correct service function
     const data = await consultationRecordService.fetchInventory();
+    console.log("Fetched inventory data:", data);
     allMedicines.value = data || [];
   } catch (error) {
     console.error('Error fetching inventory:', error);
-    // Provide user-friendly error notification if needed
+    allMedicines.value = [];
   }
+};
+
+// Add this function to prepare a medicine for the detail modal
+const prepareAddMedicine = (medicine) => {
+  // Set up the medicine to be added in the detail modal
+  selectedMedicine.value = {
+    med_id: medicine.med_id,
+    name: medicine.name,
+    quantity: medicine.requestedQuantity,
+    schedule: '',
+    startDate: todayFormatted.value,
+    endDate: todayFormatted.value,
+    remarks: '',
+    originalQuantity: medicine.requestedQuantity
+  };
+  
+  // Clear view-only mode and open the modal
+  isViewOnly.value = false;
+  showMedicineDetailModal.value = true;
 };
 
 //Appointments
@@ -602,6 +626,9 @@ const allMedicines = ref([]);
 const expandedMedicines = ref(new Set());
 
 // Add these computed properties
+// Add these computed properties
+// Add these computed properties
+// Add these computed properties
 const groupedMedicines = computed(() => {
   const groups = {};
   // Get today's date for comparison
@@ -618,8 +645,24 @@ const groupedMedicines = computed(() => {
     // Add expiration status check
     const expired = item.expiration && new Date(item.expiration) < today;
     
+    // Handle count properly - ensure it's a valid number
+    let itemCount = 0;
+    if (item.count !== undefined && item.count !== null) {
+      const parsedCount = parseInt(item.count, 10);
+      if (!isNaN(parsedCount)) {
+        itemCount = parsedCount;
+      }
+    }
+    
     groups[name].push({
-      ...item,
+      med_id: item.med_id,
+      name: item.medName,
+      batch_number: item.batch_number || null,
+      expiry_date: item.expiration ? new Date(item.expiration).toLocaleDateString() : 'N/A',
+      count: itemCount,
+      displayCount: itemCount,
+      requestedQuantity: 1, // Initialize with default value of 1
+      category_id: item.category_id,
       expired
     });
   });
@@ -627,9 +670,7 @@ const groupedMedicines = computed(() => {
   // Sort each group by expiration date
   Object.keys(groups).forEach(name => {
     groups[name].sort((a, b) => {
-      if (!a.expiration) return 1;
-      if (!b.expiration) return -1;
-      return new Date(a.expiration).getTime() - new Date(b.expiration).getTime();
+      return new Date(a.expiration || 0).getTime() - new Date(b.expiration || 0).getTime();
     });
   });
 
@@ -844,35 +885,36 @@ const quantity = ref(1); // Add a ref for quantity
  * @param {Object} medicine - Medicine to add
  * @returns {Promise<void>}
  */
-const addMedicine = async (medicine) => {
+ const addMedicine = async (medicine) => {
   try {
-    if (!medicine?.med_id || !medicine?.requestedQuantity) {
-      throw new Error('Invalid medicine data');
-    }
-
-    const requestedQty = Number(medicine.requestedQuantity);
-    if (isNaN(requestedQty) || requestedQty <= 0) {
-      throw new Error('Invalid quantity');
-    }
-    
-    // Track this pending quantity
-    if (!pendingMedicineQuantities.value[medicine.med_id]) {
-      pendingMedicineQuantities.value[medicine.med_id] = 0;
-    }
-    pendingMedicineQuantities.value[medicine.med_id] += requestedQty;
-    
-    const today = new Date();
-    showMedicineDetailModal.value = true;
-    selectedMedicine.value = {
+    // Create a copy to avoid reference issues
+    const medicineToAdd = {
       med_id: medicine.med_id,
       name: medicine.name,
-      quantity: medicine.requestedQuantity,
-      originalQuantity: medicine.requestedQuantity
+      quantity: Number(medicine.requestedQuantity),
+      startDate: todayFormatted.value,
+      endDate: todayFormatted.value,
+      schedule: '',
+      remarks: ''
     };
-
+    
+    // Initialize medicines array if it doesn't exist
+    if (!selectedPerson.value.medicines) {
+      selectedPerson.value.medicines = [];
+    }
+    
+    // Add the medicine to the selected person
+    selectedPerson.value.medicines.push(medicineToAdd);
+    
+    // Update display count to reflect the pending change
+    medicine.displayCount -= medicine.requestedQuantity;
+    
+    // Reset requested quantity
+    medicine.requestedQuantity = 1;
+    
+    console.log('Medicine added:', medicineToAdd);
   } catch (error) {
-    console.error('AddMedicine error:', error);
-    alert(error.message);
+    console.error('Error adding medicine:', error);
   }
 };
 
@@ -1629,22 +1671,12 @@ const saveMedicineDetails = async () => {
       throw new Error('End date cannot be before start date');
     }
     
-    // Validate that start date and end date are not the same
-    if (startDate.getTime() === endDate.getTime()) {
-      throw new Error('End date cannot be the same as start date');
-    }
-
+    // Validate quantity
     if (!medicine.quantity || medicine.quantity <= 0) {
       throw new Error('Valid quantity is required');
     }
 
-    // Check if requested quantity exceeds available count
-    // const availableMedicine = groupedMedicines.value[medicine.name]?.find(m => m.med_id === medicine.med_id);
-    // if (availableMedicine && medicine.quantity > availableMedicine.displayCount) {
-    //   throw new Error('The requested quantity exceeds the available count');
-    // }
-
-    // If editing an existing medicine, adjust the pending quantity
+    // If editing an existing medicine
     if (medicine.index !== undefined) {
       const oldQty = selectedPerson.value.medicines[medicine.index].quantity || 0;
       const newQty = medicine.quantity;
@@ -1657,8 +1689,30 @@ const saveMedicineDetails = async () => {
       
       selectedPerson.value.medicines[medicine.index] = { ...medicine };
     } else {
-      // New medicine being added
-      selectedPerson.value.medicines.push({ ...medicine });
+      // For new medicine, find the original medicine in allMedicines to update the display count
+      const medicineGroups = Object.values(groupedMedicines.value).flat();
+      const originalMedicine = medicineGroups.find(m => m.med_id === medicine.med_id);
+      
+      if (originalMedicine) {
+        originalMedicine.displayCount -= medicine.quantity;
+        
+        // Create the medicine object to add
+        const medicineToAdd = {
+          med_id: medicine.med_id,
+          name: medicine.name,
+          quantity: Number(medicine.quantity),
+          startDate: medicine.startDate,
+          endDate: medicine.endDate,
+          schedule: medicine.schedule || '',
+          remarks: medicine.remarks || ''
+        };
+        
+        // Add to selected person's medicines
+        if (!selectedPerson.value.medicines) {
+          selectedPerson.value.medicines = [];
+        }
+        selectedPerson.value.medicines.push(medicineToAdd);
+      }
     }
 
     showMedicineDetailModal.value = false;
@@ -2226,13 +2280,13 @@ const delayedAction = (callback, delay) => {
                   class="w-16 p-1 border border-gray-300 rounded-md"
                 />
                 <button
-                  @click="addMedicine(medicine)"
-                  :disabled="!canAddMedicine(medicine)"
-                  :class="canAddMedicine(medicine) ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-500'"
-                  class="p-1 rounded-md"
-                >
-                  Add
-                </button>
+  @click="prepareAddMedicine(medicine)"
+  :disabled="!canAddMedicine(medicine)"
+  :class="canAddMedicine(medicine) ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-500'"
+  class="p-1 rounded-md"
+>
+  Add
+</button>
               </div>
             </td>
           </tr>
@@ -2435,7 +2489,7 @@ const delayedAction = (callback, delay) => {
 
   <!-- Add Diagnosis Modal -->
   <div v-if="showAddDiagnosisModal"
-    class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60]">
+    class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[500]">
     <div class="w-full max-w-md p-6 bg-white rounded-lg shadow-lg">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-xl font-semibold text-gray-800">Add New Diagnosis</h2>

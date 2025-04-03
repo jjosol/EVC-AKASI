@@ -2,6 +2,14 @@
   <div class="p-6 bg-white rounded-lg shadow">
     <h2 class="mb-6 text-2xl font-bold text-[#2f4a71]">Database Backup & Restore</h2>
 
+    <!-- Network Status Banner -->
+    <div v-if="!isOnline" class="flex items-center p-3 mb-4 border rounded text-amber-700 bg-amber-100 border-amber-400">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>You are currently offline. Some features are unavailable until you reconnect.</span>
+    </div>
+
     <!-- Status Messages -->
     <div v-if="successMessage" class="p-3 mb-4 text-green-700 bg-green-100 border border-green-400 rounded">
       {{ successMessage }}
@@ -26,7 +34,7 @@
           <button 
             @click="createFullBackupHandler" 
             class="px-4 py-2 text-white transition-colors rounded bg-[#2f4a71] hover:bg-[#1d3050] disabled:bg-gray-400 disabled:cursor-not-allowed"
-            :disabled="isBackingUp"
+            :disabled="isBackingUp || !isOnline"
           >
             <span v-if="isBackingUp">Creating Backup...</span>
             <span v-else>Create Full Backup</span>
@@ -90,7 +98,7 @@
         <button 
           @click="restoreBackup" 
           class="px-4 py-2 text-white transition-colors rounded bg-[#2f4a71] hover:bg-[#1d3050] disabled:bg-gray-400 disabled:cursor-not-allowed"
-          :disabled="!canRestore || isRestoring"
+          :disabled="!canRestore || isRestoring || !isOnline"
         >
           <span v-if="isRestoring">Restoring...</span>
           <span v-else>Restore Database</span>
@@ -156,24 +164,6 @@
         
         <!-- Google Drive Integration -->
         <div class="col-span-2 p-4 mt-2 border border-gray-200 rounded-md bg-gray-50">
-          <!-- <div class="flex items-center mb-3">
-            <h4 class="font-medium text-gray-700 text-md">Google Drive Integration</h4>
-            <span class="px-2 py-1 ml-2 text-xs font-medium text-white bg-blue-500 rounded-full">Recommended</span>
-          </div> -->
-<!--           
-          <p class="mb-3 text-sm text-gray-600">
-            Store your backups securely in Google Drive. 
-            <strong class="font-medium">How to setup:</strong>
-          </p> -->
-          
-          <!-- <ol class="mb-4 ml-5 text-sm text-gray-600 list-decimal">
-            <li class="mb-1">Go to <a href="https://drive.google.com" target="_blank" class="text-blue-600 underline">Google Drive</a></li>
-            <li class="mb-1">Create a folder for your backups</li>
-            <li class="mb-1">Right-click on the folder and select "Get link"</li>
-            <li class="mb-1">Copy the ID from the URL (the long string between /folders/ and ?)</li>
-            <li class="mb-1">Paste that ID in the field below</li>
-          </ol>
-           -->
           <div class="mb-4">
             <label for="driveFolderId" class="block mb-1 text-sm font-medium text-gray-700">Google Drive Folder ID</label>
             <input 
@@ -185,10 +175,6 @@
               :disabled="!autoConfig.enabled"
             />
           </div>
-          
-          <!-- <p class="text-xs italic text-gray-500">
-            Example folder URL: https://drive.google.com/drive/folders/<strong>1AbCdEfGhIjKlMnOpQrStUvWxYz</strong>?usp=sharing
-          </p> -->
         </div>
         
         <div class="flex justify-between col-span-2 mt-2">
@@ -196,6 +182,7 @@
             type="button"
             @click="saveAutoConfig"
             class="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            :disabled="!isOnline"
           >
             Save Settings
           </button>
@@ -204,6 +191,7 @@
             @click="toggleBackupState"
             class="px-4 py-2 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2"
             :class="isBackupRunning ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700'"
+            :disabled="!isOnline"
           >
             {{ isBackupRunning ? 'Pause Backup' : 'Run Backup Now' }}
           </button>
@@ -247,24 +235,28 @@
                 <button 
                   @click="downloadBackup(backup)" 
                   class="px-2 py-1 text-xs text-white bg-blue-500 rounded hover:bg-blue-600"
+                  :disabled="!isOnline"
                 >
                   Download
                 </button>
                 <button 
                   @click="exportToGoogleDrive(backup)" 
                   class="px-2 py-1 text-xs text-white bg-green-600 rounded hover:bg-green-700"
+                  :disabled="!isOnline"
                 >
                   To Drive
                 </button>
                 <button 
                   @click="selectBackupForRestore(backup)" 
                   class="px-2 py-1 text-xs text-white rounded bg-amber-500 hover:bg-amber-600"
+                  :disabled="!isOnline"
                 >
                   Restore
                 </button>
                 <button 
                   @click="deleteBackup(backup)" 
                   class="px-2 py-1 text-xs text-white bg-red-500 rounded hover:bg-red-600"
+                  :disabled="!isOnline"
                 >
                   Delete
                 </button>
@@ -302,7 +294,7 @@
           <button 
             @click="confirmExportToDrive" 
             class="px-4 py-2 text-white transition-colors rounded bg-[#2f4a71] hover:bg-[#1d3050]"
-            :disabled="isLoadingDrive || !autoConfig.driveFolderId"
+            :disabled="isLoadingDrive || !autoConfig.driveFolderId || !isOnline"
           >
             Export
           </button>
@@ -313,7 +305,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { 
   createBackup as createBackupService, 
   listBackups as listBackupsService,
@@ -324,13 +316,20 @@ import {
   exportBackupToDrive,
   listDriveFolders,
   createDriveFolder,
-  // Import the new functions
   createFullBackup,
   getAutoBackupConfig,
   updateAutoBackupConfig as updateAutoBackupConfigService,
   runBackupNow as runBackupNowService
 } from '../../../../services/dashboardServices';
 import { useBackupEvents } from '../../../../composables/useBackupEvents';
+
+// Network status tracking
+const isOnline = ref(navigator.onLine);
+const wasOffline = ref(false);
+const hasCachedData = ref(false);
+
+// Track if initial load has completed
+const isInitialLoadComplete = ref(false);
 
 // State
 const isLoading = ref(false);
@@ -345,7 +344,7 @@ const uploadedFile = ref(null);
 const restoreMethod = ref('server');
 const selectedServerBackup = ref('');
 const confirmRestore = ref(false);
-const isBackupRunning = ref(false); // Add this state
+const isBackupRunning = ref(false);
 
 // Computed properties
 const canRestore = computed(() => {
@@ -363,76 +362,159 @@ const autoConfig = ref({
   enabled: false,
   frequency: 'daily',
   time: '03:00',
-  driveFolderId: '11b0xQ1To345xbGr6saObsC4FmevhpfJD',  // ← REPLACE THIS WITH YOUR FOLDER ID
+  driveFolderId: '11b0xQ1To345xbGr6saObsC4FmevhpfJD',
   retention: 7
 });
 const driveFolders = ref([]);
 
-// Methods for manual backup
-const createFullBackupHandler = async () => {
+// Update network status handler
+const updateOnlineStatus = () => {
+  wasOffline.value = !isOnline.value && wasOffline.value;
+  isOnline.value = navigator.onLine;
+  
+  // If we're back online and were previously offline, refresh data
+  if (isOnline.value && wasOffline.value) {
+    loadPageData();
+    wasOffline.value = false;
+  }
+};
+
+// Load data with offline fallback
+const loadPageData = async () => {
+  // Reset error state
+  errorMessage.value = '';
+  
+  if (!isOnline.value) {
+    // If offline but we have cached data, don't show error
+    if (!hasCachedData.value) {
+      errorMessage.value = "You're offline. Limited functionality is available. Connect to the internet for full access.";
+    }
+    return;
+  }
+  
   try {
     isLoading.value = true;
-    isBackingUp.value = true;
-    loadingMessage.value = 'Creating full backup...';
-    errorMessage.value = '';
-    successMessage.value = '';
+    loadingMessage.value = 'Loading backup information...';
     
-    const data = await createFullBackup();
-    successMessage.value = 'Full backup created successfully';
-    
-    // Refresh backup list
+    // Load backups first (most important)
     await fetchBackups();
+    hasCachedData.value = backups.value.length > 0;
     
-    // Auto-clear the success message after 5 seconds
-    setTimeout(() => {
-      successMessage.value = '';
-    }, 5000);
+    // Then load config (second priority)
+    await loadAutoConfig();
     
+    // Load drive folders only when needed
+    isInitialLoadComplete.value = true;
   } catch (error) {
-    errorMessage.value = `Error: ${error.message}`;
-    console.error('Error creating backup:', error);
+    console.error('Error loading page data:', error);
+    errorMessage.value = `Failed to load data: ${error.message}`;
   } finally {
     isLoading.value = false;
+    loadingMessage.value = '';
+  }
+};
+
+// Fetch backups with offline caching support
+const fetchBackups = async () => {
+  try {
+    if (!isOnline.value) {
+      // If offline, use cached backups from localStorage if available
+      const cachedBackups = localStorage.getItem('cachedBackups');
+      if (cachedBackups) {
+        backups.value = JSON.parse(cachedBackups);
+        return;
+      }
+      throw new Error('No cached backup data available while offline');
+    }
+    
+    isLoading.value = true;
+    loadingMessage.value = 'Loading backups...';
+    
+    backups.value = await listBackupsService();
+    
+    // Cache the backups in localStorage
+    localStorage.setItem('cachedBackups', JSON.stringify(backups.value));
+    
+  } catch (error) {
+    if (!isOnline.value) {
+      errorMessage.value = 'You are currently offline. Backup list is unavailable.';
+    } else {
+      errorMessage.value = `Error: ${error.message}`;
+      console.error('Error fetching backups:', error);
+    }
+  } finally {
+    isLoading.value = false;
+    loadingMessage.value = '';
+  }
+};
+
+// Modified loadAutoConfig with caching
+const loadAutoConfig = async () => {
+  try {
+    if (!isOnline.value) {
+      // If offline, use cached config from localStorage if available
+      const cachedConfig = localStorage.getItem('cachedBackupConfig');
+      if (cachedConfig) {
+        autoConfig.value = JSON.parse(cachedConfig);
+        return;
+      }
+      return; // Just use default config if no cached version exists
+    }
+    
+    isLoading.value = true;
+    const config = await getAutoBackupConfig();
+    autoConfig.value = config;
+    
+    // Cache the config in localStorage
+    localStorage.setItem('cachedBackupConfig', JSON.stringify(config));
+    
+  } catch (error) {
+    console.error('Error loading auto config:', error);
+    // Don't show errors for config loading - it's not critical
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// Methods for manual backup
+const createFullBackupHandler = async () => {
+  if (!isOnline.value) {
+    errorMessage.value = "Can't create backups while offline. Please reconnect to the internet.";
+    return;
+  }
+  
+  try {
+    isBackingUp.value = true;
+    loadingMessage.value = 'Creating full system backup...';
+    const result = await createFullBackup();
+    
+    successMessage.value = `Backup created successfully! Filename: ${result.filename}`;
+    await fetchBackups();
+  } catch (error) {
+    console.error('Error creating backup:', error);
+    errorMessage.value = `Failed to create backup: ${error.message}`;
+  } finally {
     isBackingUp.value = false;
     loadingMessage.value = '';
   }
 };
 
 // Methods for auto backup configuration
-const loadAutoConfig = async () => {
-  try {
-    isLoading.value = true;
-    loadingMessage.value = 'Loading auto backup settings...';
-    
-    const config = await getAutoBackupConfig();
-    autoConfig.value = config;
-    
-  } catch (error) {
-    console.error('Error loading auto backup settings:', error);
-    errorMessage.value = `Error: ${error.message}`;
-  } finally {
-    isLoading.value = false;
-    loadingMessage.value = '';
-  }
-};
-
 const saveAutoConfig = async () => {
+  if (!isOnline.value) {
+    errorMessage.value = "Can't save settings while offline. Please reconnect to the internet.";
+    return;
+  }
+  
   try {
     isLoading.value = true;
-    loadingMessage.value = 'Saving auto backup settings...';
-    errorMessage.value = '';
+    loadingMessage.value = 'Saving backup configuration...';
     
-    const updatedConfig = await updateAutoBackupConfigService(autoConfig.value);
-    autoConfig.value = updatedConfig;
-    successMessage.value = 'Auto backup settings saved successfully';
+    const result = await updateAutoBackupConfigService(autoConfig.value);
+    successMessage.value = 'Backup configuration saved successfully!';
     
-    // Auto-clear the success message after 5 seconds
-    setTimeout(() => {
-      successMessage.value = '';
-    }, 5000);
-    
+    autoConfig.value = result;
   } catch (error) {
-    console.error('Error saving auto backup settings:', error);
     errorMessage.value = `Error: ${error.message}`;
   } finally {
     isLoading.value = false;
@@ -440,28 +522,47 @@ const saveAutoConfig = async () => {
   }
 };
 
-const runBackupNow = async () => {
-  await toggleBackupState();
+const toggleBackupState = async () => {
+  if (!isOnline.value) {
+    errorMessage.value = "Can't run backups while offline. Please reconnect to the internet.";
+    return;
+  }
+  
+  try {
+    isBackupRunning.value = true;
+    loadingMessage.value = 'Running backup now...';
+    
+    const result = await runBackupNowService();
+    
+    if (result.success) {
+      successMessage.value = 'Backup completed successfully!';
+      await fetchBackups();
+    } else {
+      errorMessage.value = result.message || 'Backup failed';
+    }
+  } catch (error) {
+    console.error('Error running backup:', error);
+    errorMessage.value = `Failed to run backup: ${error.message}`;
+  } finally {
+    isBackupRunning.value = false;
+    loadingMessage.value = '';
+  }
 };
 
 // Methods for Google Drive
 const loadDriveFolders = async () => {
   try {
-    isLoading.value = true;
-    loadingMessage.value = 'Loading Google Drive folders...';
-    
-    driveFolders.value = await listDriveFolders();
-    
+    isLoadingDrive.value = true;
+    const folders = await listDriveFolders();
+    driveFolders.value = folders;
   } catch (error) {
-    console.error('Error loading Google Drive folders:', error);
-    errorMessage.value = `Error: ${error.message}`;
+    errorMessage.value = `Failed to load Google Drive folders: ${error.message}`;
   } finally {
-    isLoading.value = false;
-    loadingMessage.value = '';
+    isLoadingDrive.value = false;
   }
 };
 
-// Add the existing methods back
+// Add the existing methods
 const toggleModelsList = (backup) => {
   if (expandedBackups.value.has(backup.filename)) {
     expandedBackups.value.delete(backup.filename);
@@ -477,7 +578,6 @@ const handleFileUpload = (event) => {
     return;
   }
   
-  // Validate file type
   if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
     errorMessage.value = 'Please upload a valid JSON backup file';
     uploadedFile.value = null;
@@ -489,23 +589,12 @@ const handleFileUpload = (event) => {
   errorMessage.value = '';
 };
 
-const fetchBackups = async () => {
-  try {
-    isLoading.value = true;
-    loadingMessage.value = 'Loading backups...';
-    
-    backups.value = await listBackupsService();
-    
-  } catch (error) {
-    errorMessage.value = `Error: ${error.message}`;
-    console.error('Error fetching backups:', error);
-  } finally {
-    isLoading.value = false;
-    loadingMessage.value = '';
-  }
-};
-
 const downloadBackup = async (backup) => {
+  if (!isOnline.value) {
+    errorMessage.value = "This feature requires an internet connection. Please reconnect and try again.";
+    return;
+  }
+  
   try {
     isLoading.value = true;
     loadingMessage.value = 'Preparing download...';
@@ -540,6 +629,11 @@ const selectBackupForRestore = (backup) => {
 const { emitBackupRestored } = useBackupEvents();
 
 const restoreBackup = async () => {
+  if (!isOnline.value) {
+    errorMessage.value = "Can't restore backups while offline. Please reconnect to the internet.";
+    return;
+  }
+  
   if (!confirmRestore.value) {
     errorMessage.value = 'Please confirm that you understand the risks of restoring data';
     return;
@@ -586,6 +680,11 @@ const restoreBackup = async () => {
 };
 
 const deleteBackup = async (backup) => {
+  if (!isOnline.value) {
+    errorMessage.value = "Can't delete backups while offline. Please reconnect to the internet.";
+    return;
+  }
+  
   if (!confirm(`Are you sure you want to delete the backup "${backup.filename}"?`)) {
     return;
   }
@@ -600,20 +699,6 @@ const deleteBackup = async (backup) => {
     
     if (selectedServerBackup.value === backup.filename) {
       selectedServerBackup.value = '';
-    }
-    
-    // Additionally delete from Google Drive
-    if (autoConfig.value.driveFolderId) {
-      try {
-        // Get file ID from Drive (you'd need to store this when uploading)
-        const driveFileId = getBackupDriveFileId(backup.filename);
-        if (driveFileId) {
-          await googleDriveService.deleteFile(driveFileId);
-          console.log(`Deleted old backup from Google Drive: ${backup.filename}`);
-        }
-      } catch (error) {
-        console.error(`Failed to delete backup from Drive: ${backup.filename}`, error);
-      }
     }
     
     await fetchBackups();
@@ -640,8 +725,24 @@ const showNewFolderInput = ref(false);
 const newFolderName = ref('');
 
 const exportToGoogleDrive = async (backup) => {
+  if (!isOnline.value) {
+    errorMessage.value = "This feature requires an internet connection. Please reconnect and try again.";
+    return;
+  }
+  
   selectedBackup.value = backup;
   showDriveModal.value = true;
+  
+  if (driveFolders.value.length === 0) {
+    try {
+      isLoadingDrive.value = true;
+      await loadDriveFolders();
+    } catch (error) {
+      errorMessage.value = `Failed to load Google Drive folders: ${error.message}`;
+    } finally {
+      isLoadingDrive.value = false;
+    }
+  }
   
   if (!autoConfig.value.driveFolderId) {
     errorMessage.value = "Please configure a Google Drive Folder ID in settings first";
@@ -681,41 +782,6 @@ const confirmExportToDrive = async () => {
   }
 };
 
-// Add toggle function for the backup state
-const toggleBackupState = async () => {
-  if (isBackupRunning.value) {
-    // If running, pause it
-    isBackupRunning.value = false;
-    successMessage.value = "Backup system paused";
-  } else {
-    // If not running, start it
-    try {
-      isLoading.value = true;
-      loadingMessage.value = 'Running backup now...';
-      errorMessage.value = '';
-      
-      const data = await runBackupNowService();
-      isBackupRunning.value = true;
-      successMessage.value = 'Backup started successfully';
-      
-      // Refresh backup list
-      await fetchBackups();
-      
-      // Auto-clear the success message after 5 seconds
-      setTimeout(() => {
-        successMessage.value = '';
-      }, 5000);
-      
-    } catch (error) {
-      console.error('Error running backup:', error);
-      errorMessage.value = `Error: ${error.message}`;
-    } finally {
-      isLoading.value = false;
-      loadingMessage.value = '';
-    }
-  }
-};
-
 // Helper functions
 const formatDate = (dateString) => {
   const date = new Date(dateString);
@@ -734,9 +800,34 @@ const formatSize = (bytes) => {
 
 // Lifecycle hooks
 onMounted(() => {
-  fetchBackups();
-  loadDriveFolders();
-  loadAutoConfig();
+  // Add network status event listeners
+  window.addEventListener('online', updateOnlineStatus);
+  window.addEventListener('offline', updateOnlineStatus);
+  
+  // Initial check if we're online
+  updateOnlineStatus();
+  
+  // Load data
+  loadPageData();
+});
+
+onUnmounted(() => {
+  // Remove event listeners
+  window.removeEventListener('online', updateOnlineStatus);
+  window.removeEventListener('offline', updateOnlineStatus);
+});
+
+// Watch for online status changes to update UI
+watch(isOnline, (newValue) => {
+  if (newValue) {
+    // We're back online - clear offline error messages
+    if (errorMessage.value && errorMessage.value.includes('offline')) {
+      errorMessage.value = '';
+    }
+  } else {
+    // We're offline - set wasOffline flag for refresh when back online
+    wasOffline.value = true;
+  }
 });
 
 </script>

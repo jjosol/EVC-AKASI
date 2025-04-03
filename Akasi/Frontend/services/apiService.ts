@@ -1,19 +1,20 @@
 const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
-// Add timeout utility function
-const fetchWithTimeout = async (url: string, options: RequestInit, timeout = 30000) => {
+// Find your fetchWithTimeout function and increase the timeout value
+export const fetchWithTimeout = async (url: string, options: RequestInit, timeout = 15000) => {
+  // Increase the default timeout from 5000ms to 15000ms (15 seconds)
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  const id = setTimeout(() => controller.abort(), timeout);
   
   try {
     const response = await fetch(url, {
       ...options,
       signal: controller.signal
     });
-    clearTimeout(timeoutId);
+    clearTimeout(id);
     return response;
   } catch (error) {
-    clearTimeout(timeoutId);
+    clearTimeout(id);
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(`Request timeout for ${url}`);
     }
