@@ -4,7 +4,7 @@
       <div class="h-full p-5 overflow-y-auto l">
 
         <div class="text-4xl text-[#2f4a71] font-bold border-b-2 border-[#2f4a71] mb-2" >Appointments</div>
-        <div class="date-display mb-4">
+        <div class="mb-4 date-display">
           <span class="text-2xl text-[#2f4a71] font-semibold">{{ selectedDate.monthYear }}</span>
           <span class="text-2xl text-[#2f4a71] float-right">{{ selectedDate.day }}</span>
         </div>
@@ -21,22 +21,22 @@
                 </div>
                 
                 <div class="modal-body">
-                  <div class="date-display mb-4">
+                  <div class="mb-4 date-display">
                     <span class="text-2xl text-[#2f4a71] font-semibold">{{ selectedDate.monthYear }}</span>
                     <span class="text-2xl text-[#2f4a71] float-right">{{ selectedDate.day }}</span>
                   </div>
 
-                  <div class="time-picker mb-4">
+                  <div class="mb-4 time-picker">
                     <div class="flex flex-col space-y-4">
                       <span class="flex items-center space-x-4">
-                        <label for="hour-select" class="block text-sm font-medium text-gray-700 mb-1">Select Hour:</label>
+                        <label for="hour-select" class="block mb-1 text-sm font-medium text-gray-700">Select Hour:</label>
                         <select 
                           id="hour-select"
                           v-model="selectedHour" 
                           class="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-[#2f4a71] focus:border-[#2f4a71]"
                           @change="selectHour(selectedHour)"
                         >
-                          <option value="">Select Hour</option>
+                          <!-- <option value="">Select Hour</option> -->
                           <option 
                             v-for="hour in availableHours" 
                             :key="hour" 
@@ -48,7 +48,7 @@
                       </span> 
                       
                       <span v-if="selectedHour !== null" class="flex items-center space-x-4">
-                        <label for="minute-select" class="block text-sm font-medium text-gray-700 mb-1">Select Minute:</label>
+                        <label for="minute-select" class="block mb-1 text-sm font-medium text-gray-700">Select Minute:</label>
                         <select 
                           id="minute-select"
                           v-model="selectedMinute" 
@@ -70,16 +70,16 @@
                   
                   <!-- Show message when no time slots are available -->
                   <div v-if="availableHours.length === 0 && !isWeekend(selectedDate.rawDate)" 
-                      class="p-2 bg-yellow-100 text-yellow-800 rounded mb-4">
+                      class="p-2 mb-4 text-yellow-800 bg-yellow-100 rounded">
                     No time slots available for this date. Please select another date.
                   </div>
                   <!-- Add a warning message if the selected time is already booked -->
                   <div v-if="!isSelectedTimeAvailable && selectedHour !== null && selectedMinute !== null" 
-                      class="p-2 bg-red-100 text-red-700 rounded mb-4">
+                      class="p-2 mb-4 text-red-700 bg-red-100 rounded">
                     This time slot is already booked. Please select a different time.
                   </div>
 
-                  <div v-if="isWeekend(selectedDate.rawDate)" class="p-2 bg-yellow-100 text-yellow-800 rounded mb-4">
+                  <div v-if="isWeekend(selectedDate.rawDate)" class="p-2 mb-4 text-yellow-800 bg-yellow-100 rounded">
                     Note: Appointments cannot be scheduled on weekends.
                   </div>
                   
@@ -118,29 +118,29 @@
         <div class="text-2xl text-[#2f4a71] font-semibold border-b-2 border-[#a6a6a6] mt-10 mb-4">Upcoming Appointments</div>
         
         <!-- Loading state -->
-        <div v-if="loadingAppointments" class="text-center py-4">
+        <div v-if="loadingAppointments" class="py-4 text-center">
           <p class="text-gray-600">Loading appointments...</p>
         </div>
         
         <!-- Error state -->
-        <div v-else-if="appointmentsError" class="bg-red-100 text-red-700 p-3 rounded mb-4">
+        <div v-else-if="appointmentsError" class="p-3 mb-4 text-red-700 bg-red-100 rounded">
           <p>{{ appointmentsError }}</p>
-          <button @click="fetchUpcomingAppointments" class="text-sm underline mt-1">
+          <button @click="fetchUpcomingAppointments" class="mt-1 text-sm underline">
             Try again
           </button>
         </div>
         
         <!-- No appointments -->
-        <div v-else-if="upcomingAppointments.length === 0" class="text-center py-4">
+        <div v-else-if="upcomingAppointments.length === 0" class="py-4 text-center">
           <p class="text-gray-600">No upcoming appointments</p>
         </div>
         
         <!-- Appointments list -->
-        <div v-else class="appointments-list space-y-4">
+        <div v-else class="space-y-4 appointments-list">
           <div 
             v-for="(group, date) in groupedAppointments" 
             :key="date" 
-            class="appointment-group mb-4"
+            class="mb-4 appointment-group"
           >
             <h3 class="text-lg font-semibold mb-2 p-1 bg-[#f0f4f9] text-[#2f4a71] rounded">
               {{ formatFullDate(date) }}
@@ -150,9 +150,9 @@
             <div 
               v-for="appointment in group" 
               :key="appointment.appointment_id" 
-              class="appointment-card p-3 border border-gray-200 rounded-lg bg-white mb-2 hover:shadow-md transition-shadow"
+              class="p-3 mb-2 transition-shadow bg-white border border-gray-200 rounded-lg appointment-card hover:shadow-md"
             >
-              <div class="flex justify-between items-start">
+              <div class="flex items-start justify-between">
                 <div>
                   <h4 class="font-bold">
                     {{ appointment.client?.name || 'Client #' + appointment.client_id }}
@@ -170,7 +170,7 @@
                   </span>
                   <span 
                     v-if="appointment.status"
-                    class="inline-block px-2 py-1 text-xs rounded-full mt-1"
+                    class="inline-block px-2 py-1 mt-1 text-xs rounded-full"
                     :class="getStatusClass(appointment.status)"
                   >
                     {{ appointment.status || 'pending' }}
@@ -178,20 +178,20 @@
                 </div>
               </div>
               
-              <div class="mt-2 p-2 bg-gray-50 rounded text-sm">
+              <div class="p-2 mt-2 text-sm rounded bg-gray-50">
                 <p class="text-gray-700">{{ appointment.complaint }}</p>
               </div>
               
               <!-- Notes (if any) -->
-              <div v-if="appointment.notes" class="mt-2 p-2 bg-yellow-50 rounded text-sm">
+              <div v-if="appointment.notes" class="p-2 mt-2 text-sm rounded bg-yellow-50">
                 <p class="text-gray-700"><span class="font-medium">Notes:</span> {{ appointment.notes }}</p>
               </div>
               
               <!-- Add delete button - only show for appointments that can be canceled -->
-              <div v-if="canCancelAppointment(appointment)" class="mt-2 flex justify-end">
+              <div v-if="canCancelAppointment(appointment)" class="flex justify-end mt-2">
                 <button 
                   @click.stop="confirmDeleteAppointment(appointment)"
-                  class="text-xs px-2 py-1 text-red-600 hover:bg-red-50 rounded"
+                  class="px-2 py-1 text-xs text-red-600 rounded hover:bg-red-50"
                 >
                   Cancel Appointment
                 </button>
@@ -202,16 +202,16 @@
             <Teleport to="body">
               <Transition name="modal">
                 <div v-if="showDeleteConfirmModal" class="modal-overlay" @click.self="closeDeleteConfirmModal">
-                  <div class="modal-container max-w-md">
+                  <div class="max-w-md modal-container">
                     <div class="modal-header">
-                      <h3 class="text-xl font-bold text-red-600 mb-4">Cancel Appointment</h3>
+                      <h3 class="mb-4 text-xl font-bold text-red-600">Cancel Appointment</h3>
                       <button class="modal-close" @click="closeDeleteConfirmModal">&times;</button>
                     </div>
                     
                     <div class="modal-body">
                       <p class="mb-4">Are you sure you want to cancel this appointment?</p>
                       
-                      <div v-if="appointmentToDelete" class="bg-gray-50 p-3 rounded mb-4">
+                      <div v-if="appointmentToDelete" class="p-3 mb-4 rounded bg-gray-50">
                         <div class="text-sm text-gray-500">
                           {{ formatFullDate(appointmentToDelete.date) }} at 
                           {{ formatTime(appointmentToDelete.hour, appointmentToDelete.minute) }}
@@ -219,22 +219,22 @@
                         <div class="font-medium">{{ appointmentToDelete.complaint }}</div>
                       </div>
                       
-                      <div v-if="deleteStatusMessage" class="p-2 bg-red-100 text-red-700 rounded mb-4">
+                      <div v-if="deleteStatusMessage" class="p-2 mb-4 text-red-700 bg-red-100 rounded">
                         {{ deleteStatusMessage }}
                       </div>
                     </div>
                     
-                    <div class="modal-footer flex justify-end space-x-3">
+                    <div class="flex justify-end space-x-3 modal-footer">
                       <button 
                         @click="closeDeleteConfirmModal"
-                        class="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
+                        class="px-4 py-2 text-gray-700 border border-gray-300 rounded hover:bg-gray-50"
                       >
                         Cancel
                       </button>
                       <button 
                         @click="deleteAppointment"
                         :disabled="isDeleting"
-                        class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400"
+                        class="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-700 disabled:bg-gray-400"
                       >
                         {{ isDeleting ? 'Deleting...' : 'Confirm Cancellation' }}
                       </button>
