@@ -3,31 +3,18 @@ import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class ProfileService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
-  async getProfile(userId: number, role: string) {
-    if (role === 'admin') {
-      const admin = await this.prisma.admin.findUnique({
-        where: { admin_id: userId },
+  // In profile.service.ts
+  async getProfile(userId: number, userRole: string) {
+    if (userRole === 'client') {
+      return this.prisma.client.findUnique({
+        where: { client_id: userId }
       });
-      return {
-        name: admin?.username || 'N/A',
-        email: admin?.gmail || 'N/A',
-        role: 'Administrator',
-      };
+    } else if (userRole === 'admin') {
+      return this.prisma.admin.findUnique({
+        where: { admin_id: userId }
+      });
     }
-
-    const client = await this.prisma.client.findUnique({
-      where: { client_id: userId },
-    });
-    return {
-      name: client?.name || 'N/A',
-      email: client?.gmail || 'N/A',
-      role: 'Student',
-      age: client?.age || 'N/A',
-      gender: client?.gender || 'N/A',
-      grade: client?.grade || 'N/A',
-      section: client?.section || 'N/A',
-    };
   }
 }

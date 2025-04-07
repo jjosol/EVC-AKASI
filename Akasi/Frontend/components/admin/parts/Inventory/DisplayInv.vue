@@ -1,28 +1,43 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { Icon } from '@iconify/vue'
+import * as inventoryService from '~/services/inventoryService';
+import { defineEmits } from 'vue';
 
+const emit = defineEmits(['openModal', 'editModal', 'openCategoryModal', 'refreshNeeded']); // Add 'refreshNeeded' here
+
+// Existing refs
 const items = ref([]);
+const categories = ref([]);
+const expandedCategories = ref(new Set());
 const expandedItems = ref(new Set());
 const searchQuery = ref('');
 
+const editMedicineModalOpen = ref(false);
+const currentEditMedicine = ref({
+  name: '',
+  categoryId: null
+});
+
+const fetchCategories = async () => {
+  try {
+    categories.value = await inventoryService.fetchCategories();
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+  }
+};
+
 const fetchInventory = async () => {
   try {
-    const response = await fetch('http://localhost:3001/inventory');
-    if (response.ok) {
-      const data = await response.json();
-      items.value = data.map(item => ({
-        ...item,
-        name: item.medName, // Map medName to name
-        expirationDate: formatDate(item.expiration)
-      }));
-    }
+    const data = await inventoryService.fetchInventoryItems();
+    items.value = data;
   } catch (error) {
     console.error('Error fetching inventory:', error);
   }
 };
 
 const refreshInventory = async () => {
+  await fetchCategories();
   await fetchInventory();
 };
 
@@ -31,44 +46,125 @@ const formatDate = (dateString) => {
   return dateString ? new Date(dateString).toISOString().split('T')[0] : '';
 };
 
-// Group items by medicine name and sort by expiration date
-const groupedItems = computed(() => {
+// Add function to check if date is expired
+const isExpired = (expirationDate) => {
+  if (!expirationDate) return false;
+  
+  const expDate = new Date(expirationDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Set to beginning of day for fair comparison
+  
+  return expDate < today;
+};
+
+// Group items by category first, then by medicine name
+const groupedByCategory = computed(() => {
   const groups = {};
+  
+  // Initialize with all categories (even empty ones)
+  categories.value.forEach(category => {
+    groups[category.category_id] = {
+      ...category,
+      items: {}
+    };
+  });
+  
+  // Group items by category_id and then by name
   items.value.forEach(item => {
-    if (!groups[item.name]) {
-      groups[item.name] = [];
+    const categoryId = item.category_id;
+    
+    // If category doesn't exist in our groups (should not happen, but just in case)
+    if (!groups[categoryId]) {
+      groups[categoryId] = {
+        category_id: categoryId,
+        name: item.category?.name || 'Uncategorized',
+        items: {}
+      };
     }
-    groups[item.name].push(item);
+    
+    // Group by medicine name within the category
+    if (!groups[categoryId].items[item.medName]) {
+      groups[categoryId].items[item.medName] = [];
+    };
+    
+    groups[categoryId].items[item.medName].push(item);
+    
+    // Sort each medicine's batches by expiration date (closest to expiring first)
+    Object.keys(groups[categoryId].items).forEach(medName => {
+      groups[categoryId].items[medName].sort((a, b) => {
+        if (!a.expiration) return 1; // Items without expiration go to the bottom
+        if (!b.expiration) return -1;
+        return new Date(a.expiration).getTime() - new Date(b.expiration).getTime();
+      });
+    });
   });
-
-  // Sort each group by expiration date (nearest first)
-  Object.keys(groups).forEach(name => {
-    groups[name].sort((a, b) => 
-      new Date(a.expirationDate) - new Date(b.expirationDate)
-    );
-  });
-
+  
   return groups;
 });
 
-const filteredItems = computed(() => {
-  if (!searchQuery.value) return groupedItems.value;
+// Calculate total count for each medicine group
+const getMedicineTotalCount = (medicines) => {
+  return medicines.reduce((total, med) => total + (med.count || 0), 0);
+};
+
+// Filter based on search query
+const filteredCategories = computed(() => {
+  if (!searchQuery.value) return groupedByCategory.value;
+  
   const filtered = {};
-  Object.entries(groupedItems.value).forEach(([name, items]) => {
-    if (name.toLowerCase().includes(searchQuery.value.toLowerCase())) {
-      filtered[name] = items;
+  const query = searchQuery.value.toLowerCase();
+  
+  Object.entries(groupedByCategory.value).forEach(([categoryId, category]) => {
+    const matchingMedicines = {};
+    
+    Object.entries(category.items).forEach(([name, medicines]) => {
+      if (name.toLowerCase().includes(query)) {
+        matchingMedicines[name] = medicines;
+      }
+    });
+    
+    if (Object.keys(matchingMedicines).length > 0 || 
+        category.name.toLowerCase().includes(query)) {
+      filtered[categoryId] = {
+        ...category,
+        items: matchingMedicines
+      };
     }
   });
+  
   return filtered;
 });
 
-const emit = defineEmits(['openModal', 'editModal'])
+const openModal = (item = null) => {
+  if (item?.isEditMedicine && item?.isEditNameOnly) {
+    currentEditMedicine.value = {
+      name: item.medicineName,
+      categoryId: item.categoryId
+    };
+    editMedicineModalOpen.value = true;
+  } else {
+    emit('openModal', item);
+  }
+};
 
-const openModal = () => {
-  emit('openModal')
-}
+const openCategoryModal = (category = null) => {
+  emit('openCategoryModal', category);
+};
 
-const toggleExpand = (name) => {
+const editCategory = (category) => {
+  openCategoryModal(category);
+};
+
+const toggleExpandCategory = (categoryId) => {
+  categoryId = Number(categoryId);
+  if (expandedCategories.value.has(categoryId)) {
+    expandedCategories.value.delete(categoryId);
+  } else {
+    expandedCategories.value.add(categoryId);
+  }
+};
+
+const toggleExpandItem = (name) => {
   if (expandedItems.value.has(name)) {
     expandedItems.value.delete(name);
   } else {
@@ -76,128 +172,243 @@ const toggleExpand = (name) => {
   }
 };
 
-const deleteGroup = async (name, medicines) => {
-  if (confirm(`Are you sure you want to delete all batches of ${name}?`)) {
-    try {
-      await fetch(
-        `http://localhost:3001/inventory/group/${name}`, 
-        { method: 'DELETE' }
-      );
-      await refreshInventory(); // Use refreshInventory instead of fetchInventory
-    } catch (error) {
-      console.error('Error deleting medicine group:', error);
-      alert('Failed to delete medicine group');
-    }
+const addNewBatch = (medicineName, categoryId) => {
+  const newBatchItem = {
+    isNewBatch: true,
+    medicineName: medicineName,
+    categoryId: categoryId
+  };
+  emit('openModal', newBatchItem);
+};
+
+const addNewMedicine = (categoryId) => {
+  const newMedicineItem = {
+    isNewMedicine: true,
+    categoryId: categoryId
+  };
+  emit('openModal', newMedicineItem);
+};
+
+const handleMedicineUpdated = async () => {
+  await refreshInventory();
+};
+
+const increaseBatch = async (item) => {
+  // Get quantity from user (could be modal or prompt)
+  const quantity = prompt(`Enter quantity to add to ${item.medName}:`, '1');
+  if (!quantity || isNaN(Number(quantity)) || Number(quantity) <= 0) return;
+  
+  try {
+    await inventoryService.increaseInventory(
+      item.med_id, 
+      { 
+        medName: item.medName,
+        quantity: Number(quantity),
+        cause: 'Manual addition'
+      }
+    );
+    await refreshInventory();
+  } catch (error) {
+    console.error('Error increasing inventory:', error);
+    alert(error.message || 'Failed to increase inventory');
   }
 };
 
-const deleteItem = async (item) => {
-  if (confirm('Are you sure you want to delete this batch?')) {
-    try {
-      await fetch(
-        `http://localhost:3001/inventory/${item.med_id}/${item.name}`, 
-        { method: 'DELETE' }
-      );
-      await fetchInventory(); // Refresh immediately after deletion
-    } catch (error) {
-      console.error('Error deleting item:', error);
-      alert('Failed to delete item');
-    }
+const reduceBatch = async (item) => {
+  const quantity = prompt(`Enter quantity to remove from ${item.medName}:`, '1');
+  if (!quantity || isNaN(Number(quantity)) || Number(quantity) <= 0 || Number(quantity) > item.count) return;
+  
+  try {
+    await inventoryService.reduceInventory(
+      item.med_id, 
+      item.medName,
+      { 
+        quantity: Number(quantity),
+        cause: 'Manual reduction'
+      }
+    );
+    await refreshInventory();
+  } catch (error) {
+    console.error('Error reducing inventory:', error);
+    alert(error.message || 'Failed to reduce inventory');
   }
 };
 
 onMounted(() => {
-  fetchInventory();
+  refreshInventory();
 });
 
 // Expose refreshInventory for parent component
-defineExpose({ refreshInventory })
+defineExpose({ refreshInventory });
 </script>
 
 <template>
   <div class="w-5/6 p-6 bg-white rounded-lg shadow float-end">
-    <div class="flex items-center justify-between mb-4">
-      <input 
-        type="text" 
-        v-model="searchQuery"
-        placeholder="Search..."
-        class="px-4 py-2 border rounded-lg"
-      />
-      <button 
-        @click="openModal"
-        class="px-4 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600"
-      >
-        Add New Medicine
-      </button>
+    <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center space-x-2">
+        <input 
+          type="text" 
+          v-model="searchQuery"
+          placeholder="Search medicines..."
+          class="px-4 py-2 border rounded-lg"
+        />
+      </div>
+      <div class="flex space-x-2">
+        <button 
+          @click="openCategoryModal()"
+          class="px-4 py-2 text-white bg-green-500 rounded-lg hover:bg-green-600"
+        >
+          Add New Category
+        </button>
+        <button 
+          @click="openModal"
+          class="px-4 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600"
+        >
+          Add New Medicine
+        </button>
+      </div>
     </div>
-    <div class="overflow-x-auto">
-      <table class="min-w-full table-auto">
-        <thead class="bg-gray-50">
-          <tr>
-            <th class="px-6 py-2 text-sm font-medium text-left text-gray-700">Medicine Name</th>
-            <th class="px-6 py-2 text-sm font-medium text-left text-gray-700">Total Count</th>
-            <th class="px-6 py-2 text-sm font-medium text-left text-gray-700">Actions</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-200">
-          <template v-for="(medicines, name) in filteredItems" :key="name">
-            <tr class="bg-white">
-              <td class="px-6 py-4 text-sm text-gray-900">
-                <div class="flex items-center justify-between">
-                  <button @click="toggleExpand(name)" class="flex items-center">
-                    <Icon 
-                      :icon="expandedItems.has(name) ? 'mdi:chevron-down' : 'mdi:chevron-right'" 
-                      class="mr-2"
-                    />
-                    {{ name }}
+    
+    <!-- Categories and Medicines with Dropdown Design -->
+    <div class="space-y-4">
+      <div v-for="(category, categoryId) in filteredCategories" :key="categoryId" class="overflow-hidden border rounded-lg">
+        <!-- Category Header (Always visible) -->
+        <div 
+          class="flex items-center justify-between p-4 border-b cursor-pointer bg-gray-50"
+          @click="toggleExpandCategory(categoryId)"
+        >
+          <div class="flex items-center">
+            <Icon 
+              :icon="expandedCategories.has(Number(categoryId)) ? 'mdi:chevron-down' : 'mdi:chevron-right'" 
+              class="mr-2 text-gray-600" 
+              width="20"
+            />
+            <h3 class="font-semibold text-gray-800">{{ category.name }}</h3>
+            <span class="ml-2 px-2 py-0.5 text-xs bg-gray-200 rounded-full">
+              {{ Object.keys(category.items).length }} medicines
+            </span>
+          </div>
+          
+          <div class="flex space-x-2">
+            <button 
+              @click.stop="addNewMedicine(categoryId)"
+              class="p-1 text-white bg-blue-500 rounded hover:bg-blue-600" 
+              title="Add Medicine to Category"
+            >
+              <Icon icon="mdi:pill" width="16" />
+            </button>
+            <button 
+              @click.stop="editCategory(category)"
+              class="p-1 text-white bg-yellow-500 rounded hover:bg-yellow-600" 
+              title="Edit Category"
+            >
+              <Icon icon="mdi:pencil" width="16" />
+            </button>
+           
+              
+          </div>
+        </div>
+        
+        <!-- Medicine List (visible when category is expanded) -->
+        <div v-if="expandedCategories.has(Number(categoryId))" class="divide-y divide-gray-100">
+          <div v-if="!Object.keys(category.items).length" class="p-4 text-center text-gray-500">
+            No medicines in this category
+          </div>
+          
+          <div v-for="(medicines, name) in category.items" :key="name" class="border-b">
+            <!-- Medicine Header -->
+            <div class="flex items-center justify-between p-3 pl-8 bg-white cursor-pointer hover:bg-gray-50"
+              @click="toggleExpandItem(name)">
+              <div class="flex items-center">
+                <Icon 
+                  :icon="expandedItems.has(name) ? 'mdi:chevron-down' : 'mdi:chevron-right'" 
+                  class="mr-2 text-gray-600" 
+                  width="18"
+                />
+                <span class="font-medium text-gray-900">{{ name }}</span>
+              </div>
+              
+              <div class="flex items-center space-x-4">
+                <span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-sm">
+                  Total: {{ getMedicineTotalCount(medicines) }}
+                </span>
+                
+                <div class="flex space-x-1">
+                  <button 
+                    @click.stop="addNewBatch(name, categoryId)"
+                    class="p-1 text-white bg-green-500 rounded hover:bg-green-600" 
+                    title="Add New Batch"
+                  >
+                    <Icon icon="mdi:package-variant-plus" width="16" />
                   </button>
                   <button 
-                    @click="deleteGroup(name, medicines)"
-                    class="px-2 py-1 ml-2 text-white bg-red-500 rounded hover:bg-red-600"
+                    @click.stop="openModal({isEditMedicine: true, isEditNameOnly: true, medicineName: name, categoryId: categoryId})"
+                    class="p-1 text-white bg-yellow-500 rounded hover:bg-yellow-600" 
+                    title="Edit Medicine Name"
                   >
-                    <Icon icon="fluent:delete-28-regular" />
+                    <Icon icon="mdi:pencil" width="16" />
                   </button>
                 </div>
-              </td>
-              <td class="px-6 py-4 text-sm text-gray-900">
-                {{ medicines.reduce((sum, med) => sum + med.count, 0) }}
-              </td>
-              <td class="px-6 py-4 text-sm text-gray-900">
-                <button 
-                  @click="emit('openModal', { isNewBatch: true, medicineName: name })"
-                  class="px-3 py-1 text-white bg-blue-500 rounded hover:bg-blue-600"
-                >
-                  Add New Batch
-                </button>
-              </td>
-            </tr>
-            <tr v-if="expandedItems.has(name)" v-for="item in medicines" :key="item.med_id">
-              <td colspan="3" class="px-6 py-2 bg-gray-50">
-                <div class="flex items-center justify-between pl-6">
-                  <div>
-                    <span class="mr-4">Exp: {{ item.expirationDate || 'None' }}</span>
-                    <span>Count: {{ item.count }}</span>
-                  </div>
-                  <div class="flex gap-2">
-                    <button 
-                      @click="emit('editModal', item)"
-                      class="px-2 py-1 text-white bg-blue-500 rounded hover:bg-blue-600"
-                    >
-                      Edit
-                    </button>
-                    <button 
-                      @click="deleteItem(item)"
-                      class="px-2 py-1 text-white bg-red-500 rounded hover:bg-red-600"
-                    >
-                      <Icon icon="fluent:delete-28-regular" />
-                    </button>
-                  </div>
-                </div>
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
+              </div>
+            </div>
+            
+            <!-- Medicine Batches (visible when medicine is expanded) -->
+            <div v-if="expandedItems.has(name)" class="p-2 bg-gray-50">
+              <table class="min-w-full text-sm">
+                <thead>
+                  <tr class="text-left text-gray-600">
+                    <th class="p-2 font-medium">Expiration</th>
+                    <th class="p-2 font-medium">Count</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr 
+                    v-for="med in medicines" 
+                    :key="med.med_id"
+                    :class="{'expired-row': isExpired(med.expiration)}"
+                    class="bg-white"
+                  >
+                    <td class="p-2">
+                      <span 
+                        :class="{'text-red-600 font-medium': isExpired(med.expiration)}"
+                      >
+                        {{ formatDate(med.expiration) }}
+                        <span v-if="isExpired(med.expiration)" class="ml-1 text-xs font-bold text-red-600">(EXPIRED)</span>
+                      </span>
+                    </td>
+                    <td class="p-2">{{ med.count }}</td>
+
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- No Categories Message -->
+      <div v-if="!Object.keys(filteredCategories).length" class="p-8 text-center text-gray-500">
+        <div class="mb-4">
+          <Icon icon="mdi:pill-off" class="w-12 h-12 mx-auto text-gray-400" />
+        </div>
+        <p v-if="searchQuery" class="mb-2">No medicines found matching "{{ searchQuery }}"</p>
+        <p v-else class="mb-2">No medicines or categories found</p>
+        <p class="text-sm">Get started by adding a category or medicine using the buttons above</p>
+      </div>
     </div>
   </div>
+
+  <EditMedicineNameModal 
+    :isOpen="editMedicineModalOpen"
+    :medicineName="currentEditMedicine.name"
+    :categoryId="currentEditMedicine.categoryId"
+    @closeModal="editMedicineModalOpen = false"
+    @medicineUpdated="handleMedicineUpdated"
+  />
 </template>
+
+<style scoped>
+.expired-row {
+  background-color: #fee2e2; /* Light red background */
+}
+</style>

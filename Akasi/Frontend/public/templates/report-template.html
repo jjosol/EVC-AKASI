@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSHS-EVC Health Services Report</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        @page {
+            size: A4;
+            margin: 2cm 1cm;
+        }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            font-family: Arial, sans-serif;
+            background: white;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        body {
+            padding-bottom: 1cm;  
+        }
+
+        .page-container {
+            width: 210mm; /* A4 width in mm */
+            margin: 0 auto;
+            position: relative;
+            background: white;
+            page-break-after: always; /* Force page break after each container */
+            padding-bottom: 2cm;
+        }
+        
+        /* Content area with proper margins and overflow handling */
+        .content {
+            width: 180mm; /* Narrower than page width */
+            margin: 0 auto;
+            background: white;
+            position: relative;
+            z-index: 1;
+            margin-top: 2cm; 
+            margin-bottom: 2cm; /* Add space to avoid footer overlap */
+        }
+        
+        /* Typography - using pt units for print */
+        h2 {
+            font-size: 14pt;
+            margin-bottom: 8pt;
+            text-align: center;
+            color: #003366;
+        }
+        
+        h3 {
+            font-size: 12pt;
+            margin: 12pt 0 6pt 0;
+            color: #003366;
+        }
+        
+        p {
+            margin-bottom: 10pt;
+            text-align: justify;
+            font-size: 11pt;
+            word-wrap: break-word; /* Prevent text overflow */
+        }
+        
+        /* Table improvements */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15pt;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            page-break-inside: avoid; /* Critical: force tables onto next page if needed */
+            table-layout: fixed; /* Prevent column width changes */
+        }
+        
+        th, td {
+            border: 1px solid #ccc;
+            padding: 5pt 6pt;
+            text-align: center;
+            font-size: 10pt;
+            word-wrap: break-word; /* Handle text overflow */
+            overflow: hidden; /* Prevent content overflow */
+        }
+        
+        th {
+            background-color: #f0f5fa;
+            color: #003366;
+            font-weight: bold;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        /* Reset styling for the common illnesses table */
+        .content h2:contains("SUMMARY OF THE PSHS-EVC COMMUNITY THAT ACQUIRED ILLNESSES and INJURIES") + table tr:last-child {
+            font-weight: bold;
+            background-color: #eef4fa;
+        }
+        
+        /* Styling elements */
+        .blue {
+            color: #0066cc;
+        }
+        
+        .highlight {
+            color: #cc0000;
+            font-weight: bold;
+        }
+        
+        .section, .conclusion {
+            margin-bottom: 15pt;
+            page-break-inside: avoid; /* Critical: prevent section break */
+        }
+
+        .conclusion {
+            width: 100%;
+            margin-bottom: 20pt;
+        }
+
+        .conclusion-form {
+            border: none;
+            width: 100%;
+        }
+
+        .conclusion-form textarea {
+            width: 100%;
+            border: none;
+            border-bottom: 1px dotted #ccc;
+            padding: 8pt;
+            font-family: Arial, sans-serif;
+            font-size: 11pt;
+            resize: vertical;
+            min-height: 60pt;
+            background-color: transparent;
+        }
+
+        .conclusion-form label {
+            font-weight: bold;
+            color: #003366;
+            font-size: 11pt;
+        }
+        
+        /* Improved pagebreak handling */
+        .pagebreak { 
+            page-break-before: always; 
+            clear: both;
+            height: 0;
+        }
+        
+        /* Print-specific adjustments */
+        @media print {
+            html, body {
+                width: 210mm;
+                height: 297mm;
+                margin: 0;
+                padding-bottom: 1cm;
+            }
+            
+            .page-container {
+                width: 210mm;
+                margin: 0;
+                box-shadow: none;
+            }
+            
+            /* Control page breaks */
+            h3 {
+                page-break-after: avoid;
+            }
+            
+            table {
+                page-break-inside: avoid;
+            }
+            
+            tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+            
+            .section, .conclusion {
+                page-break-inside: avoid;
+            }
+            
+            /* Essential: ensure content doesn't overlap with header/footer */
+            .content {
+                margin-bottom: 2cm;
+            }
+            
+            /* After page break, ensure spacing from header */
+            .pagebreak + .content {
+                padding-top: 1.5cm;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-container">
+            <!--summary of illnesses-->
+            <div class="content">
+                <h2>SUMMARY OF PERCENTAGE OF THE PSHS-EVC COMMUNITY THAT ACQUIRED ILLNESSES and INJURIES</h2>
+                <h2>{{dateRange}}</h2>
+
+                <div class="section">
+                    <h3>Students</h3>
+                    <table>
+                        <tr>
+                            <th rowspan="2">Month</th>
+                            <th colspan="2">Male</th>
+                            <th colspan="2">Female</th>
+                            <th rowspan="2">Grand Total</th>
+                        </tr>
+                        <tr>
+                            <th>Dormers</th>
+                            <th>Externs</th>
+                            <th>Dormers</th>
+                            <th>Externs</th>
+                        </tr>
+                        {{#each selectedMonths}}
+                        <tr>
+                            <td>{{this}}</td>
+                            <td></td> <!--Male Dormers-->
+                            <td></td> <!--Male Externs-->
+                            <td></td> <!--Female Dormers-->
+                            <td></td> <!--Female Externs-->
+                            <td></td>   <!--Total Male and Female students that are Dormers and Externs-->
+                        </tr>
+                        {{/each}}   <!--this row is the same above but for a different month-->
+                        <tr>
+                            <td><b>Total</b></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td class="highlight"></td>
+                        </tr>
+                    </table>
+                </div>
+
+                    <br><br>
+                    <div class="section">
+                        <h3>Teaching Staff</h3>
+                        <table>
+                            <tr>
+                                <th>Month</th>
+                                <th>Male</th>
+                                <th>Female</th>
+                                <th>Grand Total</th>
+                            </tr>
+                            {{#each selectedMonths}}
+                            <tr>
+                                <td>{{this}}</td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                            {{/each}}
+                            <tr>
+                                <td>Total</td>
+                                <td class="blue"></td>
+                                <td class="blue"></td>
+                                <td class="highlight"></td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                <div class="content">
+                    <div class="section">
+                        <h3>Non-Teaching Staff</h3>
+                        <table>
+                            <tr>
+                                <th>Month</th>
+                                <th>Male</th>
+                                <th>Female</th>
+                                <th>Grand Total</th>
+                            </tr>
+                            {{#each selectedMonths}}
+                            <tr>
+                                <td>{{this}}</td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                            {{/each}}
+                            <tr>
+                                <td>Total</td>
+                                <td class="blue"></td>
+                                <td class="blue"></td>
+                                <td class="highlight"></td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="conclusion">
+                        <form class="conclusion-form">
+                            <label for="conclusion">Conclusion:</label><br>
+                            <textarea id="conclusion" name="conclusion" rows="4"></textarea>
+                        </form>
+                    </div>
+                </div>
+            
+            </div>
+            <!--PAGE BREAKKK-->
+            <div class="pagebreak"></div>
+            <!--list of common illnesses-->
+            <!--PAGE BREAKKK-->
+            <!--monitoring-->
+            <div class="content">
+                <h2>CONSULTATION MONITORING TOOL<br>{{dateRange}}</h2>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>NAME</th>
+                            <th>GRADE & SECTION/ DIVISION</th>
+                            <th>DATE OF CONFINEMENT</th>
+                            <th>INTERN/EXTERN</th>
+                            <th>REMARKS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{#each consultationRecords}}
+                        <tr>
+                          <td>{{clientName}}</td>
+                          <td>{{gradeSection}}</td>
+                          <td>{{consultationDate}}</td>
+                          <td>{{clientType}}</td>
+                          <td>{{remarks}}</td>
+                        </tr>
+                      {{/each}}
+                    </tbody>
+                </table>
+            </div>
+    </div>
+</body>
+</html>

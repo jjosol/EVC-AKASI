@@ -8,6 +8,8 @@ const selectedMonth = ref(today.month());
 const selectedDate = ref(today.toDate());
 const calendar = ref([]);
 const confinedCount = ref(0);
+const monthlyConsultationCount = ref(0);
+const yearlyConsultationCount = ref(0);
 
 const years = Array.from({ length: 7 }, (_, i) => moment().tz("Asia/Manila").year() - 6 + i);
 const months = [
@@ -30,7 +32,7 @@ const props = defineProps({
 const emit = defineEmits(['day-selected', 'update-date']);
 
 // Define updateCalendar function first
-const updateCalendar = () => {
+const updateCalendar = async () => {
   const firstDayOfMonth = moment.tz({ 
     year: selectedYear.value, 
     month: selectedMonth.value, 
@@ -66,6 +68,42 @@ const updateCalendar = () => {
     year: selectedYear.value, 
     month: selectedMonth.value 
   });
+
+  // Fetch confined count
+  try {
+    const response = await fetch(`http://localhost:3001/consultation-records/count?year=${selectedYear.value}&month=${selectedMonth.value}&confined=true`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch confined count');
+    }
+    const data = await response.json();
+    confinedCount.value = data;
+  } catch (error) {
+    console.error('Error fetching confined count:', error);
+  }
+
+  // Fetch monthly consultation count
+  try {
+    const response = await fetch(`http://localhost:3001/consultation-records/count?year=${selectedYear.value}&month=${selectedMonth.value}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch monthly consultation count');
+    }
+    const data = await response.json();
+    monthlyConsultationCount.value = data;
+  } catch (error) {
+    console.error('Error fetching monthly consultation count:', error);
+  }
+
+  // Fetch yearly consultation count
+  try {
+    const response = await fetch(`http://localhost:3001/consultation-records/year-count?year=${selectedYear.value}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch yearly consultation count');
+    }
+    const data = await response.json();
+    yearlyConsultationCount.value = data;
+  } catch (error) {
+    console.error('Error fetching yearly consultation count:', error);
+  }
 };
 
 // Now we can watch for changes
@@ -104,13 +142,17 @@ const isSelected = (date) => {
 onMounted(() => {
   updateCalendar();
 });
+
+defineExpose({
+  updateCalendar
+});
 </script>
 
 <template>
-  <div class="w-7/12 p-8 ml-72 rounded-3xl">
-    <h1 class="text-5xl text-[#2f4a71] border-[#2f4a71] border-b-2">Confinement Calendar</h1>
+  <div class= "w-full p-4 bg-white lg:w-3/4 md:p-10 lg:p-20 rounded-3xl">
+    <h1 class="text-5xl text-[#2f4a71] m-0 font-bold">Confinement Calendar</h1>
     <br>
-    <div class="flex items-center gap-16 mb-8 justify-left text-[#2f4a71] font-bold">
+    <div class="flex items-center border-t gap-16 justify-left text-[#2f4a71]">
       <div class="flex">
         <select id="month" v-model="selectedMonth" @change="updateCalendar" class="p-2 text-3xl rounded">
           <option v-for="(month, index) in months" :key="index" :value="index" class="text-xl">{{ month }}</option>
@@ -151,8 +193,10 @@ onMounted(() => {
         </tr>
       </tbody>
     </table>
-    <div class="text-[#2f4a71] text-xl">
-      <h1 class="font-bold">Total Confined in {{ months[selectedMonth] }} {{ selectedYear }}: {{ updateConfined }}</h1>
+    <div class="text-[#2f4a71] text-xl mt-4">
+      <h1 class="font-bold">Total Confined in {{ months[selectedMonth] }} {{ selectedYear }}: {{ confinedCount }}</h1>
+      <h1 class="font-bold">Total Consultations in {{ months[selectedMonth] }} {{ selectedYear }}: {{ monthlyConsultationCount }}</h1>
+      <h1 class="font-bold">Total Consultations in {{ selectedYear }}: {{ yearlyConsultationCount }}</h1>
     </div>
   </div>
 </template>
@@ -166,7 +210,7 @@ textarea {
   overflow: hidden;
   text-overflow: ellipsis;
   display: block;
-  height: 300rem;
+  height: auto; /* Changed from 300rem */
 }
 .marquee:hover {
   animation: scroll-left 10s linear infinite;
@@ -180,7 +224,7 @@ textarea {
   }
 }
 .calendar-cell {
-  width: 90px;
+  min-width: 70px; /* Changed from width: 90px to be more responsive */
   height: 90px;
 }
 </style>

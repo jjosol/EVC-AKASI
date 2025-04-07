@@ -1,11 +1,14 @@
 // med-administration.service.ts
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { Prisma } from '@prisma/client';
+import { InventoryService } from '../inventory/inventory.service'; // Add this import
 
 @Injectable()
 export class MedAdministrationService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private inventoryService: InventoryService // Add this dependency
+  ) {}
 
   async getMedAdministrationByConsultation(consultationId: number) {
     try {
@@ -30,33 +33,7 @@ export class MedAdministrationService {
           throw new BadRequestException('Consultation record not found');
         }
 
-        // 2. Check if record already exists
-        const existingRecord = await prisma.medAdministration.findFirst({
-          where: {
-            consultation_id: data.consultation_id,
-            med_id: data.med_id,
-            medName: data.medName
-          }
-        });
-
-        if (existingRecord) {
-          // If updating existing record, restore old quantity first
-          await prisma.inventory.update({
-            where: {
-              med_id_medName: {
-                med_id: data.med_id,
-                medName: data.medName
-              }
-            },
-            data: {
-              count: {
-                increment: existingRecord.count // Return old quantity
-              }
-            }
-          });
-        }
-
-        // 3. Check inventory availability
+        // 2. Check inventory availability
         const inventory = await prisma.inventory.findFirst({
           where: {
             med_id: data.med_id,
@@ -72,62 +49,45 @@ export class MedAdministrationService {
           throw new BadRequestException(`Insufficient inventory. Available: ${inventory.count}`);
         }
 
-        // 4. Update inventory (reduce quantity)
-        await prisma.inventory.update({
-          where: {
-            med_id_medName: {
-              med_id: data.med_id,
-              medName: data.medName,
-            },
-          },
+        // 3. Use inventoryService.reduceInventory with admin_id
+        await this.inventoryService.reduceInventory(
+          data.med_id,
+          data.medName,
+          data.count,
+          `Dispensed to ${data.patient} in consultation #${data.consultation_id}`,
+          data.admin_id // Pass the admin_id
+        );
+
+        // 4. Create new med administration record
+        return await prisma.medAdministration.create({
           data: {
-            count: inventory.count - data.count,
+            consultation_id: data.consultation_id,
+            client_id: data.client_id,
+            admin_id: data.admin_id,
+            med_id: data.med_id,
+            medName: data.medName,
+            count: data.count,
+            schedule: data.schedule,
+            start_date: new Date(data.start_date),
+            end_date: new Date(data.end_date),
+            date: new Date(), // Use current date
+            patient: data.patient,
+            remarks: data.remarks || null,
+            intervention: data.intervention || null,
           },
         });
-
-        // 5. Create or update med administration record
-        if (existingRecord) {
-          return await prisma.medAdministration.update({
-            where: { consultation_id: existingRecord.consultation_id },
-            data: {
-              count: data.count,
-              schedule: data.schedule,
-              start_date: new Date(data.start_date),
-              end_date: new Date(data.end_date),
-              remarks: data.remarks,
-              date: new Date(data.date)
-            }
-          });
-        } else {
-          return await prisma.medAdministration.create({
-            data: {
-              client_id: data.client_id,
-              admin_id: data.admin_id,
-              med_id: data.med_id,
-              medName: data.medName,
-              count: data.count,
-              schedule: data.schedule,
-              start_date: new Date(data.start_date),
-              end_date: new Date(data.end_date),
-              remarks: data.remarks || null,
-              date: new Date(data.date),
-              patient: data.patient,
-              consultation_id: data.consultation_id
-            }
-          });
-        }
       } catch (error) {
-        // All operations will be rolled back if any error occurs
         throw new BadRequestException(error.message);
       }
     });
   }
 
-  async updateMedAdministration(id: number, data: any) {
+  async updateMedAdministration(id: number, data: any, admin_id?: number) {
     return await this.prisma.$transaction(async (prisma) => {
       try {
+        // Find by med_administration_id instead of consultation_id
         const currentRecord = await prisma.medAdministration.findUnique({
-          where: { consultation_id: id }
+          where: { med_administration_id: id }
         });
 
         if (!currentRecord) {
@@ -144,25 +104,38 @@ export class MedAdministrationService {
             }
           });
 
-          if (!inventory || inventory.count < quantityDiff) {
+          if (!inventory) {
+            throw new BadRequestException('Inventory item not found');
+          }
+
+          if (quantityDiff > 0 && inventory.count < quantityDiff) {
             throw new BadRequestException('Insufficient inventory');
           }
 
-          await prisma.inventory.update({
-            where: {
-              med_id_medName: {
-                med_id: currentRecord.med_id,
-                medName: currentRecord.medName
-              }
-            },
-            data: {
-              count: inventory.count - quantityDiff
-            }
-          });
+          // Use inventoryService instead of direct update for proper tracking
+          if (quantityDiff > 0) {
+            // Need to take more medication from inventory
+            await this.inventoryService.reduceInventory(
+              currentRecord.med_id,
+              currentRecord.medName,
+              quantityDiff,
+              `Increased quantity for med administration #${id}, Patient: ${currentRecord.patient}`,
+              admin_id || currentRecord.admin_id
+            );
+          } else {
+            // Return medication to inventory
+            await this.inventoryService.increaseInventory(
+              currentRecord.med_id,
+              currentRecord.medName,
+              Math.abs(quantityDiff),
+              `Decreased quantity for med administration #${id}, Patient: ${currentRecord.patient}`,
+              admin_id || currentRecord.admin_id
+            );
+          }
         }
 
         return await prisma.medAdministration.update({
-          where: { consultation_id: id },
+          where: { med_administration_id: id },
           data,
           include: {
             inventory: true
@@ -177,14 +150,30 @@ export class MedAdministrationService {
   async deleteMedAdministration(id: number) {
     return await this.prisma.$transaction(async (prisma) => {
       try {
+        // Find by med_administration_id instead of consultation_id
         const record = await prisma.medAdministration.findUnique({
-          where: { consultation_id: id }
+          where: { med_administration_id: id }
         });
 
         if (!record) {
           throw new BadRequestException('Record not found');
         }
+        
+        // Get the inventory item to retrieve category_id and current count
+        const inventoryItem = await prisma.inventory.findUnique({
+          where: {
+            med_id_medName: {
+              med_id: record.med_id,
+              medName: record.medName
+            }
+          }
+        });
 
+        if (!inventoryItem) {
+          throw new BadRequestException('Inventory item not found');
+        }
+
+        // Update inventory count
         await prisma.inventory.update({
           where: {
             med_id_medName: {
@@ -198,9 +187,27 @@ export class MedAdministrationService {
             }
           }
         });
+        
+        // Calculate new running total after returning medication
+        const newTotal = inventoryItem.count + record.count;
+        
+        // Log the return to inventory in EditsInverntory
+        await prisma.editsInverntory.create({
+          data: {
+            med_id: record.med_id,
+            medName: record.medName,
+            date: new Date(),
+            cause: `Returned medication from cancelled administration (ID: ${id}, Patient: ${record.patient})`,
+            addSubCount: record.count, // Positive for return
+            runningTotal: newTotal,
+            category_id: inventoryItem.category_id,
+            admin_id: record.admin_id
+          }
+        });
 
+        // Delete the medication administration record
         return await prisma.medAdministration.delete({
-          where: { consultation_id: id }
+          where: { med_administration_id: id }
         });
       } catch (error) {
         throw new BadRequestException(error.message);

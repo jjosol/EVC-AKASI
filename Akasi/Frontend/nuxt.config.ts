@@ -20,6 +20,9 @@ export default defineNuxtConfig({
       autoprefixer: {},
     },
   },
+  vite: {
+    assetsInclude: ['**/*.html'],
+  },
   app: {
     head: {
       title: 'Akasi',
@@ -43,5 +46,25 @@ export default defineNuxtConfig({
     display: 'swap',
     download: true, // Force download of font files
     prefetch: true, // Adds prefetch hints
+  },
+  nitro: {
+    handlers: [
+      {
+        route: '/_generate-pdf',
+        handler: '~/server/api/generate-pdf.post'
+      }
+    ],
+    // Add API proxy configuration to route /api requests to your NestJS backend
+    devProxy: {
+      '/change-password': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        pathRewrite: { '^/change-password': '/change-password' }
+      },
+      '/api': {
+        target: 'http://localhost:3001', // Adjust to your NestJS backend port
+        changeOrigin: true,
+      }
+    }
   }
-});
+})

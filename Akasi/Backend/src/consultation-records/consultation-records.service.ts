@@ -1,65 +1,77 @@
 // consultation-records.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { ConsultationRecordCreateInput, ConsultationRecordUpdateInput } from './consultation-records.types';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class ConsultationRecordsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   // Method to create a consultation record
-  async createConsultationRecord(data: {
-    client_id: number;
-    admin_id: number;
-    date: Date;
-    patient_name: string;
-    patient_occupation: string;
-    doctor: string;
-    complaint: string;
-    remarks: string;
-    confined: boolean;
-    medAdministration: boolean;
-  }) {
+  async createConsultationRecord(data: any) {
     try {
-      const consultationRecord = await this.prisma.consultation_records.create({
-        data,
+      const { diagnosis_ids, ...consultationData } = data;
+       
+      // This is where the createData object should go
+      const createData = {
+        client_id: consultationData.client_id,
+        admin_id: consultationData.admin_id,
+        date: new Date(consultationData.date),
+        patient_name: consultationData.patient_name, 
+        patient_occupation: consultationData.patient_occupation,
+        doctor: consultationData.doctor,
+        complaint: consultationData.complaint || '',
+        remarks: consultationData.remarks || '',
+        confined: consultationData.confined || false,
+        medAdministration: consultationData.medAdministration || false,
+        intervention: consultationData.intervention || '',
+        // The new fields with default values
+        action: consultationData.action || '',
+        disposition: consultationData.disposition || '',
+        intern: consultationData.intern || false
+      };
+
+      // Create the consultation record using the properly formatted data
+      const record = await this.prisma.consultation_records.create({
+        data: createData
       });
-      return consultationRecord;
+
+      // Link diagnoses if provided
+      if (diagnosis_ids && Array.isArray(diagnosis_ids) && diagnosis_ids.length > 0) {
+        for (const diagnosis_id of diagnosis_ids) {
+          await this.linkDiagnosisToConsultation(record.consultation_id, diagnosis_id);
+        }
+      }
+
+      return this.getConsultationRecord(record.consultation_id);
     } catch (error) {
-      throw new Error(`Error creating consultation record: ${error.message}`);
+      throw new BadRequestException(`Failed to create consultation record: ${error.message}`);
     }
   }
 
   // Method to update a consultation record
   async updateConsultationRecord(
     consultation_id: number,
-    person: {
-      clientId: number;
-      name: string;
-      occupation?: string;
-      grade?: string;
-      section?: string;
-      generalComplaint?: string;
-      remarks?: string;
-      confined?: boolean;
-      medicationAdministration?: boolean;
-    },
+    person: ConsultationRecordUpdateInput,
   ) {
     try {
-      // First, fetch the existing record to get the original date
       const existingRecord = await this.getConsultationRecord(consultation_id);
 
-      // Prepare update data with proper type conversions
       const updateData = {
         client_id: person.clientId,
         admin_id: 1, // Replace with actual admin_id
-        date: new Date(existingRecord.date).toISOString(), // Ensure proper date format
+        date: new Date(existingRecord.date),
         patient_name: person.name,
         patient_occupation: person.occupation || `${person.grade}-${person.section}`,
         doctor: 'John Doe',
         complaint: person.generalComplaint || '',
         remarks: person.remarks || '',
+        action: person.action || '',
+        disposition: person.disposition || '',
         confined: Boolean(person.confined),
-        medAdministration: Boolean(person.medicationAdministration)
+        medAdministration: Boolean(person.medicationAdministration),
+        intern: Boolean(person.intern || false),
       };
 
       const consultationRecord = await this.prisma.consultation_records.update({
@@ -86,32 +98,83 @@ export class ConsultationRecordsService {
   // Method to fetch a single consultation record
   async getConsultationRecord(consultation_id: number) {
     try {
-      const consultationRecord = await this.prisma.consultation_records.findUnique({
+      const record = await this.prisma.consultation_records.findUnique({
         where: { consultation_id },
+        include: {
+          diagnoses: {
+            include: {
+              diagnosis: {
+                include: {
+                  category: true
+                }
+              }
+            }
+          }
+        }
       });
-      if (!consultationRecord) {
-        throw new Error(`Consultation record with ID ${consultation_id} not found`);
+
+      if (!record) {
+        throw new NotFoundException(`Consultation record with ID ${consultation_id} not found`);
       }
-      return consultationRecord;
+
+      return record;
     } catch (error) {
-      throw new Error(`Error fetching consultation record: ${error.message}`);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(`Failed to fetch consultation record: ${error.message}`);
     }
   }
-  async countConsultationRecordsByMonth(year: number, month: number) {
+
+  async countConsultationRecordsByMonth(year: number, month: number, confined?: boolean) {
     try {
-      const count = await this.prisma.consultation_records.count({
-        where: {
-          date: {
-            gte: new Date(year, month, 1),
-            lt: new Date(year, month + 1, 1),
-          },
+      const whereCondition: any = {
+        date: {
+          gte: new Date(year, month, 1),
+          lt: new Date(year, month + 1, 1),
         },
+      };
+
+      if (confined !== undefined) {
+        whereCondition.confined = confined;
+      }
+
+      const count = await this.prisma.consultation_records.count({
+        where: whereCondition,
       });
       return count;
     } catch (error) {
       throw new Error(`Error counting consultation records: ${error.message}`);
     }
   }
+
+  async getTotalConsultationCount(): Promise<number> {
+    try {
+      return await this.prisma.consultation_records.count();
+    } catch (error) {
+      throw new Error(`Error getting total consultation count: ${error.message}`);
+    }
+  }
+
+  async getConsultationRecordsCountByYear(year: number): Promise<number> {
+    try {
+      const startDate = new Date(year, 0, 1); // January 1st of the year
+      const endDate = new Date(year + 1, 0, 1); // January 1st of the next year
+
+      const count = await this.prisma.consultation_records.count({
+        where: {
+          date: {
+            gte: startDate,
+            lt: endDate,
+          },
+        },
+      });
+      return count;
+    } catch (error) {
+      throw new Error(`Error getting consultation records count by year: ${error.message}`);
+    }
+  }
+
   async deleteConsultationRecord(consultation_id: number) {
     return await this.prisma.$transaction(async (prisma) => {
       try {
@@ -122,7 +185,22 @@ export class ConsultationRecordsService {
 
         // Return quantities to inventory
         for (const record of medAdminRecords) {
-          await prisma.inventory.update({
+          // Get the current inventory item to get its category and current count
+          const inventoryItem = await prisma.inventory.findUnique({
+            where: {
+              med_id_medName: {
+                med_id: record.med_id,
+                medName: record.medName
+              }
+            }
+          });
+
+          if (!inventoryItem) {
+            continue; // Skip if inventory item doesn't exist anymore
+          }
+
+          // Update the inventory count
+          const updatedItem = await prisma.inventory.update({
             where: {
               med_id_medName: {
                 med_id: record.med_id,
@@ -133,6 +211,22 @@ export class ConsultationRecordsService {
               count: {
                 increment: record.count // Return quantities to inventory
               }
+            }
+          });
+          
+          // Calculate new running total
+          const newTotal = inventoryItem.count + record.count;
+          
+          // Log the return to inventory
+          await prisma.editsInverntory.create({
+            data: {
+              med_id: record.med_id,
+              medName: record.medName,
+              date: new Date(),
+              cause: `Returned to inventory (Consultation #${consultation_id} deleted)`,
+              addSubCount: record.count, // Positive for return
+              runningTotal: newTotal, // Add the running total
+              category_id: inventoryItem.category_id // Add the category ID
             }
           });
         }
@@ -150,5 +244,156 @@ export class ConsultationRecordsService {
         throw new Error(`Error deleting consultation record: ${error.message}`);
       }
     });
+  }
+
+  async linkDiagnosisToConsultation(consultation_id: number, diagnosis_id: number) {
+    try {
+      // Check if consultation exists
+      const consultation = await this.prisma.consultation_records.findUnique({
+        where: { consultation_id }
+      });
+
+      if (!consultation) {
+        throw new NotFoundException(`Consultation with ID ${consultation_id} not found`);
+      }
+
+      // Check if diagnosis exists
+      const diagnosis = await this.prisma.diagnosis.findUnique({
+        where: { diagnosis_id }
+      });
+
+      if (!diagnosis) {
+        throw new NotFoundException(`Diagnosis with ID ${diagnosis_id} not found`);
+      }
+
+      // Check if link already exists
+      const existingLink = await this.prisma.consultation_diagnosis.findUnique({
+        where: {
+          consultation_id_diagnosis_id: {
+            consultation_id,
+            diagnosis_id
+          }
+        }
+      });
+
+      if (existingLink) {
+        // If it already exists, just return success
+        return { message: 'Diagnosis already linked to consultation' };
+      }
+
+      // Create link
+      await this.prisma.consultation_diagnosis.create({
+        data: {
+          consultation_id,
+          diagnosis_id
+        }
+      });
+
+      return { message: 'Diagnosis linked to consultation successfully' };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(`Failed to link diagnosis to consultation: ${error.message}`);
+    }
+  }
+
+  async removeDiagnosisFromConsultation(consultation_id: number, diagnosis_id: number) {
+    try {
+      // Check if link exists
+      const existingLink = await this.prisma.consultation_diagnosis.findUnique({
+        where: {
+          consultation_id_diagnosis_id: {
+            consultation_id,
+            diagnosis_id
+          }
+        }
+      });
+
+      if (!existingLink) {
+        throw new NotFoundException('Diagnosis is not linked to this consultation');
+      }
+
+      // Delete link
+      await this.prisma.consultation_diagnosis.delete({
+        where: {
+          consultation_id_diagnosis_id: {
+            consultation_id,
+            diagnosis_id
+          }
+        }
+      });
+
+      return { message: 'Diagnosis removed from consultation successfully' };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(`Failed to remove diagnosis from consultation: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get consultation records for a specific client
+   */
+  /**
+ * Get consultation records for a specific client
+ */
+  async getClientConsultations(clientId: number) {
+    try {
+      const clientIdInt = typeof clientId === 'string' ? parseInt(clientId, 10) : clientId;
+
+      const consultations = await this.prisma.consultation_records.findMany({
+        where: {
+          client_id: clientIdInt,
+        },
+        include: {
+          diagnoses: {
+            include: {
+              diagnosis: true
+            }
+          },
+          admin: {
+            select: {
+              name: true,
+            }
+          },
+          // Include medication administration records
+          medAdministrations: true
+        },
+        orderBy: {
+          date: 'desc',
+        },
+      });
+
+      return consultations.map(record => ({
+        id: record.consultation_id,
+        date: record.date,
+        doctor: record.doctor,
+        complaint: record.complaint,
+        remarks: record.remarks,
+        action: record.action,
+        disposition: record.disposition,
+        confined: record.confined,
+        medAdministration: record.medAdministration,
+        intern: record.intern,
+        // Format diagnoses from related records
+        diagnoses: record.diagnoses?.map(d => d.diagnosis?.name).filter(Boolean).join(', ') || record.complaint,
+        // Include medication administration details
+        medications: record.medAdministrations?.map(med => ({
+          id: med.med_administration_id,
+          name: med.medName,
+          count: med.count,
+          schedule: med.schedule,
+          startDate: med.start_date,
+          endDate: med.end_date,
+          remarks: med.remarks
+        })) || [],
+        adminName: record.admin?.name || 'Unknown'
+      }));
+    } catch (error) {
+      console.error('Error fetching client consultations:', error);
+      throw new Error('Failed to fetch consultation records');
+    }
   }
 }

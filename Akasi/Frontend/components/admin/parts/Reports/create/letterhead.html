@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Letterhead</title>
+        <style>* {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        /* Body setup */
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 21cm;
+            margin: 0 auto;
+            background: white;
+            position: relative;
+        }
+        
+        /* Letterhead container */
+        .letterhead {
+            width: 100%;
+            min-height: 100vh;
+            padding: 3cm 0; /* Space for header and footer */
+            position: relative;
+        }
+        
+        /* Header & Footer */
+        .header, .footer {
+            position: fixed;
+            width: 21cm;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            z-index: 1000;
+            height: 3cm;
+        }
+        
+        /* Header styles */
+        .header {
+            top: 0;
+            border-bottom: 1px solid #ccc;
+        }
+        
+        /* Footer styles */
+        .footer {
+            bottom: 0;
+            border-top: 1px solid #ccc;
+        }
+        
+        /* Images in header & footer */
+        .header img, .footer img {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+        }
+        A
+        /* Content area */
+        .content {
+            position: relative;
+            width: 100%;
+            max-width: 17cm;
+            margin: 0 auto;
+            padding: 0 2cm; /* Horizontal padding only */
+            z-index: 1;
+            background: white;
+            /* Ensure content does not overlap with header and footer */
+            padding-top: 3cm; /* Space for header */
+            padding-bottom: 3cm; /* Space for footer */
+        }
+        
+        /* Page settings */
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        
+        @media print {
+            body {
+                margin: 0;
+            }
+        
+            .letterhead {
+                padding: 3cm 0;
+            }
+        
+            .header, .footer {
+                position: fixed;
+                width: 21cm;
+            }
+        
+            .content {
+                margin: 0 auto;
+                padding: 3cm 2cm; /* Adjusted padding for print */
+            }
+        
+            .header {
+                top: 0;
+            }
+        
+            .footer {
+                bottom: 0;
+            }
+        }
+        </style>
+</head>
+<body>
+    <div class="letterhead">
+        <div class="header">
+            <img src="header.png" alt="Header Image">
+        </div>
+        <div class="content">
+        </div>
+        <div class="footer">
+            <img src="footer.png" alt="Footer Image">
+        </div>
+    </div>
+</body>
+</html>
