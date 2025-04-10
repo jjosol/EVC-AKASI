@@ -1,6 +1,6 @@
 //app.module.ts
 import { Module } from '@nestjs/common';
-import { AdminsModule } from './admin/admins.module'
+import { NurseModule } from './nurse/nurse.module'
 import { PrismaModule } from './prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { ClientsModule } from './clients/clients.module';
@@ -14,7 +14,7 @@ import { FileModule } from './file/file.module';
 import { ProfileModule } from './profile/profile.module';
 import { AddAppointmentModule } from './add-appointment/add-appointment.module';
 import { FetchAppointmentsClientModule } from './fetch-appointments-client/fetch-appointments-client.module';
-import { AdminFetchAppointmentsModule } from './admin-fetch-appointments/admin-fetch-appointments.module';
+import { DailyAppointmentModule } from './daily-appointment/daily-appointment.module';
 import { EnrollmentDocumentsModule } from './enrollment-documents/enrollment-documents.module';
 import { ReportsModule } from './reports/reports.module';
 import { ClientFilesModule } from './client-files/client-files.module';
@@ -34,13 +34,14 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { EquipmentModule } from './equipment/equipment.module';
 
+
 @Module({
   imports: [
     ChangePasswordModule, 
     BackupModule, 
     ReportsModule,
     PrismaModule,
-    AdminsModule,
+    NurseModule,
     AuthModule,
     ClientsModule,
     ConsultationRecordsModule,
@@ -52,7 +53,8 @@ import { EquipmentModule } from './equipment/equipment.module';
     ProfileModule,
     AddAppointmentModule,
     FetchAppointmentsClientModule,
-    AdminFetchAppointmentsModule,
+    DailyAppointmentModule,
+    DailyAppointmentModule,
     EnrollmentDocumentsModule,
     ClientFilesModule,
     FetchClientFilesModule,

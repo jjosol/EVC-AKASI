@@ -60,7 +60,7 @@ export class AddAppointmentService {
 
 
     async createAppointment(data: {
-        client_id: number;
+        patient_id: number;
         date: Date;
         hour: number;
         minute: number;

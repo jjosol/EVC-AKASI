@@ -1,8 +1,8 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import { AdminFetchAppointmentsService } from './admin-fetch-appointments.service';
+import { DailyAppointmentService } from './daily-appointment.service';
 @Controller('admin-fetch-appointments')
-export class AdminFetchAppointmentsController {
-    constructor(private readonly appointmentsService: AdminFetchAppointmentsService) { }
+export class DailyAppointmentController {
+    constructor(private readonly appointmentsService: DailyAppointmentService) { }
 
     /**
      * Get appointments for a specific date

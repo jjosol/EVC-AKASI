@@ -3,7 +3,7 @@ import { AddAppointmentService } from './add-appointment.service';
 
 // Define DTO for appointment data
 class CreateAppointmentDto {
-    client_id: number;
+    patient_id: number;
     date: string; // ISO date string
     hour: number;
     minute: number;
@@ -54,8 +54,8 @@ export class AddAppointmentController {
             console.log('Received POST request body:', body);
 
             // Validate required fields (existing validation)
-            if (!body.client_id) {
-                throw new BadRequestException('Client ID is required');
+            if (!body.patient_id) {
+                throw new BadRequestException('Patient ID is required');
             }
 
             if (!body.date) {
@@ -103,7 +103,7 @@ export class AddAppointmentController {
             }
 
             const appointment = await this.service.createAppointment({
-                client_id: Number(body.client_id),
+                patient_id: Number(body.patient_id),
                 date: appointmentDate,
                 hour: Number(body.hour),
                 minute: Number(body.minute),
