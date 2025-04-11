@@ -13,14 +13,14 @@ import { StorageModule } from './storage/storage.module';
 import { FileModule } from './file/file.module';
 import { ProfileModule } from './profile/profile.module';
 import { AddAppointmentModule } from './add-appointment/add-appointment.module';
-import { FetchAppointmentsClientModule } from './fetch-appointments-client/fetch-appointments-client.module';
+import { FetchAppointmentsPatientModule } from './fetch-appointments-patient/fetch-appointments-patient.module';
 import { DailyAppointmentModule } from './daily-appointment/daily-appointment.module';
 import { EnrollmentDocumentsModule } from './enrollment-documents/enrollment-documents.module';
 import { ReportsModule } from './reports/reports.module';
 import { PatientFilesModule } from './patient-files/patient-files.module';
 import { FetchPatientFilesModule } from './fetch-patient-files/fetch-patient-files.module';
 import { GetPatientsModule } from './get-patients/get-patients.module';
-import { FetchPatientFilesAdminModule } from './fetch-patient-files-admin/fetch-patient-files-admin.module';
+import { FetchPatientFilesNurseModule } from './fetch-patient-files-nurse/fetch-patient-files-nurse.module';
 import { FetchStaffFilesAdminModule } from './fetch-staff-files-admin/fetch-staff-files-admin.module';
 import { FileStatusModule } from './file-status/file-status.module';
 import { PatientStatusModule } from './patient-status/patient-status.module';
@@ -52,14 +52,14 @@ import { EquipmentModule } from './equipment/equipment.module';
     FileModule,
     ProfileModule,
     AddAppointmentModule,
-    FetchAppointmentsClientModule,
+    FetchAppointmentsPatientModule,
     DailyAppointmentModule,
     DailyAppointmentModule,
     EnrollmentDocumentsModule,
     PatientFilesModule,
     FetchPatientFilesModule,
     GetPatientsModule,
-    FetchPatientFilesAdminModule,
+    FetchPatientFilesNurseModule,
     FetchStaffFilesAdminModule,
     FileStatusModule,
     PatientStatusModule,

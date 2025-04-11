@@ -32,6 +32,7 @@ model nurse {
   medAdministration    medAdministration[]
   equipment_edits      EditsEquipment[] 
   inventory_edits      EditsMedicine[] 
+  diagnoses            diagnosis[]
 
   @@id([nurse_id, username])
 }
@@ -138,6 +139,7 @@ model diagnosis {
 
   // Relations
   category      diagnosis_category       @relation(fields: [category_id], references: [category_id])
+  nurse         nurse                    @relation(fields: [created_by], references: [nurse_id])
   consultations consultation_diagnosis[]
 
   @@index([category_id])

@@ -11,17 +11,34 @@ export class DiagnosisService {
         try {
             return await this.prisma.diagnosis.findMany({
                 include: {
-                    category: true,
-                    admin: {
-                        select: {
-                            name: true
-                        }
-                    }
-                }
+                    category: true
+                },
+                orderBy: {
+                    name: 'asc',
+                },
             });
         } catch (error) {
             this.logger.error('Failed to fetch diagnoses', error.stack);
             throw new BadRequestException('Failed to fetch diagnoses');
+        }
+    }
+
+    async getActiveDiagnoses() {
+        try {
+            return await this.prisma.diagnosis.findMany({
+                where: {
+                    active: true
+                },
+                include: {
+                    category: true
+                },
+                orderBy: {
+                    name: 'asc',
+                },
+            });
+        } catch (error) {
+            this.logger.error('Failed to fetch active diagnoses', error.stack);
+            throw new BadRequestException('Failed to fetch active diagnoses');
         }
     }
 
@@ -30,12 +47,7 @@ export class DiagnosisService {
             const diagnosis = await this.prisma.diagnosis.findUnique({
                 where: { diagnosis_id },
                 include: {
-                    category: true,
-                    admin: {
-                        select: {
-                            name: true
-                        }
-                    }
+                    category: true
                 }
             });
 
@@ -56,7 +68,8 @@ export class DiagnosisService {
     async createDiagnosis(data: {
         name: string;
         category_id: number;
-        created_by: number
+        created_by: number;
+        active?: boolean;
     }) {
         try {
             // Check if category exists
@@ -81,7 +94,8 @@ export class DiagnosisService {
                 data: {
                     name: data.name,
                     category_id: data.category_id,
-                    created_by: data.created_by
+                    created_by: data.created_by,
+                    active: data.active !== undefined ? data.active : true,
                 },
                 include: {
                     category: true
@@ -101,6 +115,7 @@ export class DiagnosisService {
     async updateDiagnosis(diagnosis_id: number, data: {
         name?: string;
         category_id?: number;
+        active?: boolean;
     }) {
         try {
             // Check if diagnosis exists
@@ -152,6 +167,32 @@ export class DiagnosisService {
             }
             this.logger.error(`Failed to update diagnosis: ${diagnosis_id}`, error.stack);
             throw new BadRequestException(`Failed to update diagnosis: ${error.message}`);
+        }
+    }
+
+    async toggleDiagnosisStatus(diagnosis_id: number) {
+        try {
+            const diagnosis = await this.prisma.diagnosis.findUnique({
+                where: { diagnosis_id }
+            });
+
+            if (!diagnosis) {
+                throw new NotFoundException(`Diagnosis with ID ${diagnosis_id} not found`);
+            }
+
+            return await this.prisma.diagnosis.update({
+                where: { diagnosis_id },
+                data: { active: !diagnosis.active },
+                include: {
+                    category: true
+                }
+            });
+        } catch (error) {
+            if (error instanceof NotFoundException) {
+                throw error;
+            }
+            this.logger.error(`Failed to toggle diagnosis status: ${diagnosis_id}`, error.stack);
+            throw new BadRequestException(`Failed to toggle diagnosis status: ${error.message}`);
         }
     }
 

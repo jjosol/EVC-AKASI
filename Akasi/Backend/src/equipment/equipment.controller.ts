@@ -14,8 +14,8 @@ export class EquipmentController {
 
   @Post()
   async addItem(@Body() item: any, @Request() req) {
-    const admin_id = req.user?.admin_id;
-    return this.equipmentService.addItem(item, admin_id);
+    const nurse_id = req.user?.nurse_id;
+    return this.equipmentService.addItem(item, nurse_id);
   }
 
   @Put(':id')
@@ -24,14 +24,14 @@ export class EquipmentController {
     @Body() data: any,
     @Request() req
   ) {
-    const admin_id = req.user?.admin_id;
-    return this.equipmentService.updateItem(Number(id), data, admin_id);
+    const nurse_id = req.user?.nurse_id;
+    return this.equipmentService.updateItem(Number(id), data, nurse_id);
   }
 
   @Delete(':id')
   async deleteItem(@Param('id') id: string, @Request() req) {
-    const admin_id = req.user?.admin_id;
-    return this.equipmentService.deleteItem(Number(id), admin_id);
+    const nurse_id = req.user?.nurse_id;
+    return this.equipmentService.deleteItem(Number(id), nurse_id);
   }
 
   @Post('/increase/:id')
@@ -40,12 +40,12 @@ export class EquipmentController {
     @Body() data: { quantity: number, cause?: string },
     @Request() req
   ) {
-    const admin_id = req.user?.admin_id;
+    const nurse_id = req.user?.nurse_id;
     return this.equipmentService.increaseEquipment(
       Number(id), 
       data.quantity,
       data.cause || 'Manual addition',
-      admin_id
+      nurse_id
     );
   }
 
@@ -55,18 +55,17 @@ export class EquipmentController {
     @Body() data: { quantity: number, cause?: string },
     @Request() req
   ) {
-    const admin_id = req.user?.admin_id;
+    const nurse_id = req.user?.nurse_id;
     return this.equipmentService.decreaseEquipment(
       Number(id), 
       data.quantity,
       data.cause || 'Manual reduction',
-      admin_id
+      nurse_id
     );
   }
 
   @Get('/edits')
   async getEquipmentEdits() {
-    // Remove the admin_id parameter since the service doesn't use it
     return this.equipmentService.getEquipmentEdits();
   }
 }

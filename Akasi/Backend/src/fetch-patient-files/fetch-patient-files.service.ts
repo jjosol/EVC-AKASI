@@ -3,8 +3,8 @@ import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nest
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
-export class FetchClientFilesService {
-    private readonly logger = new Logger(FetchClientFilesService.name);
+export class FetchPatientFilesService {
+    private readonly logger = new Logger(FetchPatientFilesService.name);
 
     constructor(private prisma: PrismaService) { }
 
@@ -17,58 +17,62 @@ export class FetchClientFilesService {
         }
 
         try {
-            // CRITICAL: For all queries, we ONLY select files where client_id equals currentUserId
+            // CRITICAL: For all queries, we ONLY select files where patient_id equals currentUserId
             // This ensures that only the current user's files are ever returned
 
             // Fetch dental certificates for current user ONLY (without grade filter)
             const dentalCertificates = await this.prisma.dental_certificates.findMany({
                 where: {
-                    client_id: currentUserId, // ONLY current user's files
+                    patient_id: currentUserId, // ONLY current user's files
                 },
                 select: {
                     dental_id: true,
-                    client_id: true,
+                    patient_id: true,
                     grade: true,
                     date: true,
+                    status: true,
                 },
             });
 
             // Fetch medical certificates for current user ONLY (without grade filter)
             const medicalCertificates = await this.prisma.medical_certificates.findMany({
                 where: {
-                    client_id: currentUserId, // ONLY current user's files
+                    patient_id: currentUserId, // ONLY current user's files
                 },
                 select: {
                     medical_id: true,
-                    client_id: true,
+                    patient_id: true,
                     grade: true,
                     date: true,
+                    status: true,
                 },
             });
 
             // Fetch ophthalmological certificates for current user ONLY (without grade filter)
             const opthalCertificates = await this.prisma.opthal_certificates.findMany({
                 where: {
-                    client_id: currentUserId, // ONLY current user's files
+                    patient_id: currentUserId, // ONLY current user's files
                 },
                 select: {
                     opthal_id: true,
-                    client_id: true,
+                    patient_id: true,
                     grade: true,
                     date: true,
+                    status: true,
                 },
             });
 
             // Fetch physical exam certificates for current user ONLY (without grade filter)
             const physicalExams = await this.prisma.physical_exam.findMany({
                 where: {
-                    client_id: currentUserId, // ONLY current user's files
+                    patient_id: currentUserId, // ONLY current user's files
                 },
                 select: {
                     physical_id: true,
-                    client_id: true,
+                    patient_id: true,
                     grade: true,
                     date: true,
+                    status: true,
                 },
             });
 
@@ -77,36 +81,40 @@ export class FetchClientFilesService {
                 id: cert.dental_id,
                 type: 'dental',
                 typeLabel: 'Dental Certificate',
-                clientId: cert.client_id,
+                patientId: cert.patient_id,
                 grade: cert.grade,
                 date: cert.date,
+                status: cert.status,
             }));
 
             const medicalFiles = medicalCertificates.map(cert => ({
                 id: cert.medical_id,
                 type: 'medical',
                 typeLabel: 'Medical Certificate',
-                clientId: cert.client_id,
+                patientId: cert.patient_id,
                 grade: cert.grade,
                 date: cert.date,
+                status: cert.status,
             }));
 
             const opthalFiles = opthalCertificates.map(cert => ({
                 id: cert.opthal_id,
                 type: 'opthal',
                 typeLabel: 'Ophthalmological Certificate',
-                clientId: cert.client_id,
+                patientId: cert.patient_id,
                 grade: cert.grade,
                 date: cert.date,
+                status: cert.status,
             }));
 
             const physicalFiles = physicalExams.map(cert => ({
                 id: cert.physical_id,
                 type: 'physical',
                 typeLabel: 'Physical Examination',
-                clientId: cert.client_id,
+                patientId: cert.patient_id,
                 grade: cert.grade,
                 date: cert.date,
+                status: cert.status,
             }));
 
             // Combine all files
@@ -114,7 +122,7 @@ export class FetchClientFilesService {
 
             // Double-check that ALL files belong to current user before returning
             // This is a safety measure to ensure no other user's files ever get returned
-            const verifiedOwnFiles = allFiles.filter(file => file.clientId === currentUserId);
+            const verifiedOwnFiles = allFiles.filter(file => file.patientId === currentUserId);
 
             if (verifiedOwnFiles.length !== allFiles.length) {
                 // This should never happen if the database queries are correctly filtering
@@ -126,7 +134,7 @@ export class FetchClientFilesService {
             // Only return files that belong to the current user
             return verifiedOwnFiles;
         } catch (error) {
-            this.logger.error('Error fetching client files:', error);
+            this.logger.error('Error fetching patient files:', error);
             throw new NotFoundException('Error retrieving certificate files');
         }
     }
@@ -158,58 +166,91 @@ export class FetchClientFilesService {
     async getFileInfo(fileType: string, fileId: number, currentUserId: number, userRole: string) {
         // Implementation unchanged
         try {
-            let clientId: number | null = null;
+            let patientId: number | null = null;
             let id: number | null = null;
-            let fileData: Buffer | null = null;
-            let mimeType = 'application/octet-stream'; // Default MIME type
+            let filePath: string | null = null;
+            let fileName: string | null = null;
+            let mimeType: string | null = null;
 
             // First determine the file ownership
             switch (fileType) {
                 case 'dental':
                     const dentalCert = await this.prisma.dental_certificates.findUnique({
                         where: { dental_id: fileId },
-                        select: { client_id: true, dental_id: true, dental: true },
+                        select: { 
+                            patient_id: true,
+                            dental_id: true,
+                            file_path: true,
+                            file_name: true,
+                            mime_type: true
+                        },
                     });
                     if (dentalCert) {
-                        clientId = dentalCert.client_id;
+                        patientId = dentalCert.patient_id;
                         id = dentalCert.dental_id;
-                        fileData = dentalCert.dental as Buffer;
+                        filePath = dentalCert.file_path;
+                        fileName = dentalCert.file_name;
+                        mimeType = dentalCert.mime_type;
                     }
                     break;
 
                 case 'medical':
                     const medicalCert = await this.prisma.medical_certificates.findUnique({
                         where: { medical_id: fileId },
-                        select: { client_id: true, medical_id: true, medical: true },
+                        select: { 
+                            patient_id: true,
+                            medical_id: true,
+                            file_path: true,
+                            file_name: true,
+                            mime_type: true
+                        },
                     });
                     if (medicalCert) {
-                        clientId = medicalCert.client_id;
+                        patientId = medicalCert.patient_id;
                         id = medicalCert.medical_id;
-                        fileData = medicalCert.medical as Buffer;
+                        filePath = medicalCert.file_path;
+                        fileName = medicalCert.file_name;
+                        mimeType = medicalCert.mime_type;
                     }
                     break;
 
                 case 'opthal':
                     const opthalCert = await this.prisma.opthal_certificates.findUnique({
                         where: { opthal_id: fileId },
-                        select: { client_id: true, opthal_id: true, opthal: true },
+                        select: { 
+                            patient_id: true,
+                            opthal_id: true,
+                            file_path: true,
+                            file_name: true,
+                            mime_type: true
+                        },
                     });
                     if (opthalCert) {
-                        clientId = opthalCert.client_id;
+                        patientId = opthalCert.patient_id;
                         id = opthalCert.opthal_id;
-                        fileData = opthalCert.opthal as Buffer;
+                        filePath = opthalCert.file_path;
+                        fileName = opthalCert.file_name;
+                        mimeType = opthalCert.mime_type;
                     }
                     break;
 
                 case 'physical':
                     const physicalExam = await this.prisma.physical_exam.findUnique({
                         where: { physical_id: fileId },
-                        select: { client_id: true, physical_id: true, physical: true },
+                        select: { 
+                            patient_id: true,
+                            physical_id: true,
+                            file_path: true,
+                            file_name: true,
+                            mime_type: true
+                        },
                     });
                     if (physicalExam) {
-                        clientId = physicalExam.client_id;
+                        patientId = physicalExam.patient_id;
                         id = physicalExam.physical_id;
-                        fileData = physicalExam.physical as Buffer;
+                        filePath = physicalExam.file_path;
+                        fileName = physicalExam.file_name;
+                        mimeType = physicalExam.mime_type;
                     }
                     break;
 
@@ -219,45 +260,20 @@ export class FetchClientFilesService {
             }
 
             // If file doesn't exist or doesn't belong to current user, return null (not found)
-            if (clientId === null || id === null || !fileData || clientId !== currentUserId) {
+            if (patientId === null || id === null || !filePath || patientId !== currentUserId) {
                 this.logger.warn(`File not found or not authorized: ${fileType} ID ${fileId}`);
                 return null;
-            }
-
-            // Try to detect actual MIME type
-            try {
-                // Get a small sample from the beginning of the file (first 4100 bytes)
-                const sampleBuffer = fileData.slice(0, Math.min(4100, fileData.length));
-
-                // Use dynamic import for file-type (ESM module)
-                const { fileTypeFromBuffer } = await import('file-type');
-                const detectedType = await fileTypeFromBuffer(sampleBuffer);
-
-                if (detectedType) {
-                    mimeType = detectedType.mime;
-                } else {
-                    // If type detection fails, check for PDF signature (%PDF-)
-                    if (sampleBuffer.length >= 5 &&
-                        sampleBuffer[0] === 0x25 && // %
-                        sampleBuffer[1] === 0x50 && // P
-                        sampleBuffer[2] === 0x44 && // D
-                        sampleBuffer[3] === 0x46 && // F
-                        sampleBuffer[4] === 0x2D) { // -
-                        mimeType = 'application/pdf';
-                    }
-                }
-            } catch (err) {
-                this.logger.warn('Error detecting file MIME type:', err);
-                // Keep default MIME type
             }
 
             this.logger.log(`User ${currentUserId} accessing file info: ID ${id}, type ${fileType}`);
 
             return {
                 id,
-                clientId,
+                patientId,
                 type: fileType,
-                mimeType,
+                file_path: filePath,
+                file_name: fileName,
+                mime_type: mimeType
             };
         } catch (error) {
             this.logger.error('Error retrieving file info:', error);
@@ -276,76 +292,8 @@ export class FetchClientFilesService {
             }
 
             // If getFileInfo succeeds, ownership is already validated
-            let fileData;
-
-            switch (fileType) {
-                case 'dental':
-                    const dentalCert = await this.prisma.dental_certificates.findUnique({
-                        where: { dental_id: fileId },
-                        select: { dental: true, client_id: true },
-                    });
-
-                    // Only return data if file belongs to current user
-                    if (!dentalCert || dentalCert.client_id !== currentUserId) {
-                        throw new NotFoundException('File not found');
-                    }
-
-                    fileData = dentalCert?.dental;
-                    break;
-
-                case 'medical':
-                    const medicalCert = await this.prisma.medical_certificates.findUnique({
-                        where: { medical_id: fileId },
-                        select: { medical: true, client_id: true },
-                    });
-
-                    // Only return data if file belongs to current user
-                    if (!medicalCert || medicalCert.client_id !== currentUserId) {
-                        throw new NotFoundException('File not found');
-                    }
-
-                    fileData = medicalCert?.medical;
-                    break;
-
-                case 'opthal':
-                    const opthalCert = await this.prisma.opthal_certificates.findUnique({
-                        where: { opthal_id: fileId },
-                        select: { opthal: true, client_id: true },
-                    });
-
-                    // Only return data if file belongs to current user
-                    if (!opthalCert || opthalCert.client_id !== currentUserId) {
-                        throw new NotFoundException('File not found');
-                    }
-
-                    fileData = opthalCert?.opthal;
-                    break;
-
-                case 'physical':
-                    const physicalExam = await this.prisma.physical_exam.findUnique({
-                        where: { physical_id: fileId },
-                        select: { physical: true, client_id: true },
-                    });
-
-                    // Only return data if file belongs to current user
-                    if (!physicalExam || physicalExam.client_id !== currentUserId) {
-                        throw new NotFoundException('File not found');
-                    }
-
-                    fileData = physicalExam?.physical;
-                    break;
-
-                default:
-                    throw new NotFoundException('Invalid file type');
-            }
-
-            if (!fileData) {
-                throw new NotFoundException('File content not found');
-            }
-
-            this.logger.log(`Serving file ${fileId} (${fileType}) to user ${currentUserId}, size: ${fileData.length} bytes`);
-
-            return fileData;
+            // Return the file path for the controller to stream
+            return fileInfo.file_path;
         } catch (error) {
             this.logger.error('Error retrieving file data:', error);
             throw new NotFoundException('Error retrieving file data');

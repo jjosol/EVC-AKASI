@@ -2,19 +2,19 @@ import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/co
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
-export class FetchAppointmentsClientService {
+export class FetchAppointmentsPatientService {
     constructor(private prisma: PrismaService) { }
 
     /**
-     * Get upcoming appointments for a specific client or all appointments if admin
-     * @param clientId The client ID of the authenticated user
-     * @param userRole The role of the authenticated user (client, admin)
-     * @returns List of upcoming appointments with client information
+     * Get upcoming appointments for a specific patient or all appointments if admin
+     * @param patientId The patient ID of the authenticated user
+     * @param userRole The role of the authenticated user (patient, admin)
+     * @returns List of upcoming appointments with patient information
      */
-    async getUpcomingAppointments(clientId?: number, userRole?: string) {
-        // Security check: If user is a client, they can only view their own appointments
-        if (userRole === 'client' && !clientId) {
-            throw new UnauthorizedException('Client ID is required for client users');
+    async getUpcomingAppointments(patientId?: number, userRole?: string) {
+        // Security check: If user is a patient, they can only view their own appointments
+        if (userRole === 'patient' && !patientId) {
+            throw new UnauthorizedException('Patient ID is required for patient users');
         }
 
         const today = new Date();
@@ -27,9 +27,9 @@ export class FetchAppointmentsClientService {
             },
         };
 
-        // Add client_id filter if provided (applicable for both clients and admins)
-        if (clientId !== undefined) {
-            where.client_id = clientId;
+        // Add patient_id filter if provided (applicable for both patients and admins)
+        if (patientId !== undefined) {
+            where.patient_id = patientId;
         }
 
         // First fetch appointments with filters
@@ -42,7 +42,7 @@ export class FetchAppointmentsClientService {
             ],
             select: {
                 appointment_id: true,
-                client_id: true,
+                patient_id: true,
                 date: true,
                 hour: true,
                 minute: true,
@@ -52,11 +52,11 @@ export class FetchAppointmentsClientService {
             }
         });
 
-        // Then manually fetch client data for each appointment
-        const appointmentsWithClients = await Promise.all(
+        // Then manually fetch patient data for each appointment
+        const appointmentsWithPatients = await Promise.all(
             appointments.map(async (appointment) => {
-                const client = await this.prisma.client.findUnique({
-                    where: { client_id: appointment.client_id },
+                const patient = await this.prisma.patient.findUnique({
+                    where: { patient_id: appointment.patient_id },
                     select: {
                         name: true,
                         category: true,
@@ -65,11 +65,11 @@ export class FetchAppointmentsClientService {
                     },
                 });
 
-                if (!client) {
+                if (!patient) {
                     return {
                         ...appointment,
-                        client: {
-                            name: 'Unknown Client',
+                        patient: {
+                            name: 'Unknown Patient',
                             category: 'Unknown',
                             grade: null,
                             section: ''
@@ -79,11 +79,11 @@ export class FetchAppointmentsClientService {
 
                 return {
                     ...appointment,
-                    client,
+                    patient,
                 };
             })
         );
 
-        return appointmentsWithClients;
+        return appointmentsWithPatients;
     }
 }

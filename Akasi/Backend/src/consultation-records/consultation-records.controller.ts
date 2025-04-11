@@ -9,63 +9,30 @@ export class ConsultationRecordsController {
 
   // POST request to create a consultation record
   @Post()
-  async create(@Body() body: any) {
-    // Create a data object that matches your Prisma schema exactly
-    const data = {
-      client_id: Number(body.client_id),
-      admin_id: Number(body.admin_id),
-      date: new Date(body.date),
-      patient_name: String(body.patient_name),
-      patient_occupation: String(body.patient_occupation),
-      doctor: String(body.doctor),
-      complaint: String(body.complaint || ''),
-      remarks: String(body.remarks || ''),
-      confined: Boolean(body.confined),
-      medAdministration: Boolean(body.medAdministration),
-      intervention: String(body.intervention || ''),
-      action: String(body.action || ''),
-      disposition: String(body.disposition || ''),
-      intern: Boolean(body.intern || false),
-      // Pass diagnosis IDs separately
-      diagnosis_ids: body.diagnosis_ids || []
-    };
-
-    return this.consultationRecordsService.createConsultationRecord(data);
+  async create(@Body() body: ConsultationRecordCreateInput) {
+    try {
+      return await this.consultationRecordsService.createConsultationRecord(body);
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException(error.message);
+    }
   }
 
   // PUT request to update a consultation record
   @Put(':id')
   async updateConsultationRecord(
     @Param('id', ParseIntPipe) consultation_id: number,
-    @Body() body: any,
+    @Body() body: ConsultationRecordUpdateInput,
   ) {
     try {
       // Validate required fields
-      if (!body.client_id || !body.patient_name) {
-        throw new BadRequestException('Missing required fields');
+      if (!body.patient_id || !body.patient_name) {
+        throw new BadRequestException('Missing required fields: patient_id and patient_name are required');
       }
 
-      const existingRecord = await this.consultationRecordsService.getConsultationRecord(consultation_id);
-      if (!existingRecord) {
-        throw new NotFoundException(`Consultation record with ID ${consultation_id} not found`);
-      }
-
-      // Ensure proper type conversion and map to the service's expected parameters
-      const updateData = {
-        clientId: Number(body.client_id),
-        name: String(body.patient_name),
-        occupation: String(body.patient_occupation),
-        generalComplaint: String(body.complaint || ''),
-        remarks: String(body.remarks || ''),
-        action: String(body.action || ''),           // Add this field
-        disposition: String(body.disposition || ''), // Add this field
-        intern: Boolean(body.intern),
-        confined: Boolean(body.confined),
-        medicationAdministration: Boolean(body.medAdministration),
-        intervention: String(body.intervention || ''),
-      };
-
-      return await this.consultationRecordsService.updateConsultationRecord(consultation_id, updateData);
+      return await this.consultationRecordsService.updateConsultationRecord(consultation_id, body);
     } catch (error) {
       console.error('Update consultation error:', error);
       if (error instanceof NotFoundException) {
@@ -166,29 +133,38 @@ export class ConsultationRecordsController {
     );
   }
 
+  @Get('patient/:patientId')
+  async getPatientConsultations(
+    @Param('patientId') patientId: string,
+    @Request() req
+  ) {
+    console.log(`Getting consultations for patient ID: ${patientId}`);
+    try {
+      // Convert patientId to number
+      const patientIdNum = parseInt(patientId, 10);
+
+      if (isNaN(patientIdNum)) {
+        throw new BadRequestException('Invalid patient ID');
+      }
+
+      console.log(`Converted patient ID to number: ${patientIdNum}`);
+
+      const consultations = await this.consultationRecordsService.getPatientConsultations(patientIdNum);
+      console.log(`Found ${consultations.length} consultations for patient ${patientIdNum}`);
+
+      return consultations;
+    } catch (error) {
+      console.error(`Error in getPatientConsultations: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // Keep the original endpoint for backward compatibility
   @Get('client/:clientId')
   async getClientConsultations(
     @Param('clientId') clientId: string,
     @Request() req
   ) {
-    console.log(`Getting consultations for client ID: ${clientId}`);
-    try {
-      // Convert clientId to number
-      const clientIdNum = parseInt(clientId, 10);
-
-      if (isNaN(clientIdNum)) {
-        throw new BadRequestException('Invalid client ID');
-      }
-
-      console.log(`Converted client ID to number: ${clientIdNum}`);
-
-      const consultations = await this.consultationRecordsService.getClientConsultations(clientIdNum);
-      console.log(`Found ${consultations.length} consultations for client ${clientIdNum}`);
-
-      return consultations;
-    } catch (error) {
-      console.error(`Error in getClientConsultations: ${error.message}`);
-      throw error;
-    }
+    return this.getPatientConsultations(clientId, req);
   }
 }

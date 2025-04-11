@@ -1,7 +1,7 @@
 // consultation-records.service.ts
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { ConsultationRecordCreateInput, ConsultationRecordUpdateInput } from './consultation-records.types';
+import { ConsultationRecordCreateInput, ConsultationRecordUpdateInput, ConsultationRecordResponse } from './consultation-records.types';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -9,32 +9,29 @@ export class ConsultationRecordsService {
   constructor(private prisma: PrismaService) { }
 
   // Method to create a consultation record
-  async createConsultationRecord(data: any) {
+  async createConsultationRecord(data: ConsultationRecordCreateInput) {
     try {
       const { diagnosis_ids, ...consultationData } = data;
        
-      // This is where the createData object should go
-      const createData = {
-        client_id: consultationData.client_id,
-        admin_id: consultationData.admin_id,
-        date: new Date(consultationData.date),
-        patient_name: consultationData.patient_name, 
-        patient_occupation: consultationData.patient_occupation,
-        doctor: consultationData.doctor,
-        complaint: consultationData.complaint || '',
-        remarks: consultationData.remarks || '',
-        confined: consultationData.confined || false,
-        medAdministration: consultationData.medAdministration || false,
-        intervention: consultationData.intervention || '',
-        // The new fields with default values
-        action: consultationData.action || '',
-        disposition: consultationData.disposition || '',
-        intern: consultationData.intern || false
-      };
-
       // Create the consultation record using the properly formatted data
       const record = await this.prisma.consultation_records.create({
-        data: createData
+        data: {
+          patient_id: consultationData.patient_id,
+          nurse_id: consultationData.nurse_id,
+          doctor_id: consultationData.doctor_id || null,
+          date: new Date(consultationData.date),
+          patient_name: consultationData.patient_name, 
+          patient_occupation: consultationData.patient_occupation,
+          nurse_name: consultationData.nurse_name,
+          doctor_name: consultationData.doctor_name || null,
+          complaint: consultationData.complaint || '',
+          remarks: consultationData.remarks || '',
+          confined: consultationData.confined || false,
+          medAdministration: consultationData.medAdministration || false,
+          intervention: consultationData.intervention || '',
+          action: consultationData.action || '',
+          disposition: consultationData.disposition || '',
+        }
       });
 
       // Link diagnoses if provided
@@ -53,25 +50,31 @@ export class ConsultationRecordsService {
   // Method to update a consultation record
   async updateConsultationRecord(
     consultation_id: number,
-    person: ConsultationRecordUpdateInput,
+    data: ConsultationRecordUpdateInput,
   ) {
     try {
       const existingRecord = await this.getConsultationRecord(consultation_id);
 
+      if (!existingRecord) {
+        throw new NotFoundException(`Consultation record with ID ${consultation_id} not found`);
+      }
+
       const updateData = {
-        client_id: person.clientId,
-        admin_id: 1, // Replace with actual admin_id
-        date: new Date(existingRecord.date),
-        patient_name: person.name,
-        patient_occupation: person.occupation || `${person.grade}-${person.section}`,
-        doctor: 'John Doe',
-        complaint: person.generalComplaint || '',
-        remarks: person.remarks || '',
-        action: person.action || '',
-        disposition: person.disposition || '',
-        confined: Boolean(person.confined),
-        medAdministration: Boolean(person.medicationAdministration),
-        intern: Boolean(person.intern || false),
+        patient_id: data.patient_id,
+        nurse_id: data.nurse_id || existingRecord.nurse_id,
+        doctor_id: data.doctor_id !== undefined ? data.doctor_id : existingRecord.doctor_id,
+        date: existingRecord.date, // Maintain original date
+        patient_name: data.patient_name,
+        patient_occupation: data.patient_occupation || existingRecord.patient_occupation,
+        nurse_name: data.nurse_name || existingRecord.nurse_name,
+        doctor_name: data.doctor_name !== undefined ? data.doctor_name : existingRecord.doctor_name,
+        complaint: data.complaint || existingRecord.complaint,
+        remarks: data.remarks || existingRecord.remarks,
+        action: data.action || existingRecord.action,
+        disposition: data.disposition || existingRecord.disposition,
+        intervention: data.intervention || existingRecord.intervention,
+        confined: data.confined !== undefined ? data.confined : existingRecord.confined,
+        medAdministration: data.medAdministration !== undefined ? data.medAdministration : existingRecord.medAdministration,
       };
 
       const consultationRecord = await this.prisma.consultation_records.update({
@@ -81,6 +84,9 @@ export class ConsultationRecordsService {
 
       return consultationRecord;
     } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
       throw new Error(`Error updating consultation record: ${error.message}`);
     }
   }
@@ -101,7 +107,7 @@ export class ConsultationRecordsService {
       const record = await this.prisma.consultation_records.findUnique({
         where: { consultation_id },
         include: {
-          diagnoses: {
+          diagnosis: {
             include: {
               diagnosis: {
                 include: {
@@ -109,7 +115,10 @@ export class ConsultationRecordsService {
                 }
               }
             }
-          }
+          },
+          nurse: true,
+          doctor: true,
+          medAdministrations: true
         }
       });
 
@@ -185,25 +194,25 @@ export class ConsultationRecordsService {
 
         // Return quantities to inventory
         for (const record of medAdminRecords) {
-          // Get the current inventory item to get its category and current count
-          const inventoryItem = await prisma.inventory.findUnique({
+          // Get the current medicine item
+          const medicineItem = await prisma.medicine.findUnique({
             where: {
-              med_id_medName: {
-                med_id: record.med_id,
+              medicine_id_medName: {
+                medicine_id: record.med_id,
                 medName: record.medName
               }
             }
           });
 
-          if (!inventoryItem) {
-            continue; // Skip if inventory item doesn't exist anymore
+          if (!medicineItem) {
+            continue; // Skip if medicine doesn't exist anymore
           }
 
-          // Update the inventory count
-          const updatedItem = await prisma.inventory.update({
+          // Update the medicine count
+          const updatedItem = await prisma.medicine.update({
             where: {
-              med_id_medName: {
-                med_id: record.med_id,
+              medicine_id_medName: {
+                medicine_id: record.med_id,
                 medName: record.medName
               }
             },
@@ -215,10 +224,10 @@ export class ConsultationRecordsService {
           });
           
           // Calculate new running total
-          const newTotal = inventoryItem.count + record.count;
+          const newTotal = medicineItem.count + record.count;
           
-          // Log the return to inventory
-          await prisma.editsInverntory.create({
+          // Log the return to inventory - Changed EditsMedicine to editsMedicine (camelCase)
+          await prisma.editsMedicine.create({
             data: {
               med_id: record.med_id,
               medName: record.medName,
@@ -226,7 +235,8 @@ export class ConsultationRecordsService {
               cause: `Returned to inventory (Consultation #${consultation_id} deleted)`,
               addSubCount: record.count, // Positive for return
               runningTotal: newTotal, // Add the running total
-              category_id: inventoryItem.category_id // Add the category ID
+              category_id: medicineItem.medCategory_id, // Add the category ID
+              nurse_id: 1 // Assuming system action - replace with actual nurse ID if available
             }
           });
         }
@@ -334,31 +344,24 @@ export class ConsultationRecordsService {
   }
 
   /**
-   * Get consultation records for a specific client
+   * Get consultation records for a specific patient
    */
-  /**
- * Get consultation records for a specific client
- */
-  async getClientConsultations(clientId: number) {
+  async getPatientConsultations(patientId: number) {
     try {
-      const clientIdInt = typeof clientId === 'string' ? parseInt(clientId, 10) : clientId;
+      const patientIdInt = typeof patientId === 'string' ? parseInt(patientId, 10) : patientId;
 
       const consultations = await this.prisma.consultation_records.findMany({
         where: {
-          client_id: clientIdInt,
+          patient_id: patientIdInt,
         },
         include: {
-          diagnoses: {
+          diagnosis: {
             include: {
               diagnosis: true
             }
           },
-          admin: {
-            select: {
-              name: true,
-            }
-          },
-          // Include medication administration records
+          nurse: true,
+          doctor: true,
           medAdministrations: true
         },
         orderBy: {
@@ -369,16 +372,17 @@ export class ConsultationRecordsService {
       return consultations.map(record => ({
         id: record.consultation_id,
         date: record.date,
-        doctor: record.doctor,
+        nurse_name: record.nurse_name,
+        doctor_name: record.doctor_name,
         complaint: record.complaint,
         remarks: record.remarks,
         action: record.action,
         disposition: record.disposition,
+        intervention: record.intervention,
         confined: record.confined,
         medAdministration: record.medAdministration,
-        intern: record.intern,
         // Format diagnoses from related records
-        diagnoses: record.diagnoses?.map(d => d.diagnosis?.name).filter(Boolean).join(', ') || record.complaint,
+        diagnoses: record.diagnosis?.map(d => d.diagnosis?.name).filter(Boolean).join(', ') || record.complaint,
         // Include medication administration details
         medications: record.medAdministrations?.map(med => ({
           id: med.med_administration_id,
@@ -389,11 +393,17 @@ export class ConsultationRecordsService {
           endDate: med.end_date,
           remarks: med.remarks
         })) || [],
-        adminName: record.admin?.name || 'Unknown'
+        nurseName: record.nurse?.name || 'Unknown',
+        doctorName: record.doctor?.name || null
       }));
     } catch (error) {
-      console.error('Error fetching client consultations:', error);
+      console.error('Error fetching patient consultations:', error);
       throw new Error('Failed to fetch consultation records');
     }
+  }
+
+  // Alias method for backward compatibility
+  async getClientConsultations(clientId: number) {
+    return this.getPatientConsultations(clientId);
   }
 }

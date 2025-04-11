@@ -10,7 +10,10 @@ export class EquipmentService {
       const equipment = await this.prisma.equipment.findMany({
         orderBy: [
           { equipName: 'asc' },
-        ]
+        ],
+        include: {
+          category: true // Include category information
+        }
       });
       
       return equipment;
@@ -19,7 +22,7 @@ export class EquipmentService {
     }
   }
 
-  async addItem(item: any, admin_id?: number) {
+  async addItem(item: any, nurse_id?: number) {
     try {
       // Check if equipment with the same name already exists
       const existingEquipment = await this.prisma.equipment.findFirst({
@@ -44,20 +47,22 @@ export class EquipmentService {
           equipName: item.name,
           count: Number(item.count),
           unit: item.unit,
-          expiration: expirationDate
+          expiration: expirationDate,
+          equipCategory_id: item.categoryId || 1 // Use provided category or default to 1
         }
       });
 
-      // Log the new equipment addition with admin_id
+      // Log the new equipment addition with nurse_id
       await this.prisma.editsEquipment.create({
         data: {
-          equip_id: result.equip_id,
-          equipName: result.equipName, // Include equipment name
+          equipment_id: result.equipment_id,
+          equipName: result.equipName,
           date: new Date(),
           cause: 'Initial inventory',
           addSubCount: Number(item.count),
-          runningTotal: Number(item.count), // Add initial running total
-          admin_id: admin_id || null
+          runningTotal: Number(item.count),
+          nurse_id: nurse_id || 1, // Ensure we have a valid nurse_id
+          category_id: result.equipCategory_id // Add category ID
         }
       });
 
@@ -67,11 +72,11 @@ export class EquipmentService {
     }
   }
 
-  async updateItem(id: number, data: any, admin_id?: number) {
+  async updateItem(id: number, data: any, nurse_id?: number) {
     try {
       // Validate if equipment exists
       const equipment = await this.prisma.equipment.findUnique({
-        where: { equip_id: id }
+        where: { equipment_id: id }
       });
 
       if (!equipment) {
@@ -89,12 +94,13 @@ export class EquipmentService {
 
       // Update equipment
       const updatedEquipment = await this.prisma.equipment.update({
-        where: { equip_id: id },
+        where: { equipment_id: id },
         data: {
           equipName: data.name,
           count: Number(data.count),
           unit: data.unit,
-          expiration: expirationDate
+          expiration: expirationDate,
+          equipCategory_id: data.categoryId || equipment.equipCategory_id // Keep existing if not provided
         }
       });
 
@@ -105,13 +111,14 @@ export class EquipmentService {
         
         await this.prisma.editsEquipment.create({
           data: {
-            equip_id: id,
-            equipName: updatedEquipment.equipName, // Include equipment name
+            equipment_id: id,
+            equipName: updatedEquipment.equipName,
             date: new Date(),
             cause: 'Manual update',
             addSubCount: countDifference,
-            runningTotal: newTotal, // Add running total
-            admin_id: admin_id || null
+            runningTotal: newTotal,
+            nurse_id: nurse_id || 1, // Ensure we have a valid nurse_id
+            category_id: updatedEquipment.equipCategory_id
           }
         });
       }
@@ -122,11 +129,11 @@ export class EquipmentService {
     }
   }
 
-  async deleteItem(id: number, admin_id?: number) {
+  async deleteItem(id: number, nurse_id?: number) {
     try {
       // Validate if equipment exists
       const equipment = await this.prisma.equipment.findUnique({
-        where: { equip_id: id }
+        where: { equipment_id: id }
       });
 
       if (!equipment) {
@@ -136,19 +143,20 @@ export class EquipmentService {
       // Log the deletion before deleting
       await this.prisma.editsEquipment.create({
         data: {
-          equip_id: id,
-          equipName: equipment.equipName, // Include equipment name
+          equipment_id: id,
+          equipName: equipment.equipName,
           date: new Date(),
           cause: 'Equipment deleted',
-          addSubCount: -equipment.count, // Record removal of all items
-          runningTotal: 0, // After deletion, total is 0
-          admin_id: admin_id || null
+          addSubCount: -equipment.count,
+          runningTotal: 0,
+          nurse_id: nurse_id || 1, // Ensure we have a valid nurse_id
+          category_id: equipment.equipCategory_id
         }
       });
 
       // Delete equipment
       await this.prisma.equipment.delete({
-        where: { equip_id: id }
+        where: { equipment_id: id }
       });
 
       return { message: 'Equipment deleted successfully' };
@@ -157,10 +165,10 @@ export class EquipmentService {
     }
   }
 
-  async increaseEquipment(equip_id: number, quantity: number, cause: string = 'Unspecified addition', admin_id?: number) {
+  async increaseEquipment(equipment_id: number, quantity: number, cause: string = 'Unspecified addition', nurse_id?: number) {
     try {
       const equipment = await this.prisma.equipment.findUnique({
-        where: { equip_id }
+        where: { equipment_id }
       });
 
       if (!equipment) {
@@ -169,7 +177,7 @@ export class EquipmentService {
 
       // Update the equipment count
       const updatedEquipment = await this.prisma.equipment.update({
-        where: { equip_id },
+        where: { equipment_id },
         data: { count: equipment.count + quantity }
       });
 
@@ -179,13 +187,14 @@ export class EquipmentService {
       // Log the change
       await this.prisma.editsEquipment.create({
         data: {
-          equip_id,
+          equipment_id,
           equipName: updatedEquipment.equipName,
           date: new Date(),
           cause,
           addSubCount: quantity,
-          runningTotal: newTotal, // Add running total
-          admin_id
+          runningTotal: newTotal,
+          nurse_id: nurse_id || 1, // Ensure we have a valid nurse_id
+          category_id: equipment.equipCategory_id
         }
       });
 
@@ -195,10 +204,10 @@ export class EquipmentService {
     }
   }
 
-  async decreaseEquipment(equip_id: number, quantity: number, cause: string = 'Unspecified reduction', admin_id?: number) {
+  async decreaseEquipment(equipment_id: number, quantity: number, cause: string = 'Unspecified reduction', nurse_id?: number) {
     try {
       const equipment = await this.prisma.equipment.findUnique({
-        where: { equip_id }
+        where: { equipment_id }
       });
 
       if (!equipment) {
@@ -211,7 +220,7 @@ export class EquipmentService {
 
       // Update the equipment count
       const updatedEquipment = await this.prisma.equipment.update({
-        where: { equip_id },
+        where: { equipment_id },
         data: { count: equipment.count - quantity }
       });
 
@@ -221,13 +230,14 @@ export class EquipmentService {
       // Log the change
       await this.prisma.editsEquipment.create({
         data: {
-          equip_id,
+          equipment_id,
           equipName: updatedEquipment.equipName,
           date: new Date(),
           cause,
-          addSubCount: -quantity, // Negative for reduction
-          runningTotal: newTotal, // Add running total
-          admin_id
+          addSubCount: -quantity,
+          runningTotal: newTotal,
+          nurse_id: nurse_id || 1, // Ensure we have a valid nurse_id
+          category_id: equipment.equipCategory_id
         }
       });
 
@@ -248,10 +258,15 @@ export class EquipmentService {
               unit: true
             }
           },
-          admin: {
+          nurse: {
             select: {
               name: true,
               username: true
+            }
+          },
+          category: {
+            select: {
+              name: true
             }
           }
         },
@@ -260,14 +275,15 @@ export class EquipmentService {
         }
       });
       
-      // Format the edits to include admin info and unit
+      // Format the edits to include nurse info and unit
       const formattedEdits = edits.map(edit => ({
         ...edit,
         equipName: edit.equipment?.equipName || edit.equipName,
         unit: edit.equipment?.unit || '',
-        adminInfo: edit.admin
-          ? `${edit.admin.name} (${edit.admin.username})`
-          : 'No admin info'
+        categoryName: edit.category?.name || 'Uncategorized',
+        nurseInfo: edit.nurse
+          ? `${edit.nurse.name} (${edit.nurse.username})`
+          : 'No nurse info'
       }));
       
       return {

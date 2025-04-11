@@ -2,69 +2,73 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
-export class FetchClientFilesAdminService {
+export class FetchPatientFilesNurseService {
     constructor(private prisma: PrismaService) { }
 
-    async getClientFilesByGrade(clientId: number, grade: number) {
+    async getClientFilesByGrade(patientId: number, grade: number) {
         try {
-            // First, verify the client exists
-            const client = await this.prisma.client.findUnique({
-                where: { client_id: clientId },
+            // First, verify the patient exists
+            const patient = await this.prisma.patient.findUnique({
+                where: { patient_id: patientId },
             });
 
-            if (!client) {
-                throw new NotFoundException(`Client with ID ${clientId} not found`);
+            if (!patient) {
+                throw new NotFoundException(`Patient with ID ${patientId} not found`);
             }
 
             // Fetch dental certificates
             const dentalCertificates = await this.prisma.dental_certificates.findMany({
                 where: {
-                    client_id: clientId,
+                    patient_id: patientId,
                     grade: grade,
                 },
                 select: {
                     dental_id: true,
                     date: true,
                     grade: true,
+                    status: true,
                 },
             });
 
             // Fetch medical certificates
             const medicalCertificates = await this.prisma.medical_certificates.findMany({
                 where: {
-                    client_id: clientId,
+                    patient_id: patientId,
                     grade: grade,
                 },
                 select: {
                     medical_id: true,
                     date: true,
                     grade: true,
+                    status: true,
                 },
             });
 
             // Fetch ophthalmological certificates
             const opthalCertificates = await this.prisma.opthal_certificates.findMany({
                 where: {
-                    client_id: clientId,
+                    patient_id: patientId,
                     grade: grade,
                 },
                 select: {
                     opthal_id: true,
                     date: true,
                     grade: true,
+                    status: true,
                 },
             });
 
             // Fetch physical exam records
             const physicalExams = await this.prisma.physical_exam.findMany({
                 where: {
-                    client_id: clientId,
+                    patient_id: patientId,
                     grade: grade,
                 },
                 select: {
                     physical_id: true,
                     date: true,
                     grade: true,
+                    status: true,
                 },
             });
 
@@ -75,6 +79,7 @@ export class FetchClientFilesAdminService {
                 typeLabel: 'Dental Certificate',
                 date: cert.date,
                 grade: cert.grade,
+                status: cert.status,
             }));
 
             const transformedMedical = medicalCertificates.map(cert => ({
@@ -83,6 +88,7 @@ export class FetchClientFilesAdminService {
                 typeLabel: 'Medical Certificate',
                 date: cert.date,
                 grade: cert.grade,
+                status: cert.status,
             }));
 
             const transformedOpthal = opthalCertificates.map(cert => ({
@@ -91,6 +97,7 @@ export class FetchClientFilesAdminService {
                 typeLabel: 'Ophthalmological Certificate',
                 date: cert.date,
                 grade: cert.grade,
+                status: cert.status,
             }));
 
             const transformedPhysical = physicalExams.map(exam => ({
@@ -99,6 +106,7 @@ export class FetchClientFilesAdminService {
                 typeLabel: 'Physical Examination',
                 date: exam.date,
                 grade: exam.grade,
+                status: exam.status,
             }));
 
             // Combine all files
@@ -112,7 +120,7 @@ export class FetchClientFilesAdminService {
             if (error instanceof NotFoundException) {
                 throw error;
             }
-            throw new Error(`Failed to fetch client files: ${error.message}`);
+            throw new Error(`Failed to fetch patient files: ${error.message}`);
         }
     }
 
@@ -149,30 +157,17 @@ export class FetchClientFilesAdminService {
                 throw new NotFoundException(`File not found: ${type}/${id}`);
             }
 
-            // Extract the binary data based on file type
-            let data;
-            switch (type) {
-                case 'dental':
-                    data = file.dental;
-                    break;
-                case 'medical':
-                    data = file.medical;
-                    break;
-                case 'opthal':
-                    data = file.opthal;
-                    break;
-                case 'physical':
-                    data = file.physical;
-                    break;
-            }
-
-            // Return the binary data and other file information
             return {
                 id,
                 type,
                 date: file.date,
                 grade: file.grade,
-                data: data,
+                file_path: file.file_path,
+                file_name: file.file_name,
+                mime_type: file.mime_type,
+                file_size: file.file_size,
+                status: file.status,
+                notes: file.notes,
             };
         } catch (error) {
             if (error instanceof NotFoundException) {

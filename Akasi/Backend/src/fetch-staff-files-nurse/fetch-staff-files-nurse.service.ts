@@ -2,61 +2,65 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
-export class FetchStaffFilesAdminService {
+export class FetchStaffFilesNurseService {
     constructor(private prisma: PrismaService) { }
 
-    async getStaffFiles(clientId: number) {
+    async getStaffFiles(patientId: number) {
         try {
-            // First, verify the client exists
-            const client = await this.prisma.client.findUnique({
-                where: { client_id: clientId },
+            // First, verify the patient exists
+            const patient = await this.prisma.patient.findUnique({
+                where: { patient_id: patientId },
             });
 
-            if (!client) {
-                throw new NotFoundException(`Client with ID ${clientId} not found`);
+            if (!patient) {
+                throw new NotFoundException(`Patient with ID ${patientId} not found`);
             }
 
             // Fetch dental certificates
             const dentalCertificates = await this.prisma.dental_certificates.findMany({
                 where: {
-                    client_id: clientId,
+                    patient_id: patientId,
                 },
                 select: {
                     dental_id: true,
                     date: true,
+                    status: true,
                 },
             });
 
             // Fetch medical certificates
             const medicalCertificates = await this.prisma.medical_certificates.findMany({
                 where: {
-                    client_id: clientId,
+                    patient_id: patientId,
                 },
                 select: {
                     medical_id: true,
                     date: true,
+                    status: true,
                 },
             });
 
             // Fetch ophthalmological certificates
             const opthalCertificates = await this.prisma.opthal_certificates.findMany({
                 where: {
-                    client_id: clientId,
+                    patient_id: patientId,
                 },
                 select: {
                     opthal_id: true,
                     date: true,
+                    status: true,
                 },
             });
 
             // Fetch physical exam records
             const physicalExams = await this.prisma.physical_exam.findMany({
                 where: {
-                    client_id: clientId,
+                    patient_id: patientId,
                 },
                 select: {
                     physical_id: true,
                     date: true,
+                    status: true,
                 },
             });
 
@@ -66,6 +70,7 @@ export class FetchStaffFilesAdminService {
                 type: 'dental',
                 typeLabel: 'Dental Certificate',
                 date: cert.date,
+                status: cert.status,
             }));
 
             const transformedMedical = medicalCertificates.map(cert => ({
@@ -73,6 +78,7 @@ export class FetchStaffFilesAdminService {
                 type: 'medical',
                 typeLabel: 'Medical Certificate',
                 date: cert.date,
+                status: cert.status,
             }));
 
             const transformedOpthal = opthalCertificates.map(cert => ({
@@ -80,6 +86,7 @@ export class FetchStaffFilesAdminService {
                 type: 'opthal',
                 typeLabel: 'Ophthalmological Certificate',
                 date: cert.date,
+                status: cert.status,
             }));
 
             const transformedPhysical = physicalExams.map(exam => ({
@@ -87,6 +94,7 @@ export class FetchStaffFilesAdminService {
                 type: 'physical',
                 typeLabel: 'Physical Examination',
                 date: exam.date,
+                status: exam.status,
             }));
 
             // Combine all files
@@ -100,7 +108,7 @@ export class FetchStaffFilesAdminService {
             if (error instanceof NotFoundException) {
                 throw error;
             }
-            throw new Error(`Failed to fetch client files: ${error.message}`);
+            throw new Error(`Failed to fetch patient files: ${error.message}`);
         }
     }
 
@@ -137,29 +145,16 @@ export class FetchStaffFilesAdminService {
                 throw new NotFoundException(`File not found: ${type}/${id}`);
             }
 
-            // Extract the binary data based on file type
-            let data;
-            switch (type) {
-                case 'dental':
-                    data = file.dental;
-                    break;
-                case 'medical':
-                    data = file.medical;
-                    break;
-                case 'opthal':
-                    data = file.opthal;
-                    break;
-                case 'physical':
-                    data = file.physical;
-                    break;
-            }
-
-            // Return the binary data and other file information
             return {
                 id,
                 type,
                 date: file.date,
-                data: data,
+                file_path: file.file_path,
+                file_name: file.file_name,
+                mime_type: file.mime_type,
+                file_size: file.file_size,
+                status: file.status,
+                notes: file.notes,
             };
         } catch (error) {
             if (error instanceof NotFoundException) {
