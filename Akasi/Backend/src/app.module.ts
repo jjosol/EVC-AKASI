@@ -3,7 +3,7 @@ import { Module } from '@nestjs/common';
 import { NurseModule } from './nurse/nurse.module'
 import { PrismaModule } from './prisma.module';
 import { AuthModule } from './auth/auth.module';
-import { ClientsModule } from './clients/clients.module';
+import { PatientModule } from './patient/patient.module';
 import { ConsultationRecordsModule } from './consultation-records/consultation-records.module';
 // import { TestModule } from './test/test.module';
 import { PostsModule } from './posts/posts.module';
@@ -17,14 +17,14 @@ import { FetchAppointmentsClientModule } from './fetch-appointments-client/fetch
 import { DailyAppointmentModule } from './daily-appointment/daily-appointment.module';
 import { EnrollmentDocumentsModule } from './enrollment-documents/enrollment-documents.module';
 import { ReportsModule } from './reports/reports.module';
-import { ClientFilesModule } from './client-files/client-files.module';
-import { FetchClientFilesModule } from './fetch-client-files/fetch-client-files.module';
-import { GetClientsModule } from './get-clients/get-clients.module';
-import { FetchClientFilesAdminModule } from './fetch-client-files-admin/fetch-client-files-admin.module';
+import { PatientFilesModule } from './patient-files/patient-files.module';
+import { FetchPatientFilesModule } from './fetch-patient-files/fetch-patient-files.module';
+import { GetPatientsModule } from './get-patients/get-patients.module';
+import { FetchPatientFilesAdminModule } from './fetch-patient-files-admin/fetch-patient-files-admin.module';
 import { FetchStaffFilesAdminModule } from './fetch-staff-files-admin/fetch-staff-files-admin.module';
 import { FileStatusModule } from './file-status/file-status.module';
-import { ClientStatusModule } from './client-status/client-status.module';
-import { ClientFilesStaffModule } from './client-files-staff/client-files-staff.module';
+import { PatientStatusModule } from './patient-status/patient-status.module';
+import { PatientFilesStaffModule } from './patient-files-staff/patient-files-staff.module';
 import { DiagnosisModule } from './diagnosis/diagnosis.module';
 import { ManagersModule } from './managers/managers.module';
 import { GetClientConsultationsModule } from './get-client-consultations/get-client-consultations.module';
@@ -43,7 +43,7 @@ import { EquipmentModule } from './equipment/equipment.module';
     PrismaModule,
     NurseModule,
     AuthModule,
-    ClientsModule,
+    PatientModule,
     ConsultationRecordsModule,
     PostsModule,
     InventoryModule,
@@ -56,14 +56,14 @@ import { EquipmentModule } from './equipment/equipment.module';
     DailyAppointmentModule,
     DailyAppointmentModule,
     EnrollmentDocumentsModule,
-    ClientFilesModule,
-    FetchClientFilesModule,
-    GetClientsModule,
-    FetchClientFilesAdminModule,
+    PatientFilesModule,
+    FetchPatientFilesModule,
+    GetPatientsModule,
+    FetchPatientFilesAdminModule,
     FetchStaffFilesAdminModule,
     FileStatusModule,
-    ClientStatusModule,
-    ClientFilesStaffModule,
+    PatientStatusModule,
+    PatientFilesStaffModule,
     DiagnosisModule,
     ManagersModule,
     GetClientConsultationsModule,

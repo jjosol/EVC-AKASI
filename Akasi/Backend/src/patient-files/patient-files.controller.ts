@@ -16,12 +16,12 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response, Request } from 'express';
-import { ClientFilesStaffService } from './client-files-staff.service';
+import { PatientFilesService } from './patient-files.service';
 import { diskStorage } from 'multer';
 import { PrismaService } from '../prisma.service';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 import { FileStatusService } from '../file-status/file-status.service';
-import { ClientStatusService } from '../client-status/client-status.service';
+import { PatientStatusService } from '../patient-status/patient-status.service';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -29,7 +29,7 @@ import * as fs from 'fs';
 class UpdateFileStatusDto {
     fileId: number;
     fileType: string;
-    clientId: number;
+    patientId: number;
     status: 'pending' | 'complete' | 'rejected';
     notes?: string;
 }
@@ -37,24 +37,25 @@ class UpdateFileStatusDto {
 interface AuthenticatedUser {
     id?: number;
     admin_id?: number;
-    client_id?: number;
+    nurse_id?: number;
+    doctor_id?: number;
+    patient_id?: number;
     role?: string;
 }
 
-@Controller('client-files-staff')
-export class ClientFilesStaffController {
+@Controller('patient-files')
+export class PatientFilesController {
     constructor(
-        private readonly ClientFilesStaffService: ClientFilesStaffService,
+        private readonly patientFilesService: PatientFilesService,
         private readonly prisma: PrismaService,
         private readonly fileStatusService: FileStatusService,
-        private readonly clientStatusService: ClientStatusService
+        private readonly patientStatusService: PatientStatusService
     ) { }
 
-    // Updated to get all certificates without grade parameter
     @Get()
-    async getCertificates() {
+    async getCertificates(@Query('grade', ParseIntPipe) grade: number) {
         try {
-            const certificates = await this.ClientFilesStaffService.findAll();
+            const certificates = await this.patientFilesService.findAllByGrade(grade);
             return certificates;
         } catch (error) {
             throw new HttpException(
@@ -68,38 +69,29 @@ export class ClientFilesStaffController {
         }
     }
 
-    // New endpoint to get certificates by client ID
-    @Get('by-client/:clientId')
-    async getCertificatesByClientId(@Param('clientId', ParseIntPipe) clientId: number) {
-        try {
-            const certificates = await this.ClientFilesStaffService.findAllByClientId(clientId);
-            return certificates;
-        } catch (error) {
-            throw new HttpException(
-                {
-                    status: HttpStatus.INTERNAL_SERVER_ERROR,
-                    error: 'Failed to fetch certificates for client',
-                    message: error.message,
-                },
-                HttpStatus.INTERNAL_SERVER_ERROR,
-            );
-        }
-    }
-
     @Post('upload')
     @UseInterceptors(
         FileInterceptor('file', {
             storage: diskStorage({
                 destination: (req, file, cb) => {
-                    // Create temporary storage directory if it doesn't exist
-                    const uploadPath = path.resolve(__dirname, '../../uploads/temp');
+                    // Create directory structure based on file type and date
+                    const fileType = req.body.type || 'general';
+                    const patientId = req.body.patient_id || 'unknown';
+                    const today = new Date();
+                    const year = today.getFullYear();
+                    const month = String(today.getMonth() + 1).padStart(2, '0');
+                    
+                    // Create path like: uploads/dental/2023/05/patientId/
+                    const uploadPath = path.resolve(__dirname, `../../uploads/${fileType}/${year}/${month}/${patientId}`);
                     fs.mkdirSync(uploadPath, { recursive: true });
                     cb(null, uploadPath);
                 },
                 filename: (req, file, cb) => {
+                    // Generate more descriptive filename
                     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
                     const ext = path.extname(file.originalname);
-                    cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+                    const sanitizedOriginalName = file.originalname.replace(/[^a-zA-Z0-9]/g, '-').substring(0, 30);
+                    cb(null, `${sanitizedOriginalName}-${uniqueSuffix}${ext}`);
                 },
             }),
             fileFilter: (req, file, cb) => {
@@ -115,7 +107,7 @@ export class ClientFilesStaffController {
                     );
                 }
 
-                // Check file size (10MB max) - multer handles this in limits
+                // File passes validation
                 cb(null, true);
             },
             limits: {
@@ -125,42 +117,47 @@ export class ClientFilesStaffController {
     )
     async uploadCertificate(
         @UploadedFile() file: Express.Multer.File,
+        @Body('grade', ParseIntPipe) grade: number,
         @Body('type') type: string,
-        @Body('client_id', ParseIntPipe) clientId: number,
+        @Body('patient_id', ParseIntPipe) patientId: number,
     ) {
         try {
             if (!file) {
                 throw new HttpException('No file uploaded', HttpStatus.BAD_REQUEST);
             }
 
-            // Validate certificate type
-            const validTypes = ['dental', 'medical', 'opthal', 'physical'];
+            // Validate document type
+            const validTypes = [
+                'dental', 'medical', 'opthal', 'physical', 
+                'dental_consent', 'medical_consent', 'dental_history', 
+                'hh_pds', 'laboratory'
+            ];
+            
             if (!validTypes.includes(type)) {
-                throw new HttpException('Invalid certificate type', HttpStatus.BAD_REQUEST);
+                throw new HttpException(
+                    `Invalid document type. Must be one of: ${validTypes.join(', ')}`, 
+                    HttpStatus.BAD_REQUEST
+                );
             }
 
             // Log the received parameters for debugging
-            console.log('Upload parameters:', { type, clientId, fileName: file.originalname });
+            console.log('Upload parameters:', { grade, type, patientId, fileName: file.originalname });
 
-            // Read file data
-            const fileData = fs.readFileSync(file.path);
-
-            // Store in database with the provided client ID (removed grade parameter)
-            const result = await this.ClientFilesStaffService.create({
+            // Store in database with the provided patient ID
+            const result = await this.patientFilesService.create({
+                grade,
                 type,
                 fileName: file.originalname,
-                fileData,
+                filePath: file.path,
                 mimeType: file.mimetype,
-            }, clientId);
-
-            // Delete temp file after storing in DB
-            fs.unlinkSync(file.path);
+                fileSize: file.size
+            }, patientId);
 
             // Log the result for debugging
             console.log('Upload successful, returning:', result);
 
             return {
-                message: 'Certificate uploaded successfully',
+                message: 'Document uploaded successfully',
                 id: result.id,
             };
         } catch (error) {
@@ -174,7 +171,7 @@ export class ClientFilesStaffController {
             throw new HttpException(
                 {
                     status: error.status || HttpStatus.INTERNAL_SERVER_ERROR,
-                    error: 'Failed to upload certificate',
+                    error: 'Failed to upload document',
                     message: error.message,
                 },
                 error.status || HttpStatus.INTERNAL_SERVER_ERROR,
@@ -189,26 +186,34 @@ export class ClientFilesStaffController {
         @Res() res: Response,
     ) {
         try {
-            const certificate = await this.ClientFilesStaffService.findById(id, type);
+            const document = await this.patientFilesService.findById(id, type);
 
-            if (!certificate) {
-                throw new HttpException('Certificate not found', HttpStatus.NOT_FOUND);
+            if (!document) {
+                throw new HttpException('Document not found', HttpStatus.NOT_FOUND);
+            }
+
+            // Check if file exists on disk
+            if (!document.fileData) {
+                throw new HttpException(
+                    'File not found on disk', 
+                    HttpStatus.NOT_FOUND
+                );
             }
 
             // Set appropriate headers
-            res.setHeader('Content-Type', certificate.mimeType);
+            res.setHeader('Content-Type', document.mimeType);
             res.setHeader(
                 'Content-Disposition',
-                `attachment; filename="${certificate.fileName}"`,
+                `attachment; filename="${document.fileName}"`,
             );
 
             // Send the file data
-            return res.send(certificate.fileData);
+            return res.send(document.fileData);
         } catch (error) {
             throw new HttpException(
                 {
                     status: error.status || HttpStatus.INTERNAL_SERVER_ERROR,
-                    error: 'Failed to download certificate',
+                    error: 'Failed to download document',
                     message: error.message,
                 },
                 error.status || HttpStatus.INTERNAL_SERVER_ERROR,
@@ -222,17 +227,17 @@ export class ClientFilesStaffController {
         @Body('type') type: string,
     ) {
         try {
-            const result = await this.ClientFilesStaffService.delete(id, type);
+            const result = await this.patientFilesService.delete(id, type);
 
             return {
-                message: 'Certificate deleted successfully',
+                message: 'Document deleted successfully',
                 id,
             };
         } catch (error) {
             throw new HttpException(
                 {
                     status: error.status || HttpStatus.INTERNAL_SERVER_ERROR,
-                    error: 'Failed to delete certificate',
+                    error: 'Failed to delete document',
                     message: error.message,
                 },
                 error.status || HttpStatus.INTERNAL_SERVER_ERROR,
@@ -245,13 +250,13 @@ export class ClientFilesStaffController {
     @UseGuards(JwtAuthGuard)
     async updateFileStatus(@Body() fileData: UpdateFileStatusDto, @Req() request: Request) {
         try {
-            // Extract admin_id from the user object attached by JwtAuthGuard
-            const adminId = (request.user as AuthenticatedUser)?.admin_id;
+            // Extract nurse_id from the user object attached by JwtAuthGuard
+            const nurseId = (request.user as AuthenticatedUser)?.nurse_id;
 
-            // Validate admin ID is available
-            if (!adminId) {
+            // Validate nurse ID is available
+            if (!nurseId) {
                 throw new HttpException(
-                    'Admin ID not found. Make sure you are authenticated as an admin.',
+                    'Nurse ID not found. Make sure you are authenticated as a nurse.',
                     HttpStatus.UNAUTHORIZED
                 );
             }
@@ -260,7 +265,7 @@ export class ClientFilesStaffController {
             const updatedFile = await this.fileStatusService.updateFileStatus({
                 fileId: fileData.fileId,
                 fileType: fileData.fileType,
-                clientId: fileData.clientId,
+                patientId: fileData.patientId,
                 status: fileData.status,
                 notes: fileData.notes || null
             });
@@ -292,23 +297,23 @@ export class ClientFilesStaffController {
         @Req() request: Request
     ) {
         try {
-            // Extract admin_id from the user object attached by JwtAuthGuard
-            const adminId = (request.user as AuthenticatedUser)?.admin_id;
+            // Extract nurse_id from the user object attached by JwtAuthGuard
+            const nurseId = (request.user as AuthenticatedUser)?.nurse_id;
 
-            // Validate admin ID is available
-            if (!adminId) {
+            // Validate nurse ID is available
+            if (!nurseId) {
                 throw new HttpException(
-                    'Admin ID not found. Make sure you are authenticated as an admin.',
+                    'Nurse ID not found. Make sure you are authenticated as a nurse.',
                     HttpStatus.UNAUTHORIZED
                 );
             }
 
-            // Get client ID from the request body
-            const clientId = request.body.client_id;
+            // Get patient ID from the request body
+            const patientId = request.body.patient_id;
 
-            if (!clientId) {
+            if (!patientId) {
                 throw new HttpException(
-                    'Client ID is required to update file status',
+                    'Patient ID is required to update file status',
                     HttpStatus.BAD_REQUEST
                 );
             }
@@ -317,7 +322,7 @@ export class ClientFilesStaffController {
             await this.fileStatusService.updateFileStatus({
                 fileId: id,
                 fileType: type,
-                clientId: clientId,
+                patientId: patientId,
                 status: updateStatusDto.status,
                 notes: updateStatusDto.notes || null
             });
@@ -345,7 +350,7 @@ export class ClientFilesStaffController {
         @Query('type') type: string
     ) {
         try {
-            const status = await this.ClientFilesStaffService.getFileStatus(id, type);
+            const status = await this.patientFilesService.getFileStatus(id, type);
             return status;
         } catch (error) {
             throw new HttpException(
@@ -364,18 +369,19 @@ export class ClientFilesStaffController {
     @UseGuards(JwtAuthGuard)
     async getPendingFiles() {
         try {
-            // Get all clients with pending status
-            const pendingClients = await this.clientStatusService.getClientsWithPendingFiles();
+            // Get all patients with pending status
+            const pendingPatients = await this.patientStatusService.getPatientsWithPendingFiles();
 
-            // Get all pending files for each client
+            // Get all pending files for each patient
             const pendingFiles = [];
 
-            for (const client of pendingClients) {
-                // Get all file types for this client
-                const [dental, medical, opthal, physical] = await Promise.all([
+            for (const patient of pendingPatients) {
+                // Get all file types for this patient with pending or rejected status
+                const [dental, medical, opthal, physical, dentalConsent, medicalConsent, 
+                       dentalHistory, hhPds, laboratory] = await Promise.all([
                     this.prisma.dental_certificates.findMany({
                         where: {
-                            client_id: client.client_id,
+                            patient_id: patient.patient_id,
                             status: { in: ['pending', 'rejected'] }
                         },
                         select: {
@@ -383,11 +389,12 @@ export class ClientFilesStaffController {
                             date: true,
                             status: true,
                             notes: true,
+                            grade: true
                         }
                     }),
                     this.prisma.medical_certificates.findMany({
                         where: {
-                            client_id: client.client_id,
+                            patient_id: patient.patient_id,
                             status: { in: ['pending', 'rejected'] }
                         },
                         select: {
@@ -395,11 +402,12 @@ export class ClientFilesStaffController {
                             date: true,
                             status: true,
                             notes: true,
+                            grade: true
                         }
                     }),
                     this.prisma.opthal_certificates.findMany({
                         where: {
-                            client_id: client.client_id,
+                            patient_id: patient.patient_id,
                             status: { in: ['pending', 'rejected'] }
                         },
                         select: {
@@ -407,11 +415,12 @@ export class ClientFilesStaffController {
                             date: true,
                             status: true,
                             notes: true,
+                            grade: true
                         }
                     }),
                     this.prisma.physical_exam.findMany({
                         where: {
-                            client_id: client.client_id,
+                            patient_id: patient.patient_id,
                             status: { in: ['pending', 'rejected'] }
                         },
                         select: {
@@ -419,69 +428,105 @@ export class ClientFilesStaffController {
                             date: true,
                             status: true,
                             notes: true,
+                            grade: true
+                        }
+                    }),
+                    this.prisma.dental_consent.findMany({
+                        where: {
+                            patient_id: patient.patient_id,
+                            status: { in: ['pending', 'rejected'] }
+                        },
+                        select: {
+                            dental_consent_id: true,
+                            date: true,
+                            status: true,
+                            notes: true,
+                            grade: true
+                        }
+                    }),
+                    this.prisma.medical_consent.findMany({
+                        where: {
+                            patient_id: patient.patient_id,
+                            status: { in: ['pending', 'rejected'] }
+                        },
+                        select: {
+                            medical_consent_id: true,
+                            date: true,
+                            status: true,
+                            notes: true,
+                            grade: true
+                        }
+                    }),
+                    this.prisma.dental_history.findMany({
+                        where: {
+                            patient_id: patient.patient_id,
+                            status: { in: ['pending', 'rejected'] }
+                        },
+                        select: {
+                            dental_history_id: true,
+                            date: true,
+                            status: true,
+                            notes: true,
+                            grade: true
+                        }
+                    }),
+                    this.prisma.hh_pds.findMany({
+                        where: {
+                            patient_id: patient.patient_id,
+                            status: { in: ['pending', 'rejected'] }
+                        },
+                        select: {
+                            hh_pds_id: true,
+                            date: true,
+                            status: true,
+                            notes: true,
+                            grade: true
+                        }
+                    }),
+                    this.prisma.laboratory.findMany({
+                        where: {
+                            patient_id: patient.patient_id,
+                            status: { in: ['pending', 'rejected'] }
+                        },
+                        select: {
+                            laboratory_id: true,
+                            date: true,
+                            status: true,
+                            notes: true,
+                            grade: true,
+                            type: true
                         }
                     })
                 ]);
 
-                // Format dental files
-                dental.forEach(file => {
-                    pendingFiles.push({
-                        id: file.dental_id,
-                        type: 'dental',
-                        status: file.status,
-                        notes: file.notes,
-                        date: file.date,
-                        clientName: client.name,
-                        clientId: client.client_id,
-                        section: client.section,
-                        category: 'student'
+                // Format and add all file types to pendingFiles
+                const addFormattedFiles = (files, type, idField) => {
+                    files.forEach(file => {
+                        pendingFiles.push({
+                            id: file[idField],
+                            type: type,
+                            status: file.status,
+                            notes: file.notes,
+                            date: file.date,
+                            patientName: patient.name,
+                            patientId: patient.patient_id,
+                            grade: file.grade || patient.grade,
+                            section: patient.section,
+                            category: patient.type,
+                            ...(type === 'laboratory' && { labType: file.type })
+                        });
                     });
-                });
+                };
 
-                // Format medical files
-                medical.forEach(file => {
-                    pendingFiles.push({
-                        id: file.medical_id,
-                        type: 'medical',
-                        status: file.status,
-                        notes: file.notes,
-                        date: file.date,
-                        clientName: client.name,
-                        clientId: client.client_id,
-                        section: client.section,
-                        category: 'student'
-                    });
-                });
-
-                // Format opthal files
-                opthal.forEach(file => {
-                    pendingFiles.push({
-                        id: file.opthal_id,
-                        type: 'opthal',
-                        status: file.status,
-                        notes: file.notes,
-                        date: file.date,
-                        clientName: client.name,
-                        clientId: client.client_id,
-                        section: client.section,
-                        category: 'student'
-                    });
-                });
-
-                // Format physical files
-                physical.forEach(file => {
-                    pendingFiles.push({
-                        id: file.physical_id,
-                        type: 'physical',
-                        status: file.status,
-                        notes: file.notes,
-                        date: file.date,
-                        clientName: client.name,
-                        clientId: client.client_id,
-                        section: client.section,
-                        category: 'student'
-                    });
-                });
+                addFormattedFiles(dental, 'dental', 'dental_id');
+                addFormattedFiles(medical, 'medical', 'medical_id');
+                addFormattedFiles(opthal, 'opthal', 'opthal_id');
+                addFormattedFiles(physical, 'physical', 'physical_id');
+                addFormattedFiles(dentalConsent, 'dental_consent', 'dental_consent_id');
+                addFormattedFiles(medicalConsent, 'medical_consent', 'medical_consent_id');
+                addFormattedFiles(dentalHistory, 'dental_history', 'dental_history_id');
+                addFormattedFiles(hhPds, 'hh_pds', 'hh_pds_id');
+                addFormattedFiles(laboratory, 'laboratory', 'laboratory_id');
             }
 
             return pendingFiles;
@@ -497,12 +542,12 @@ export class ClientFilesStaffController {
         }
     }
 
-    // New endpoint to fetch all file statuses for a client
+    // New endpoint to fetch all file statuses for a patient
     @Get('fetch-file-statuses')
     @UseGuards(JwtAuthGuard)
-    async fetchFileStatuses(@Query('client_id') clientId: string) {
+    async fetchFileStatuses(@Query('patient_id') patientId: string) {
         try {
-            const fileStatuses = await this.fileStatusService.fetchFileStatuses(Number(clientId));
+            const fileStatuses = await this.fileStatusService.fetchFileStatuses(Number(patientId));
             return {
                 success: true,
                 data: fileStatuses,
@@ -519,21 +564,21 @@ export class ClientFilesStaffController {
         }
     }
 
-    // New endpoint to get all students with pending files
-    @Get('faculty-with-pending-files')
+    // New endpoint to get all patients with pending files
+    @Get('patients-with-pending-files')
     @UseGuards(JwtAuthGuard)
-    async getFacultyWithPendingFiles() {
+    async getPatientsWithPendingFiles() {
         try {
-            const clients = await this.clientStatusService.getClientsWithPendingFiles();
+            const patients = await this.patientStatusService.getPatientsWithPendingFiles();
             return {
                 success: true,
-                data: clients,
+                data: patients,
             };
         } catch (error) {
             throw new HttpException(
                 {
                     status: error.status || HttpStatus.INTERNAL_SERVER_ERROR,
-                    error: 'Failed to fetch students with pending files',
+                    error: 'Failed to fetch patients with pending files',
                     message: error.message,
                 },
                 error.status || HttpStatus.INTERNAL_SERVER_ERROR

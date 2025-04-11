@@ -6,18 +6,18 @@ import * as bcrypt from 'bcrypt';
 export class ChangePasswordService {
   constructor(private prisma: PrismaService) {}
 
-  async changePasswordForAdmin(adminId: number, currentPassword: string, newPassword: string) {
-    // Find the admin
-    const admin = await this.prisma.admin.findFirst({
-      where: { admin_id: adminId }
+  async changePasswordForDoctor(doctorId: number, currentPassword: string, newPassword: string) {
+    // Find the doctor
+    const doctor = await this.prisma.doctor.findFirst({
+      where: { doctor_id: doctorId }
     });
 
-    if (!admin) {
-      throw new NotFoundException('Admin not found');
+    if (!doctor) {
+      throw new NotFoundException('Doctor not found');
     }
 
     // Verify current password
-    const isPasswordValid = await bcrypt.compare(currentPassword, admin.password);
+    const isPasswordValid = await bcrypt.compare(currentPassword, doctor.password);
     if (!isPasswordValid) {
       throw new BadRequestException('Current password is incorrect');
     }
@@ -25,27 +25,27 @@ export class ChangePasswordService {
     // Hash the new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // Update admin password
-    await this.prisma.admin.update({
-      where: { admin_id: adminId },
+    // Update doctor password
+    await this.prisma.doctor.update({
+      where: { doctor_id: doctorId },
       data: { password: hashedPassword }
     });
 
     return { message: 'Password updated successfully' };
   }
 
-  async changePasswordForClient(clientId: number, currentPassword: string, newPassword: string) {
-    // Find the client
-    const client = await this.prisma.client.findFirst({
-      where: { client_id: clientId }
+  async changePasswordForNurse(nurseId: number, currentPassword: string, newPassword: string) {
+    // Find the nurse
+    const nurse = await this.prisma.nurse.findFirst({
+      where: { nurse_id: nurseId }
     });
 
-    if (!client) {
-      throw new NotFoundException('Client not found');
+    if (!nurse) {
+      throw new NotFoundException('Nurse not found');
     }
 
     // Verify current password
-    const isPasswordValid = await bcrypt.compare(currentPassword, client.password);
+    const isPasswordValid = await bcrypt.compare(currentPassword, nurse.password);
     if (!isPasswordValid) {
       throw new BadRequestException('Current password is incorrect');
     }
@@ -53,9 +53,37 @@ export class ChangePasswordService {
     // Hash the new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // Update client password
-    await this.prisma.client.update({
-      where: { client_id: clientId },
+    // Update nurse password
+    await this.prisma.nurse.update({
+      where: { nurse_id: nurseId },
+      data: { password: hashedPassword }
+    });
+
+    return { message: 'Password updated successfully' };
+  }
+
+  async changePasswordForPatient(patientId: number, currentPassword: string, newPassword: string) {
+    // Find the patient
+    const patient = await this.prisma.patient.findFirst({
+      where: { patient_id: patientId }
+    });
+
+    if (!patient) {
+      throw new NotFoundException('Patient not found');
+    }
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(currentPassword, patient.password);
+    if (!isPasswordValid) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update patient password
+    await this.prisma.patient.update({
+      where: { patient_id: patientId },
       data: { password: hashedPassword }
     });
 

@@ -1,13 +1,13 @@
 // src/file-status/file-status.service.ts
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { ClientStatusService } from '../client-status/client-status.service';
+import { PatientStatusService } from '../patient-status/patient-status.service';
 
 @Injectable()
 export class FileStatusService {
     constructor(
         private prisma: PrismaService,
-        private clientStatusService: ClientStatusService,
+        private patientStatusService: PatientStatusService,
     ) { }
 
     /**
@@ -18,7 +18,7 @@ export class FileStatusService {
     async updateFileStatus(fileData: {
         fileId: number;
         fileType: string;
-        clientId: number;
+        patientId: number;
         status: string;
         notes?: string | null;
     }) {
@@ -72,8 +72,8 @@ export class FileStatusService {
                     throw new Error(`Unsupported file type: ${fileData.fileType}`);
             }
 
-            // After updating the file status, update the client status
-            await this.clientStatusService.updateClientStatus(fileData.clientId);
+            // After updating the file status, update the patient status
+            await this.patientStatusService.updatePatientStatus(fileData.patientId);
 
             return updatedFile;
         } catch (error) {
@@ -83,13 +83,13 @@ export class FileStatusService {
     }
 
     /**
-     * Retrieves all file statuses for a specific client
-     * @param clientId The ID of the client
+     * Retrieves all file statuses for a specific patient
+     * @param patient_id The ID of the patient
      * @returns An object containing file statuses
      */
-    async fetchFileStatuses(clientId: number) {
+    async fetchFileStatuses(patientId: number) {
         try {
-            // Get all files from the various tables for this client
+            // Get all files from the various tables for this patient
             const [
                 medicalCerts,
                 dentalCerts,
@@ -97,7 +97,7 @@ export class FileStatusService {
                 physicalExams,
             ] = await Promise.all([
                 this.prisma.medical_certificates.findMany({
-                    where: { client_id: clientId },
+                    where: { patient_id: patientId },
                     select: {
                         medical_id: true,
                         status: true,
@@ -105,7 +105,7 @@ export class FileStatusService {
                     },
                 }),
                 this.prisma.dental_certificates.findMany({
-                    where: { client_id: clientId },
+                    where: { patient_id: patientId },
                     select: {
                         dental_id: true,
                         status: true,
@@ -113,7 +113,7 @@ export class FileStatusService {
                     },
                 }),
                 this.prisma.opthal_certificates.findMany({
-                    where: { client_id: clientId },
+                    where: { patient_id: patientId },
                     select: {
                         opthal_id: true,
                         status: true,
@@ -121,7 +121,7 @@ export class FileStatusService {
                     },
                 }),
                 this.prisma.physical_exam.findMany({
-                    where: { client_id: clientId },
+                    where: { patient_id: patientId },
                     select: {
                         physical_id: true,
                         status: true,

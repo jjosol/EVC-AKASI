@@ -22,67 +22,70 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // Define a variable to hold the user data
     let userData: any = null;
 
-    // Check if the token has client information
-    if (payload.sub && payload.role === 'client') {
+    // Check the role in the token payload
+    if (payload.sub && payload.role === 'patient') {
       try {
-        const client = await this.prisma.client.findUnique({
+        // Find patient (previously client)
+        const patient = await this.prisma.patient.findUnique({
           where: {
-            client_id: payload.sub,
+            patient_id: payload.sub,
           },
         });
 
-        if (client) {
+        if (patient) {
           userData = {
-            id: client.client_id,        // For controllers expecting id
-            client_id: client.client_id, // For controllers expecting client_id
-            username: client.username,
-            grade: client.grade,
-            role: 'client',
+            id: patient.patient_id,        // For controllers expecting id
+            patient_id: patient.patient_id, // For controllers expecting patient_id
+            username: patient.username,
+            grade: patient.grade,
+            role: 'patient',
           };
-          this.logger.debug(`[JWT] Found client: ${client.client_id}`);
+          this.logger.debug(`[JWT] Found patient: ${patient.patient_id}`);
         }
       } catch (err) {
-        this.logger.error('[JWT] Error looking up client:', err);
+        this.logger.error('[JWT] Error looking up patient:', err);
       }
-    } else if (payload.sub && payload.role === 'admin') {
+    } else if (payload.sub && payload.role === 'nurse') {
       try {
-        const admin = await this.prisma.admin.findUnique({
+        // Find nurse (previously admin)
+        const nurse = await this.prisma.nurse.findUnique({
           where: {
-            admin_id: payload.sub,
+            nurse_id: payload.sub,
           },
         });
 
-        if (admin) {
+        if (nurse) {
           userData = {
-            id: admin.admin_id,       // Consistent naming
-            admin_id: admin.admin_id,
-            username: admin.username,
-            role: 'admin',
+            id: nurse.nurse_id,       // Consistent naming
+            nurse_id: nurse.nurse_id,
+            username: nurse.username,
+            role: 'nurse',
           };
-          this.logger.debug(`[JWT] Found admin: ${admin.admin_id}`);
+          this.logger.debug(`[JWT] Found nurse: ${nurse.nurse_id}`);
         }
       } catch (err) {
-        this.logger.error('[JWT] Error looking up admin:', err);
+        this.logger.error('[JWT] Error looking up nurse:', err);
       }
-    } else if (payload.sub && payload.role === 'manager') {
+    } else if (payload.sub && payload.role === 'doctor') {
       try {
-        const manager = await this.prisma.manager.findUnique({
+        // Find doctor (new role)
+        const doctor = await this.prisma.doctor.findUnique({
           where: {
-            manager_id: payload.sub,
+            doctor_id: payload.sub,
           },
         });
 
-        if (manager) {
+        if (doctor) {
           userData = {
-            id: manager.manager_id,
-            manager_id: manager.manager_id,
-            username: manager.username,
-            role: 'manager',
+            id: doctor.doctor_id,
+            doctor_id: doctor.doctor_id,
+            username: doctor.username,
+            role: 'doctor',
           };
-          this.logger.debug(`[JWT] Found manager: ${manager.manager_id}`);
+          this.logger.debug(`[JWT] Found doctor: ${doctor.doctor_id}`);
         }
       } catch (err) {
-        this.logger.error('[JWT] Error looking up manager:', err);
+        this.logger.error('[JWT] Error looking up doctor:', err);
       }
     }
 
@@ -91,7 +94,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Invalid token');
     }
 
-    // Additional logging to help debug client file access issues
+    // Additional logging to help debug patient file access issues
     this.logger.log(`[JWT] User authenticated - ID: ${userData.id}, Role: ${userData.role}`);
 
     return userData;

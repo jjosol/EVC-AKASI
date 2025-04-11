@@ -1,10 +1,10 @@
 // composables/useProfile.ts
 import { ref } from 'vue'
 
-// Define types for client and admin profiles
-type ClientProfile = {
-  type: 'client';
-  client_id: number;
+// Define types for patient and nurse profiles
+type PatientProfile = {
+  type: 'patient';
+  patient_id: number;
   username: string;
   name: string;
   gmail: string;
@@ -13,25 +13,33 @@ type ClientProfile = {
   category: string;
   grade: number | null;
   section: string;
-  
 }
 
-type AdminProfile = {
-  type: 'admin';
-  admin_id: number;
+type NurseProfile = {
+  type: 'nurse';
+  nurse_id: number;
+  username: string;
+  name: string;
+  gmail: string;
+}
+
+type DoctorProfile = {
+  type: 'doctor';
+  doctor_id: number;
   username: string;
   name: string;
   gmail: string;
 }
 
 // Union type for profiles
-type Profile = ClientProfile | AdminProfile;
+type Profile = PatientProfile | NurseProfile | DoctorProfile;
 
 export function useProfile() {
   const profile = ref<Profile | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
-  const isAdmin = ref(false)
+  const isNurse = ref(false)
+  const isDoctor = ref(false)
 
   async function fetchProfile() {
     try {
@@ -45,15 +53,26 @@ export function useProfile() {
           console.warn('No token found, using mock profile for development')
           // Get user role from localStorage if available
           const role = localStorage.getItem('userRole')
-          profile.value = role === 'admin' ? createMockAdminProfile() : createMockProfile()
-          isAdmin.value = role === 'admin'
+          if (role === 'nurse') {
+            profile.value = createMockNurseProfile()
+            isNurse.value = true
+            isDoctor.value = false
+          } else if (role === 'doctor') {
+            profile.value = createMockDoctorProfile()
+            isNurse.value = false
+            isDoctor.value = true
+          } else {
+            profile.value = createMockPatientProfile()
+            isNurse.value = false
+            isDoctor.value = false
+          }
           console.log('Created mock profile:', profile.value)
           return profile.value
         }
         throw new Error('No authentication token found')
       }
 
-      // Use a single endpoint for both admin and client profiles
+      // Use a single endpoint for profiles
       try {
         const response = await fetch('http://localhost:3001/profile', {
           headers: {
@@ -65,9 +84,20 @@ export function useProfile() {
         if (!response.ok) {
           if (process.env.NODE_ENV === 'development') {
             console.warn(`Authentication error (${response.status}), using mock profile for development`)
-            const role = localStorage.getItem('userRole') || 'client'
-            profile.value = role === 'admin' ? createMockAdminProfile() : createMockProfile()
-            isAdmin.value = role === 'admin'
+            const role = localStorage.getItem('userRole') || 'patient'
+            if (role === 'nurse') {
+              profile.value = createMockNurseProfile()
+              isNurse.value = true
+              isDoctor.value = false
+            } else if (role === 'doctor') {
+              profile.value = createMockDoctorProfile()
+              isNurse.value = false
+              isDoctor.value = true
+            } else {
+              profile.value = createMockPatientProfile()
+              isNurse.value = false
+              isDoctor.value = false
+            }
             console.log('Created mock profile after auth error:', profile.value)
             return profile.value
           }
@@ -82,27 +112,42 @@ export function useProfile() {
         console.log('API response userData:', userData)
 
         // Determine the profile type based on the data received
-        if (userData.admin_id !== undefined) {
-          // This is an admin profile
+        if (userData.nurse_id !== undefined) {
+          // This is a nurse profile
           profile.value = {
-            type: 'admin',
-            admin_id: userData.admin_id,
+            type: 'nurse',
+            nurse_id: userData.nurse_id,
             username: userData.username,
             name: userData.name,
             gmail: userData.gmail
           }
-          isAdmin.value = true
-          localStorage.setItem('userRole', 'admin')
-          console.log('Processed admin profile:', profile.value)
-        } else if (userData.client_id !== undefined) {
-          // This is a client profile
+          isNurse.value = true
+          isDoctor.value = false
+          localStorage.setItem('userRole', 'nurse')
+          console.log('Processed nurse profile:', profile.value)
+        } else if (userData.doctor_id !== undefined) {
+          // This is a doctor profile
           profile.value = {
-            type: 'client',
+            type: 'doctor',
+            doctor_id: userData.doctor_id,
+            username: userData.username,
+            name: userData.name,
+            gmail: userData.gmail
+          }
+          isNurse.value = false
+          isDoctor.value = true
+          localStorage.setItem('userRole', 'doctor')
+          console.log('Processed doctor profile:', profile.value)
+        } else if (userData.patient_id !== undefined) {
+          // This is a patient profile
+          profile.value = {
+            type: 'patient',
             ...userData
           }
-          isAdmin.value = false
-          localStorage.setItem('userRole', 'client')
-          console.log('Processed client profile:', profile.value)
+          isNurse.value = false
+          isDoctor.value = false
+          localStorage.setItem('userRole', 'patient')
+          console.log('Processed patient profile:', profile.value)
         } else {
           // Cannot determine the profile type
           throw new Error('Unknown profile type received')
@@ -112,9 +157,20 @@ export function useProfile() {
       } catch (err) {
         if (process.env.NODE_ENV === 'development') {
           console.warn('Profile fetch error, using mock profile for development')
-          const role = localStorage.getItem('userRole') || 'client'
-          profile.value = role === 'admin' ? createMockAdminProfile() : createMockProfile()
-          isAdmin.value = role === 'admin'
+          const role = localStorage.getItem('userRole') || 'patient'
+          if (role === 'nurse') {
+            profile.value = createMockNurseProfile()
+            isNurse.value = true
+            isDoctor.value = false
+          } else if (role === 'doctor') {
+            profile.value = createMockDoctorProfile()
+            isNurse.value = false
+            isDoctor.value = true
+          } else {
+            profile.value = createMockPatientProfile()
+            isNurse.value = false
+            isDoctor.value = false
+          }
           console.log('Created mock profile after fetch error:', profile.value)
           return profile.value
         }
@@ -131,9 +187,20 @@ export function useProfile() {
       // Provide mock data in development mode
       if (process.env.NODE_ENV === 'development') {
         console.warn('Error occurred, using mock profile based on last saved role')
-        const role = localStorage.getItem('userRole') || 'client'
-        profile.value = role === 'admin' ? createMockAdminProfile() : createMockProfile()
-        isAdmin.value = role === 'admin'
+        const role = localStorage.getItem('userRole') || 'patient'
+        if (role === 'nurse') {
+          profile.value = createMockNurseProfile()
+          isNurse.value = true
+          isDoctor.value = false
+        } else if (role === 'doctor') {
+          profile.value = createMockDoctorProfile()
+          isNurse.value = false
+          isDoctor.value = true
+        } else {
+          profile.value = createMockPatientProfile()
+          isNurse.value = false
+          isDoctor.value = false
+        }
         console.log('Created mock profile after general error:', profile.value)
         return profile.value
       }
@@ -143,30 +210,41 @@ export function useProfile() {
     }
   }
 
-  // Helper function to create a mock client profile for development
-  function createMockProfile(): ClientProfile {
+  // Helper function to create a mock patient profile for development
+  function createMockPatientProfile(): PatientProfile {
     return {
-      type: 'client',
-      client_id: 1,
+      type: 'patient',
+      patient_id: 1,
       username: 'test_user',
       name: 'Test User',
       gmail: 'test@example.com',
       age: 15,
       gender: 'Male',
-      category: 'student', // Changed to lowercase to match the check in profileFiles.vue
+      category: 'student',
       grade: 9,
       section: 'A'
     }
   }
 
-  // Helper function to create a mock admin profile
-  function createMockAdminProfile(): AdminProfile {
+  // Helper function to create a mock nurse profile
+  function createMockNurseProfile(): NurseProfile {
     return {
-      type: 'admin',
-      admin_id: 1,
-      name: 'Admin User',
-      username: 'admin_user',
-      gmail: 'admin@example.com'
+      type: 'nurse',
+      nurse_id: 1,
+      name: 'Nurse User',
+      username: 'nurse_user',
+      gmail: 'nurse@example.com'
+    }
+  }
+
+  // Helper function to create a mock doctor profile
+  function createMockDoctorProfile(): DoctorProfile {
+    return {
+      type: 'doctor',
+      doctor_id: 1,
+      name: 'Doctor User',
+      username: 'doctor_user',
+      gmail: 'doctor@example.com'
     }
   }
 
@@ -174,7 +252,8 @@ export function useProfile() {
     profile,
     loading,
     error,
-    isAdmin,
+    isNurse,
+    isDoctor,
     fetchProfile
   }
 }

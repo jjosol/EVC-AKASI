@@ -22,10 +22,12 @@ export default defineNuxtRouteMiddleware((to) => {
     // Check if userRole is in the array of required roles
     if (userRole.value && !requiredRole.includes(userRole.value)) {
       // User doesn't have any of the required roles
-      if (userRole.value === 'admin') {
-        return navigateTo('/home'); // Redirect admin
-      } else if (userRole.value === 'client') {
-        return navigateTo('/bulletin'); // Redirect client
+      if (userRole.value === 'nurse') {  // Previously 'admin'
+        return navigateTo('/home'); // Redirect nurse
+      } else if (userRole.value === 'doctor') {  // New role
+        return navigateTo('/home'); // Redirect doctor
+      } else if (userRole.value === 'patient') {  // Previously 'client'
+        return navigateTo('/bulletin'); // Redirect patient
       } else {
         return navigateTo('/login'); // Redirect unknown roles
       }

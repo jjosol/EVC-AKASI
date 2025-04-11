@@ -14,12 +14,15 @@ export class AuthService {
   async login(loginDto: { username: string; password: string }) {
     const { username, password } = loginDto;
 
-    // Find user (admin, client, or manager)
-    const admin = await this.prisma.admin.findFirst({ where: { username } });
-    const client = await this.prisma.client.findFirst({ where: { username } });
-    const manager = await this.prisma.manager.findFirst({ where: { username } });
+    // Find user (nurse, patient, or doctor)
+    // Nurse was previously Admin
+    const nurse = await this.prisma.nurse.findFirst({ where: { username } });
+    // Patient was previously Client
+    const patient = await this.prisma.patient.findFirst({ where: { username } });
+    // Doctor is a new role
+    const doctor = await this.prisma.doctor.findFirst({ where: { username } });
 
-    const user = admin || client || manager;
+    const user = nurse || patient || doctor;
 
     if (!user) {
       throw new UnauthorizedException('Invalid username or password');
@@ -31,22 +34,22 @@ export class AuthService {
     }
 
     // Create payload based on user type
-    const payload = admin
+    const payload = nurse
       ? {
-          sub: admin.admin_id,
-          username: admin.username,
-          role: 'admin'
+          sub: nurse.nurse_id,
+          username: nurse.username,
+          role: 'nurse'  // Previously 'admin'
         }
-      : manager
+      : doctor
       ? {
-          sub: manager.manager_id,
-          username: manager.username,
-          role: 'manager'
+          sub: doctor.doctor_id,
+          username: doctor.username,
+          role: 'doctor'  // New role
         }
       : {
-          sub: client.client_id,
-          username: client.username,
-          role: 'client'
+          sub: patient.patient_id,
+          username: patient.username,
+          role: 'patient'  // Previously 'client'
         };
 
     const token = this.jwtService.sign(payload);

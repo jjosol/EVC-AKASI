@@ -65,20 +65,18 @@ export const useAuth = () => {
     localStorage.setItem('token', token);
     checkToken(); // Update isAuthenticated and userRole
   };
-
-  const isAdmin = computed(() => userRole.value === 'admin');
-  const isClient = computed(() => userRole.value === 'client');
-  const isManager = computed(() => userRole.value === 'manager');
-
+  const isNurse = computed(() => userRole.value === 'nurse');
+  const isPatient = computed(() => userRole.value === 'patient');
+  const isDoctor = computed(() => userRole.value === 'doctor');
 
   startTokenCheck(); // Start token check immediately
 
   return {
     isAuthenticated,
     userRole,
-    isAdmin,
-    isClient,
-    isManager,
+    isNurse,
+    isPatient,
+    isDoctor,
     checkToken,
     handleLogout,
     startTokenCheck,

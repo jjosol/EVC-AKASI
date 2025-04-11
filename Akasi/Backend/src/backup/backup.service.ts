@@ -8,13 +8,15 @@ import { Cron, SchedulerRegistry } from '@nestjs/schedule';
 @Injectable()
 export class BackupService {
   private readonly backupDir = path.join(process.cwd(), 'backups');
+  private readonly filesDir = path.join(process.cwd(), 'uploaded_files');
   private readonly logger = new Logger(BackupService.name);
   private autoBackupConfig = {
     enabled: false,
     frequency: 'daily', // daily, weekly, monthly
     time: '00:00', // HH:MM format
     driveFolderId: '', // Google Drive folder ID
-    retention: 7 // Number of backups to keep
+    retention: 7, // Number of backups to keep
+    includeFiles: true // Whether to include uploaded files in backup
   };
   private autoBackupConfigPath = path.join(process.cwd(), 'auto-backup-config.json');
   private cronExpression: string;
@@ -28,6 +30,11 @@ export class BackupService {
     // Create backup directory if it doesn't exist
     if (!fs.existsSync(this.backupDir)) {
       fs.mkdirSync(this.backupDir, { recursive: true });
+    }
+    
+    // Create files backup directory if it doesn't exist
+    if (!fs.existsSync(this.filesDir)) {
+      fs.mkdirSync(this.filesDir, { recursive: true });
     }
     
     // Load auto backup config if exists
@@ -296,6 +303,14 @@ export class BackupService {
       const data: { [key: string]: any } = {};
       const errors: string[] = [];
       
+      // Track file-related models for special handling
+      const fileModels = [
+        'prescription', 'dental_certificates', 'medical_certificates', 
+        'opthal_certificates', 'physical_exam', 'medical_consent', 
+        'dental_consent', 'dental_history', 'hh_pds', 'laboratory',
+        'hsu_bulletin_files'
+      ];
+      
       // Extract data for each selected model
       for (const modelName of models) {
         try {
@@ -303,6 +318,18 @@ export class BackupService {
           if (typeof this.prisma[modelName] === 'object' && this.prisma[modelName] !== null) {
             // Use Prisma client to fetch data from each model
             const modelData = await this.prisma[modelName].findMany();
+            
+            // For models with file paths, include file existence information
+            if (fileModels.includes(modelName)) {
+              for (const record of modelData) {
+                if (record.file_path && fs.existsSync(record.file_path)) {
+                  // Add file metadata but not the content
+                  record._fileExists = true;
+                  record._fileSize = record.file_size || fs.statSync(record.file_path).size;
+                }
+              }
+            }
+            
             data[modelName] = modelData;
             this.logger.log(`Successfully backed up model: ${modelName} (${modelData.length} records)`);
           } else {
@@ -317,11 +344,12 @@ export class BackupService {
       
       // Add metadata to backup
       const metadata = {
-        version: '1.0',
+        version: '1.1', // Updated version
         timestamp: new Date().toISOString(),
         models: models.filter(m => data[m] !== undefined),
         recordCounts: {},
-        errors: errors
+        errors: errors,
+        includesFiles: this.autoBackupConfig.includeFiles
       };
       
       // Add record counts for each model
@@ -499,25 +527,50 @@ export class BackupService {
       
       // Define the order of restoration based on dependencies
       const modelRestoreOrder = [
-        'medicineCategory',
+        // Categories first
+        'medicineCategory', 
+        'equipmentCategory',
         'diagnosis_category',
-        'admin',
-        'client',
-        'manager',
-        'inventory',
+        
+        // User roles
+        'doctor',
+        'nurse',
+        'patient',
+        
+        // Assets and inventory
+        'medicine',
         'equipment',
+        
+        // Records
         'consultation_records',
         'diagnosis',
+        'prescription',
         'consultation_diagnosis',
-        'EditsInverntory',
+        
+        // Edits history
+        'EditsMedicine',
+        'EditsEquipment',
+        
+        // Administration
         'medAdministration',
+        
+        // Certificates and forms
         'dental_certificates',
         'medical_certificates',
         'opthal_certificates',
         'physical_exam',
+        'medical_consent',
+        'dental_consent',
+        'dental_history',
+        'hh_pds',
+        'laboratory',
+        
+        // Appointments
         'appointment',
-        'HSU_bulletin',
-        'HSU_bulletin_files',
+        
+        // Bulletin
+        'hsu_bulletin',
+        'hsu_bulletin_files',
       ];
       
       // Sort models based on the defined order
@@ -597,18 +650,55 @@ export class BackupService {
   private async clearModelData(prisma: any, modelName: string) {
     try {
       // Special handling for models with dependencies
-      if (modelName === 'HSU_bulletin') {
-        // First delete files since they reference posts
-        await prisma.hSU_bulletin_files.deleteMany({});
-      } else if (modelName === 'consultation_records') {
-        // First delete related diagnoses
-        await prisma.consultation_diagnosis.deleteMany({});
-        // And med administration records
-        await prisma.medAdministration.deleteMany({});
-      } else if (modelName === 'inventory') {
-        // First delete related edits and med administration
-        await prisma.editsInverntory.deleteMany({});
-        await prisma.medAdministration.deleteMany({});
+      switch(modelName) {
+        case 'hsu_bulletin':
+          // First delete files since they reference posts
+          await prisma.hsu_bulletin_files.deleteMany({});
+          break;
+        case 'consultation_records':
+          // First delete related records
+          await prisma.consultation_diagnosis.deleteMany({});
+          await prisma.medAdministration.deleteMany({});
+          await prisma.prescription.deleteMany({});
+          break;
+        case 'medicine':
+          // First delete related records
+          await prisma.medAdministration.deleteMany({});
+          await prisma.EditsMedicine.deleteMany({});
+          await prisma.prescription.deleteMany({});
+          break;
+        case 'equipment':
+          // Delete related equipment edits
+          await prisma.EditsEquipment.deleteMany({});
+          break;
+        case 'patient':
+          // Delete all patient-related records
+          await prisma.appointment.deleteMany({});
+          await prisma.consultation_records.deleteMany({});
+          await prisma.medAdministration.deleteMany({});
+          await prisma.dental_certificates.deleteMany({});
+          await prisma.medical_certificates.deleteMany({});
+          await prisma.opthal_certificates.deleteMany({});
+          await prisma.physical_exam.deleteMany({});
+          await prisma.medical_consent.deleteMany({});
+          await prisma.dental_consent.deleteMany({});
+          await prisma.dental_history.deleteMany({});
+          await prisma.hh_pds.deleteMany({});
+          await prisma.laboratory.deleteMany({});
+          break;
+        case 'nurse':
+          // Delete nurse-related records
+          await prisma.consultation_records.deleteMany({});
+          await prisma.medAdministration.deleteMany({});
+          await prisma.EditsEquipment.deleteMany({});
+          await prisma.EditsMedicine.deleteMany({});
+          await prisma.hsu_bulletin.deleteMany({});
+          break;
+        case 'doctor':
+          // Delete doctor-related records
+          await prisma.consultation_records.deleteMany({});
+          await prisma.medAdministration.deleteMany({});
+          break;
       }
       
       // Delete all data from the model
@@ -659,37 +749,90 @@ export class BackupService {
   private getPrimaryKeyFields(modelName: string, record: any) {
     // Define primary key fields for each model
     const primaryKeys = {
-      manager: {
-        manager_id: record.manager_id,
+      doctor: {
+        doctor_id: record.doctor_id,
         username: record.username,
       },
-      admin: {
-        admin_id: record.admin_id,
+      nurse: {
+        nurse_id: record.nurse_id,
         username: record.username,
       },
-      client: {
-        client_id: record.client_id,
+      patient: {
+        patient_id: record.patient_id,
         username: record.username,
       },
-      inventory: {
-        med_id_medName: {
-          med_id: record.med_id,
-          medName: record.medName,
-        },
+      medicine: {
+        medicine_id: record.medicine_id,
+        medName: record.medName,
       },
       consultation_records: {
         consultation_id: record.consultation_id,
       },
-      medAdministration: {
+      consultation_diagnosis: {
         consultation_id: record.consultation_id,
+        diagnosis_id: record.diagnosis_id,
       },
-      // Add more models as needed
+      medAdministration: {
+        med_administration_id: record.med_administration_id,
+      },
+      prescription: {
+        prescription_id: record.prescription_id,
+      },
+      equipment: {
+        equipment_id: record.equipment_id,
+      },
+      hsu_bulletin: {
+        post_id: record.post_id,
+      },
+      hsu_bulletin_files: {
+        file_id: record.file_id,
+      },
+      dental_certificates: {
+        dental_id: record.dental_id,
+      },
+      medical_certificates: {
+        medical_id: record.medical_id,
+      },
+      opthal_certificates: {
+        opthal_id: record.opthal_id,
+      },
+      physical_exam: {
+        physical_id: record.physical_id,
+      },
+      medical_consent: {
+        medical_consent_id: record.medical_consent_id,
+      },
+      dental_consent: {
+        dental_consent_id: record.dental_consent_id,
+      },
+      dental_history: {
+        dental_history_id: record.dental_history_id,
+      },
+      hh_pds: {
+        hh_pds_id: record.hh_pds_id,
+      },
+      laboratory: {
+        laboratory_id: record.laboratory_id,
+      },
+      // Add other models as needed
     };
     
     // Default to ID-based primary key if not specifically defined
     if (!primaryKeys[modelName]) {
       if (record.id) return { id: record.id };
-      if (record[`${modelName}_id`]) return { [`${modelName}_id`]: record[`${modelName}_id`] };
+      
+      // Try common ID patterns
+      const possibleIdFields = [
+        `${modelName}_id`,
+        `${modelName.toLowerCase()}_id`,
+        `${modelName}Id`
+      ];
+      
+      for (const field of possibleIdFields) {
+        if (record[field] !== undefined) {
+          return { [field]: record[field] };
+        }
+      }
     }
     
     return primaryKeys[modelName] || {};
@@ -703,25 +846,122 @@ export class BackupService {
           // Map Prisma model names to actual table names
           // This mapping should match your database schema
           const tableMapping: Record<string, string> = {
-            'admin': 'Admin',
-            'client': 'Client', 
-            'manager': 'Manager',
-            'inventory': 'Inventory',
-            'medicineCategory': 'MedicineCategory',
-            'consultation_records': 'Consultation_records',
-            'diagnosis': 'Diagnosis',
-            'consultation_diagnosis': 'Consultation_diagnosis',
-            'medAdministration': 'MedAdministration',
-            'HSU_bulletin': 'HSU_bulletin',
-            'HSU_bulletin_files': 'HSU_bulletin_files',
-            // Add other mappings as needed
+            'doctor': 'doctor',
+            'nurse': 'nurse',
+            'patient': 'patient',
+            'medicine': 'medicine',
+            'medicineCategory': 'medicineCategory',
+            'equipment': 'equipment',
+            'equipmentCategory': 'equipmentCategory',
+            'consultation_records': 'consultation_records',
+            'diagnosis': 'diagnosis',
+            'diagnosis_category': 'diagnosis_category',
+            'consultation_diagnosis': 'consultation_diagnosis',
+            'medAdministration': 'medAdministration',
+            'EditsMedicine': 'EditsMedicine',
+            'EditsEquipment': 'EditsEquipment',
+            'prescription': 'prescription',
+            'dental_certificates': 'dental_certificates',
+            'medical_certificates': 'medical_certificates',
+            'opthal_certificates': 'opthal_certificates',
+            'physical_exam': 'physical_exam',
+            'medical_consent': 'medical_consent',
+            'dental_consent': 'dental_consent',
+            'dental_history': 'dental_history',
+            'hh_pds': 'hh_pds',
+            'laboratory': 'laboratory',
+            'hsu_bulletin': 'hsu_bulletin',
+            'hsu_bulletin_files': 'hsu_bulletin_files',
+            'appointment': 'appointment',
           };
 
           const tableName = tableMapping[modelName] || modelName;
           
-          // For each model, find the max ID and add 1 (or use 1 if table is empty)
-          // This will be the new AUTO_INCREMENT value
-          const idColumnName = `${modelName}_id`;
+          // Determine the appropriate ID column name based on model
+          let idColumnName;
+          
+          switch(modelName) {
+            case 'doctor':
+              idColumnName = 'doctor_id';
+              break;
+            case 'nurse':
+              idColumnName = 'nurse_id';
+              break;
+            case 'patient':
+              idColumnName = 'patient_id';
+              break;
+            case 'medicine':
+              idColumnName = 'medicine_id';
+              break;
+            case 'medicineCategory':
+              idColumnName = 'medCategory_id';
+              break;
+            case 'equipmentCategory':
+              idColumnName = 'medCategory_id';
+              break;
+            case 'equipment':
+              idColumnName = 'equipment_id';
+              break;
+            case 'consultation_records':
+              idColumnName = 'consultation_id';
+              break;
+            case 'diagnosis':
+              idColumnName = 'diagnosis_id';
+              break;
+            case 'diagnosis_category':
+              idColumnName = 'category_id';
+              break;
+            case 'medAdministration':
+              idColumnName = 'med_administration_id';
+              break;
+            case 'EditsMedicine':
+              idColumnName = 'edit_id';
+              break;
+            case 'EditsEquipment':
+              idColumnName = 'edit_id';
+              break;
+            case 'prescription':
+              idColumnName = 'prescription_id';
+              break;
+            case 'dental_certificates':
+              idColumnName = 'dental_id';
+              break;
+            case 'medical_certificates':
+              idColumnName = 'medical_id';
+              break;
+            case 'opthal_certificates':
+              idColumnName = 'opthal_id';
+              break;
+            case 'physical_exam':
+              idColumnName = 'physical_id';
+              break;
+            case 'medical_consent':
+              idColumnName = 'medical_consent_id';
+              break;
+            case 'dental_consent':
+              idColumnName = 'dental_consent_id';
+              break;
+            case 'dental_history':
+              idColumnName = 'dental_history_id';
+              break;
+            case 'hh_pds':
+              idColumnName = 'hh_pds_id';
+              break;
+            case 'laboratory':
+              idColumnName = 'laboratory_id';
+              break;
+            case 'hsu_bulletin':
+              idColumnName = 'post_id';
+              break;
+            case 'hsu_bulletin_files':
+              idColumnName = 'file_id';
+              break;
+            case 'appointment':
+              idColumnName = 'appointment_id';
+              break;
+            default:
+              idColumnName = `${modelName}_id`;
+          }
           
           // Find the maximum ID for this table
           const result = await prisma.$queryRaw`

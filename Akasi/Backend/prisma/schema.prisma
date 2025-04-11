@@ -274,19 +274,21 @@ model equipmentCategory {
 
 model EditsEquipment {
   edit_id      Int       @id @default(autoincrement())
-  equipment_id     Int
+  equipment_id Int
   equipName    String    @db.VarChar(225)
   date         DateTime  @db.DateTime(0)
   cause        String    @db.VarChar(225)
   addSubCount  Int
-  runningTotal Int // Add this field
+  runningTotal Int
   nurse_id     Int
+  category_id  Int      // Add category ID to store the category
   nurse        nurse    @relation(fields: [nurse_id], references: [nurse_id])
   equipment    equipment @relation(fields: [equipment_id], references: [equipment_id])
+  category     equipmentCategory @relation(fields: [category_id], references: [medCategory_id])
 
   @@index([equipment_id])
   @@index([nurse_id])
-  equipmentCategory equipmentCategory[]
+  @@index([category_id])
 }
 
 model dental_certificates {
