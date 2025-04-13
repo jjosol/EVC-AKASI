@@ -1,27 +1,28 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, BadRequestException, Request, UseGuards } from '@nestjs/common';
-import { InventoryService } from './inventory.service';
+import { MedicineService } from './medicine.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
-@Controller('inventory')
+@Controller('medicine')
 @UseGuards(JwtAuthGuard) // Protect all routes in this controller
-export class InventoryController {
-  constructor(private readonly inventoryService: InventoryService) { }
+export class MedicineController {
+  constructor(private readonly medicineService: MedicineService) { }
 
   @Get()
   async getAllItems() {
-    return this.inventoryService.getAllItems();
+    return this.medicineService.getAllItems();
   }
 
   @Post()
   async addItem(@Body() item: any, @Request() req) {
-    // Extract admin_id from request if available (through auth)
-    const admin_id = req.user?.admin_id;
-    return this.inventoryService.addItem(item, admin_id);
+    // Extract nurse_id from request if available (through auth)
+    const nurse_id = req.user?.nurse_id;
+    return this.medicineService.addItem(item, nurse_id);
   }
+  
   @Post('category')
   async addCategory(@Body() data: { name: string }, @Request() req) {
-    const admin_id = req.user?.admin_id;
-    return this.inventoryService.addCategory(data, admin_id);
+    const nurse_id = req.user?.nurse_id;
+    return this.medicineService.addCategory(data, nurse_id);
   }
 
   @Put('category/:id')
@@ -30,9 +31,10 @@ export class InventoryController {
     @Body() data: { name: string },
     @Request() req
   ) {
-    const admin_id = req.user?.admin_id;
-    return this.inventoryService.updateCategory(Number(id), data.name, admin_id);
+    const nurse_id = req.user?.nurse_id;
+    return this.medicineService.updateCategory(Number(id), data.name, nurse_id);
   }
+  
   @Put('reduce/:med_id/:medName')
   async reduceInventory(
     @Param('med_id') med_id: string,
@@ -40,13 +42,13 @@ export class InventoryController {
     @Body() data: { quantity: number, cause?: string },
     @Request() req
   ) {
-    const admin_id = req.user?.admin_id;
-    return this.inventoryService.reduceInventory(
+    const nurse_id = req.user?.nurse_id;
+    return this.medicineService.reduceInventory(
       Number(med_id), 
       medName, 
       data.quantity,
       data.cause || 'Manual reduction',
-      admin_id
+      nurse_id
     );
   }
 
@@ -56,13 +58,13 @@ export class InventoryController {
     @Body() data: { medName: string, quantity: number, cause?: string },
     @Request() req
   ) {
-    const admin_id = req.user?.admin_id;
-    return this.inventoryService.increaseInventory(
+    const nurse_id = req.user?.nurse_id;
+    return this.medicineService.increaseInventory(
       Number(med_id), 
       data.medName, 
       data.quantity,
       data.cause || 'Manual addition',
-      admin_id
+      nurse_id
     );
   }
 
@@ -71,12 +73,12 @@ export class InventoryController {
     @Body() data: { oldName: string, newName: string, categoryId: number },
     @Request() req
   ) {
-    const admin_id = req.user?.admin_id;
-    return this.inventoryService.updateMedicineName(
+    const nurse_id = req.user?.nurse_id;
+    return this.medicineService.updateMedicineName(
       data.oldName,
       data.newName,
       data.categoryId,
-      admin_id
+      nurse_id
     );
   }
 
@@ -87,20 +89,20 @@ export class InventoryController {
     @Body() data: any,
     @Request() req
   ) {
-    const admin_id = req.user?.admin_id;
-    return this.inventoryService.updateItem(Number(med_id), medName, data, admin_id);
+    const nurse_id = req.user?.nurse_id;
+    return this.medicineService.updateItem(Number(med_id), medName, data, nurse_id);
   }
 
   @Delete('group/:medName')
   async deleteGroupByName(@Param('medName') medName: string, @Request() req) {
-    const admin_id = req.user?.admin_id;
-    return this.inventoryService.deleteGroupByName(medName, admin_id);
+    const nurse_id = req.user?.nurse_id;
+    return this.medicineService.deleteGroupByName(medName, nurse_id);
   }
 
   @Delete('category/:id')
   async deleteCategory(@Param('id') id: string, @Request() req) {
-    const admin_id = req.user?.admin_id;
-    return this.inventoryService.deleteCategory(Number(id), admin_id);
+    const nurse_id = req.user?.nurse_id;
+    return this.medicineService.deleteCategory(Number(id), nurse_id);
   }
 
   @Delete(':med_id/:medName')
@@ -109,13 +111,13 @@ export class InventoryController {
     @Param('medName') medName: string,
     @Request() req
   ) {
-    const admin_id = req.user?.admin_id;
-    return this.inventoryService.deleteItem(Number(med_id), medName, admin_id);
+    const nurse_id = req.user?.nurse_id;
+    return this.medicineService.deleteItem(Number(med_id), medName, nurse_id);
   }
 
   @Get('categories')
   async getAllCategories() {
-    return this.inventoryService.getAllCategories();
+    return this.medicineService.getAllCategories();
   }
 
   @Get(':med_id/:medName/otc')
@@ -123,12 +125,12 @@ export class InventoryController {
     @Param('med_id') med_id: string,
     @Param('medName') medName: string
   ) {
-    return this.inventoryService.getOtcStatus(Number(med_id), medName);
+    return this.medicineService.getOtcStatus(Number(med_id), medName);
   }
 
   @Get('edits')
-  async getInventoryEdits(@Request() req) {
-    const admin_id = req.user?.admin_id;
-    return this.inventoryService.getInventoryEdits(admin_id);
+  async getMedicineEdits(@Request() req) {
+    const nurse_id = req.user?.nurse_id;
+    return this.medicineService.getInventoryEdits(nurse_id);
   }
 }

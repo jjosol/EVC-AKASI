@@ -86,10 +86,10 @@ export class ReportsService {
           gte: startDate,
           lte: endDate,
         },
-        client: {
-          category: 'Student',
+        patient: {
+          type: 'student',
           gender: 'Male',
-          type: 'Dormer',
+          category: 'Dormer',
         },
       },
       _count: {
@@ -108,10 +108,10 @@ export class ReportsService {
           gte: startDate,
           lte: endDate,
         },
-        client: {
-          category: 'Student',
+        patient: {
+          type: 'student',
           gender: 'Male',
-          type: 'Extern',
+          category: 'Extern',
         },
       },
       _count: {
@@ -127,10 +127,10 @@ export class ReportsService {
           gte: startDate,
           lte: endDate,
         },
-        client: {
-          category: 'Student',
+        patient: {
+          type: 'student',
           gender: 'Female',
-          type: 'Dormer',
+          category: 'Dormer',
         },
       },
       _count: {
@@ -146,10 +146,10 @@ export class ReportsService {
           gte: startDate,
           lte: endDate,
         },
-        client: {
-          category: 'Student',
+        patient: {
+          type: 'student',
           gender: 'Female',
-          type: 'Extern',
+          category: 'Extern',
         },
       },
       _count: {
@@ -165,8 +165,8 @@ export class ReportsService {
           gte: startDate,
           lte: endDate,
         },
-        client: {
-          category: 'Faculty',
+        patient: {
+          type: 'faculty',
           gender: 'Male',
         },
       },
@@ -183,8 +183,8 @@ export class ReportsService {
           gte: startDate,
           lte: endDate,
         },
-        client: {
-          category: 'Faculty',
+        patient: {
+          type: 'faculty',
           gender: 'Female',
         },
       },
@@ -201,8 +201,8 @@ export class ReportsService {
           gte: startDate,
           lte: endDate,
         },
-        client: {
-          category: 'Staff',
+        patient: {
+          type: 'staff',
           gender: 'Male',
         },
       },
@@ -219,8 +219,8 @@ export class ReportsService {
           gte: startDate,
           lte: endDate,
         },
-        client: {
-          category: 'Staff',
+        patient: {
+          type: 'staff',
           gender: 'Female',
         },
       },
@@ -370,7 +370,7 @@ export class ReportsService {
     console.log(`Fetching consultation monitoring data from ${startDate.toISOString()} to ${endDate.toISOString()}`);
     console.log(`Date range spans academic year: ${startYearNum !== endYearNum || startMonthNum > endMonthNum}`);
 
-    // Fetch consultation records with client information within the date range
+    // Fetch consultation records with patient information within the date range
     const consultations = await this.prisma.consultation_records.findMany({
       where: {
         date: {
@@ -379,7 +379,7 @@ export class ReportsService {
         },
       },
       include: {
-        client: true
+        patient: true
       },
       orderBy: {
         date: 'asc'
@@ -397,22 +397,22 @@ export class ReportsService {
       });
       
       let gradeSection = '';
-      if (record.client.category === 'Student') {
-        gradeSection = `${record.client.grade} - ${record.client.section}`;
+      if (record.patient.type === 'student') {
+        gradeSection = `${record.patient.grade} - ${record.patient.section}`;
       } else {
-        gradeSection = record.client.category; // Faculty or Staff
+        gradeSection = record.patient.type; // faculty or staff
       }
 
-      let clientType = '';
-      if (record.client.category === 'Student') {
-        clientType = record.client.type; // Dormer or Extern
+      let patientType = '';
+      if (record.patient.type === 'student') {
+        patientType = record.patient.category; // Dormer or Extern
       }
 
       return {
-        clientName: record.client.name,
+        patientName: record.patient.name,
         gradeSection: gradeSection,
         consultationDate: formattedDate,
-        clientType: clientType,
+        patientType: patientType,
         remarks: record.remarks
       };
     });

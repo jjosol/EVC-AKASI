@@ -1,15 +1,15 @@
 import { Body, Controller, Post, Get, Put, Delete, Param, ParseIntPipe, NotFoundException, BadRequestException, Query } from '@nestjs/common';
-import { GetClientsService } from './get-clients.service';
+import { GetPatientService } from './get-patient.service';
 
-@Controller('get-clients')
-export class GetClientsController {
-    constructor(private readonly GetClientsService: GetClientsService) { }
+@Controller('get-patient')
+export class GetPatientController {
+    constructor(private readonly GetPatientService: GetPatientService) { }
 
     @Get('students')
     async findAllStudents() {
         return {
             success: true,
-            data: await this.GetClientsService.findAllStudents(),
+            data: await this.GetPatientService.findAllStudents(),
         };
     }
 
@@ -17,7 +17,7 @@ export class GetClientsController {
     async findAllFaculty() {
         return {
             success: true,
-            data: await this.GetClientsService.findAllFaculty(),
+            data: await this.GetPatientService.findAllFaculty(),
         };
     }
 
@@ -25,7 +25,7 @@ export class GetClientsController {
     async findAllStaff() {
         return {
             success: true,
-            data: await this.GetClientsService.findAllStaff(),
+            data: await this.GetPatientService.findAllStaff(),
         };
     }
 }

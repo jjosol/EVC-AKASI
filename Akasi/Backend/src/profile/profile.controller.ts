@@ -11,12 +11,12 @@ export class ProfileController {
   getProfile(@Request() req) {
     console.log('User data in request:', req.user);
 
-    if (req.user.role === 'client') {
-      // Use client_id instead of id
-      return this.profileService.getProfile(req.user.client_id, req.user.role);
-    } else if (req.user.role === 'admin') {
-      // Use admin_id instead of id
-      return this.profileService.getProfile(req.user.admin_id, req.user.role);
+    if (req.user.role === 'patient') {
+      return this.profileService.getProfile(req.user.patient_id, req.user.role);
+    } else if (req.user.role === 'nurse') {
+      return this.profileService.getProfile(req.user.nurse_id, req.user.role);
+    } else if (req.user.role === 'doctor') {
+      return this.profileService.getProfile(req.user.doctor_id, req.user.role);
     }
 
     return null;

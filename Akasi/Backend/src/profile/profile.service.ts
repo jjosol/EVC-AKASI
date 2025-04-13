@@ -5,16 +5,20 @@ import { PrismaService } from '../prisma.service';
 export class ProfileService {
   constructor(private prisma: PrismaService) { }
 
-  // In profile.service.ts
   async getProfile(userId: number, userRole: string) {
-    if (userRole === 'client') {
-      return this.prisma.client.findUnique({
-        where: { client_id: userId }
+    if (userRole === 'patient') {
+      return this.prisma.patient.findUnique({
+        where: { patient_id: userId }
       });
-    } else if (userRole === 'admin') {
-      return this.prisma.admin.findUnique({
-        where: { admin_id: userId }
+    } else if (userRole === 'nurse') {
+      return this.prisma.nurse.findUnique({
+        where: { nurse_id: userId }
+      });
+    } else if (userRole === 'doctor') {
+      return this.prisma.doctor.findUnique({
+        where: { doctor_id: userId }
       });
     }
+    return null;
   }
 }

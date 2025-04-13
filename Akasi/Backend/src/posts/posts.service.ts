@@ -9,13 +9,13 @@ export class PostsService {
     private storageService: StorageService
   ) {}
 
-  async create(post: { admin_id: number; username: string; caption?: string }, files: Express.Multer.File[]) {
+  async create(post: { nurse_id: number; username: string; caption?: string }, files: Express.Multer.File[]) {
     try {
       return await this.prisma.$transaction(async (tx) => {
         // Create post first
         const newPost = await tx.hsu_bulletin.create({
           data: {
-            admin_id: Number(post.admin_id),
+            nurse_id: Number(post.nurse_id),
             username: post.username,
             caption: post.caption || ""
           }
@@ -24,15 +24,12 @@ export class PostsService {
         // Handle files if any
         if (files?.length) {
           const filePromises = files.map(file => 
-            tx.hsu_bulletin_files.create({
-              data: {
-                post_id: newPost.post_id,
-                file_name: file.originalname,
-                file_type: file.mimetype.split('/')[0],
-                mime_type: file.mimetype,
-                data: file.buffer
-              }
-            })
+            this.storageService.uploadFile({
+              originalname: file.originalname,
+              mimetype: file.mimetype,
+              buffer: file.buffer,
+              size: file.size
+            }, newPost.post_id)
           );
           await Promise.all(filePromises);
         }
@@ -45,8 +42,14 @@ export class PostsService {
               select: {
                 file_id: true,
                 file_name: true,
-                file_type: true,
-                mime_type: true
+                file_path: true,
+                mime_type: true,
+                file_size: true
+              }
+            },
+            nurse: {
+              select: {
+                name: true
               }
             }
           }
@@ -61,15 +64,23 @@ export class PostsService {
   async findAll() {
     return this.prisma.hsu_bulletin.findMany({
       include: {
-        admin: true,
+        nurse: {
+          select: {
+            name: true
+          }
+        },
         files: {
           select: {
             file_id: true,
             file_name: true,
-            file_type: true,
-            mime_type: true
+            file_path: true,
+            mime_type: true,
+            file_size: true
           }
         }
+      },
+      orderBy: {
+        created_at: 'desc'
       }
     });
   }
@@ -78,13 +89,18 @@ export class PostsService {
     return this.prisma.hsu_bulletin.findUnique({
       where: { post_id: id },
       include: {
+        nurse: {
+          select: {
+            name: true
+          }
+        },
         files: {
           select: {
             file_id: true,
             file_name: true,
-            file_type: true,
-            mime_type: true
-            // Exclude binary data from detail view
+            file_path: true,
+            mime_type: true,
+            file_size: true
           }
         }
       }
@@ -106,39 +122,34 @@ export class PostsService {
         // Find files that are currently associated but not in existingFileIds
         const currentFiles = await tx.hsu_bulletin_files.findMany({
           where: { post_id: id },
-          select: { file_id: true }
+          select: { file_id: true, file_path: true }
         });
         
         const currentFileIds = currentFiles.map(file => file.file_id);
         const filesToDelete = currentFileIds.filter(fileId => !existingFileIds.includes(fileId));
         
         if (filesToDelete.length > 0) {
-          await tx.hsu_bulletin_files.deleteMany({
-            where: { 
-              file_id: { in: filesToDelete },
-              post_id: id 
-            }
-          });
+          // Delete files from storage and database
+          for (const fileId of filesToDelete) {
+            await this.storageService.deleteFile(fileId);
+          }
         }
       }
 
       // Handle new files if any
       if (files?.length) {
         const filePromises = files.map(file => 
-          tx.hsu_bulletin_files.create({
-            data: {
-              post_id: id,
-              file_name: file.originalname,
-              file_type: file.mimetype.split('/')[0],
-              mime_type: file.mimetype,
-              data: file.buffer
-            }
-          })
+          this.storageService.uploadFile({
+            originalname: file.originalname,
+            mimetype: file.mimetype,
+            buffer: file.buffer,
+            size: file.size
+          }, id)
         );
         await Promise.all(filePromises);
       }
 
-      // Return complete updated post with files like in create method
+      // Return complete updated post with files
       return await tx.hsu_bulletin.findUnique({
         where: { post_id: id },
         include: {
@@ -146,8 +157,14 @@ export class PostsService {
             select: {
               file_id: true,
               file_name: true,
-              file_type: true,
-              mime_type: true
+              file_path: true,
+              mime_type: true,
+              file_size: true
+            }
+          },
+          nurse: {
+            select: {
+              name: true
             }
           }
         }
@@ -158,8 +175,14 @@ export class PostsService {
   async remove(id: number) {
     // Check if the post exists before deletion.
     const post = await this.prisma.hsu_bulletin.findUnique({
-      where: { post_id: id }
+      where: { post_id: id },
+      include: {
+        files: {
+          select: { file_id: true }
+        }
+      }
     });
+    
     if (!post) {
       // Log a warning and return silently to keep DELETE idempotent.
       console.warn(`Post with ID ${id} not found. Deletion skipped.`);
@@ -167,11 +190,12 @@ export class PostsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // Delete associated files first if any.
-      await tx.hsu_bulletin_files.deleteMany({
-        where: { post_id: id }
-      });
-      // Then delete the post.
+      // Delete associated files first if any
+      for (const file of post.files) {
+        await this.storageService.deleteFile(file.file_id);
+      }
+      
+      // Then delete the post
       return tx.hsu_bulletin.delete({
         where: { post_id: id }
       });

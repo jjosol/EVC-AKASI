@@ -15,7 +15,7 @@ export class PostsController implements OnModuleInit {
 
   @Post()
   @UseInterceptors(FilesInterceptor('files'))
-  async create(@Body() post: { admin_id: number; username: string; caption?: string }, 
+  async create(@Body() post: { nurse_id: number; username: string; caption?: string }, 
                @UploadedFiles() files: Express.Multer.File[]) {
     return this.postsService.create(post, files);
   }
@@ -23,6 +23,31 @@ export class PostsController implements OnModuleInit {
   @Get()
   findAll() {
     return this.postsService.findAll();
+  }
+  
+  @Put(':id')
+  @UseInterceptors(FilesInterceptor('files'))
+  async update(
+    @Param('id') id: string, 
+    @Body() updatePostDto: { caption?: string, existingFiles?: string },
+    @UploadedFiles() files: Express.Multer.File[]
+  ) {
+    // Parse existingFiles JSON string if it exists
+    let existingFileIds: number[] | undefined = undefined;
+    if (updatePostDto.existingFiles) {
+      try {
+        existingFileIds = JSON.parse(updatePostDto.existingFiles);
+      } catch (e) {
+        console.error('Failed to parse existingFiles:', e);
+      }
+    }
+
+    return this.postsService.update(
+      +id, 
+      { caption: updatePostDto.caption }, 
+      files,
+      existingFileIds
+    );
   }
   
   @Post(':id/update')
@@ -54,8 +79,6 @@ export class PostsController implements OnModuleInit {
   findOne(@Param('id') id: string) {
     return this.postsService.findOne(+id);
   }
-
-
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)

@@ -3,10 +3,10 @@ import { Module } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { FileStatusController } from './file-status.controller';
 import { FileStatusService } from './file-status.service';
-import { ClientStatusModule } from '../patient-status/patient-status.module';
+import { PatientStatusModule } from '../patient-status/patient-status.module';
 
 @Module({
-    imports: [ClientStatusModule], // Import the ClientStatusModule to get access to ClientStatusService
+    imports: [PatientStatusModule], // Import the ClientStatusModule to get access to ClientStatusService
     controllers: [FileStatusController],
     providers: [FileStatusService, PrismaService],
     exports: [FileStatusService],

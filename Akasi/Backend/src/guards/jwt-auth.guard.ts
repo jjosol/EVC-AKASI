@@ -42,31 +42,31 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     // Log successful authentication for audit purposes
     const request = context.switchToHttp().getRequest();
 
-    // For client users: ensure we have both id and client_id
-    if (user.client_id && !user.id) {
-      user.id = user.client_id;
+    // For patient users: ensure we have both id and patient_id
+    if (user.patient_id && !user.id) {
+      user.id = user.patient_id;
       this.logger.debug(`Added id field (${user.id}) for consistency`);
-    } else if (user.id && !user.client_id && user.role === 'client') {
-      user.client_id = user.id;
-      this.logger.debug(`Added client_id field (${user.client_id}) for consistency`);
+    } else if (user.id && !user.patient_id && user.role === 'patient') {
+      user.patient_id = user.id;
+      this.logger.debug(`Added patient_id field (${user.patient_id}) for consistency`);
     }
 
-    // For admin users: ensure we have both id and admin_id
-    if (user.admin_id && !user.id) {
-      user.id = user.admin_id;
-      this.logger.debug(`Added id field (${user.id}) for admin consistency`);
-    } else if (user.id && !user.admin_id && user.role === 'admin') {
-      user.admin_id = user.id;
-      this.logger.debug(`Added admin_id field (${user.admin_id}) for admin consistency`);
+    // For nurse users: ensure we have both id and nurse_id
+    if (user.nurse_id && !user.id) {
+      user.id = user.nurse_id;
+      this.logger.debug(`Added id field (${user.id}) for nurse consistency`);
+    } else if (user.id && !user.nurse_id && user.role === 'nurse') {
+      user.nurse_id = user.id;
+      this.logger.debug(`Added nurse_id field (${user.nurse_id}) for nurse consistency`);
     }
 
-    // For manager users: ensure we have both id and manager_id
-    if (user.manager_id && !user.id) {
-      user.id = user.manager_id;
-      this.logger.debug(`Added id field (${user.id}) for manager consistency`);
-    } else if (user.id && !user.manager_id && user.role === 'manager') {
-      user.manager_id = user.id;
-      this.logger.debug(`Added manager_id field (${user.manager_id}) for manager consistency`);
+    // For doctor users: ensure we have both id and doctor_id
+    if (user.doctor_id && !user.id) {
+      user.id = user.doctor_id;
+      this.logger.debug(`Added id field (${user.id}) for doctor consistency`);
+    } else if (user.id && !user.doctor_id && user.role === 'doctor') {
+      user.doctor_id = user.id;
+      this.logger.debug(`Added doctor_id field (${user.doctor_id}) for doctor consistency`);
     }
 
     this.logger.log(`Authenticated user: ${user.id}, role: ${user.role}, path: ${request.path}`);

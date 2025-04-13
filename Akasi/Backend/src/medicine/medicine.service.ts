@@ -2,13 +2,13 @@ import { Injectable, BadRequestException, NotFoundException, InternalServerError
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
-export class InventoryService {
+export class MedicineService {
   constructor(private prisma: PrismaService) {}
 
   async getAllItems() {
     try {
       // Fetch all items
-      const items = await this.prisma.inventory.findMany({
+      const items = await this.prisma.medicine.findMany({
         include: {
           category: true
         }
@@ -16,7 +16,7 @@ export class InventoryService {
       
       // Group items by category
       const categorizedItems: Record<string, typeof items> = items.reduce((acc: Record<string, typeof items>, item) => {
-        const categoryId = item.category_id;
+        const categoryId = item.medCategory_id;
         if (!acc[categoryId]) {
           acc[categoryId] = [];
         }
@@ -41,13 +41,13 @@ export class InventoryService {
       
       return sortedItems;
     } catch (error) {
-      throw new BadRequestException('Failed to fetch inventory items');
+      throw new BadRequestException('Failed to fetch medicine items');
     }
   }
 
-  async addItem(item: any, admin_id?: number) {
+  async addItem(item: any, nurse_id?: number) {
     try {
-      // Make sure to explicitly handle the otc field
+      // Make sure to explicitly handle the otc flag
       const otc = item.otc !== undefined ? item.otc : true; // Default to true if not provided
 
       // Validate expiration date isn't in the past
@@ -64,7 +64,7 @@ export class InventoryService {
       console.log('Received OTC value:', item.isOTC, typeof item.isOTC);
 
       // Check if the medicine already exists
-      const existingMedicine = await this.prisma.inventory.findFirst({
+      const existingMedicine = await this.prisma.medicine.findFirst({
         where: {
           medName: item.name,
           expiration: item.expirationDate ? new Date(item.expirationDate) : null,
@@ -74,11 +74,11 @@ export class InventoryService {
       if (existingMedicine) {
         // If batch exists, increase its count with tracking
         return await this.increaseInventory(
-          existingMedicine.med_id,
+          existingMedicine.medicine_id,
           existingMedicine.medName,
           item.count,
           'New batch added',
-          admin_id
+          nurse_id
         );
       }
 
@@ -89,12 +89,12 @@ export class InventoryService {
       console.log('Processing OTC value:', otcValue, typeof otcValue);
       
       // Add a new batch under the same medicine name with OTC flag
-      const result = await this.prisma.inventory.create({
+      const result = await this.prisma.medicine.create({
         data: {
           medName: item.name,
           expiration: item.expirationDate ? new Date(item.expirationDate) : null,
           count: Number(item.count),
-          category_id: Number(item.category_id),
+          medCategory_id: Number(item.category_id),
           otc: otcValue,  // Use the properly converted boolean value
         },
         include: {
@@ -103,27 +103,27 @@ export class InventoryService {
       });
 
       // Log the new item addition with running total
-      await this.prisma.editsInverntory.create({
+      await this.prisma.editsMedicine.create({
         data: {
-          med_id: result.med_id,
+          med_id: result.medicine_id,
           medName: result.medName,
           date: new Date(),
           cause: 'Initial inventory',
           addSubCount: Number(item.count),
           runningTotal: Number(item.count),
           category_id: Number(item.category_id),
-          admin_id: admin_id || null,
+          nurse_id: nurse_id || null,
         }
       });
 
       return result;
     } catch (error) {
-      console.error('Error adding inventory item:', error);
-      throw new BadRequestException(error.message || 'Failed to add inventory item');
+      console.error('Error adding medicine item:', error);
+      throw new BadRequestException(error.message || 'Failed to add medicine item');
     }
   }
 
-  async updateItem(med_id: number, medName: string, data: any, admin_id: any) {
+  async updateItem(med_id: number, medName: string, data: any, nurse_id: any) {
     try {
       // Validate expiration date isn't in the past
       if (data.expirationDate) {
@@ -147,12 +147,12 @@ export class InventoryService {
 
       // If name is different, create new entry and delete old one
       if (medName !== data.name) {
-        const newItem = await this.prisma.inventory.create({
+        const newItem = await this.prisma.medicine.create({
           data: {
             medName: data.name,
             expiration: data.expirationDate ? new Date(data.expirationDate) : null,
             count: Number(data.count),
-            category_id: Number(data.category_id),
+            medCategory_id: Number(data.category_id),
             otc: otcValue, 
           },
           include: {
@@ -160,10 +160,10 @@ export class InventoryService {
           },
         });
         // Delete old entry
-        await this.prisma.inventory.delete({
+        await this.prisma.medicine.delete({
           where: {
-            med_id_medName: {
-              med_id,
+            medicine_id_medName: {
+              medicine_id: med_id,
               medName
             }
           }
@@ -172,17 +172,17 @@ export class InventoryService {
       }
 
       // If name is same, just update
-      return await this.prisma.inventory.update({
+      return await this.prisma.medicine.update({
         where: {
-          med_id_medName: {
-            med_id,
+          medicine_id_medName: {
+            medicine_id: med_id,
             medName
           }
         },
         data: {
           expiration: data.expirationDate ? new Date(data.expirationDate) : null,
           count: Number(data.count),
-          category_id: Number(data.category_id),
+          medCategory_id: Number(data.category_id),
           otc: otcValue,  // Use the properly converted boolean value
         },
         include: {
@@ -190,29 +190,29 @@ export class InventoryService {
         }
       });
     } catch (error) {
-      throw new BadRequestException(error.message || 'Failed to update inventory item');
+      throw new BadRequestException(error.message || 'Failed to update medicine item');
     }
   }
 
-  async deleteItem(med_id: number, medName: string, admin_id: any) {
+  async deleteItem(med_id: number, medName: string, nurse_id: any) {
     try {
-      const result = await this.prisma.inventory.delete({
+      const result = await this.prisma.medicine.delete({
         where: {
-          med_id_medName: {
-            med_id,
+          medicine_id_medName: {
+            medicine_id: med_id,
             medName
           }
         }
       });
       return result;
     } catch (error) {
-      throw new BadRequestException('Failed to delete inventory item');
+      throw new BadRequestException('Failed to delete medicine item');
     }
   }
 
-  async deleteGroupByName(medName: string, admin_id: any) {
+  async deleteGroupByName(medName: string, nurse_id: any) {
     try {
-      const result = await this.prisma.inventory.deleteMany({
+      const result = await this.prisma.medicine.deleteMany({
         where: {
           medName: medName
         }
@@ -223,11 +223,11 @@ export class InventoryService {
     }
   }
 
-  async reduceInventory(med_id: number, medName: string, quantity: number, cause: string = 'Unspecified reduction', admin_id?: number) {
+  async reduceInventory(med_id: number, medName: string, quantity: number, cause: string = 'Unspecified reduction', nurse_id?: number) {
     try {
       // Find the inventory item by med_id and medName
-      const item = await this.prisma.inventory.findUnique({
-        where: { med_id_medName: { med_id, medName } }
+      const item = await this.prisma.medicine.findUnique({
+        where: { medicine_id_medName: { medicine_id: med_id, medName } }
       });
 
       if (!item) {
@@ -239,16 +239,16 @@ export class InventoryService {
       }
 
       // Update the inventory count
-      const updatedItem = await this.prisma.inventory.update({
-        where: { med_id_medName: { med_id, medName } },
+      const updatedItem = await this.prisma.medicine.update({
+        where: { medicine_id_medName: { medicine_id: med_id, medName } },
         data: { count: item.count - quantity }
       });
 
       // Calculate new running total
       const newTotal = item.count - quantity;
 
-      // Log the change to EditsInverntory with running total
-      await this.prisma.editsInverntory.create({
+      // Log the change to EditsMedicine with running total
+      await this.prisma.editsMedicine.create({
         data: {
           med_id: med_id,
           medName: medName,
@@ -256,8 +256,8 @@ export class InventoryService {
           cause: cause,
           addSubCount: -quantity, // Negative for reduction
           runningTotal: newTotal, // Include running total
-          category_id: item.category_id, // Include category
-          admin_id: admin_id || null
+          category_id: item.medCategory_id, // Include category
+          nurse_id: nurse_id || null
         }
       });
 
@@ -267,11 +267,11 @@ export class InventoryService {
     }
   }
 
-  async increaseInventory(med_id: number, medName: string, quantity: number, cause: string = 'Unspecified addition', admin_id?: number) {
+  async increaseInventory(med_id: number, medName: string, quantity: number, cause: string = 'Unspecified addition', nurse_id?: number) {
     try {
       // Find the inventory item by med_id and medName
-      const item = await this.prisma.inventory.findUnique({
-        where: { med_id_medName: { med_id, medName } }
+      const item = await this.prisma.medicine.findUnique({
+        where: { medicine_id_medName: { medicine_id: med_id, medName } }
       });
 
       if (!item) {
@@ -279,16 +279,16 @@ export class InventoryService {
       }
 
       // Update the inventory count
-      const updatedItem = await this.prisma.inventory.update({
-        where: { med_id_medName: { med_id, medName } },
+      const updatedItem = await this.prisma.medicine.update({
+        where: { medicine_id_medName: { medicine_id: med_id, medName } },
         data: { count: item.count + quantity }
       });
 
       // Calculate new running total
       const newTotal = item.count + quantity;
 
-      // Log the change to EditsInverntory with running total
-      await this.prisma.editsInverntory.create({
+      // Log the change to EditsMedicine with running total
+      await this.prisma.editsMedicine.create({
         data: {
           med_id: med_id,
           medName: medName,
@@ -296,8 +296,8 @@ export class InventoryService {
           cause: cause,
           addSubCount: quantity, // Positive for addition
           runningTotal: newTotal, // Include running total
-          category_id: item.category_id, // Include category
-          admin_id: admin_id || null
+          category_id: item.medCategory_id, // Include category
+          nurse_id: nurse_id || null
         }
       });
 
@@ -315,7 +315,7 @@ export class InventoryService {
     }
   }
 
-  async addCategory(categoryData: { name: string; }, admin_id: any) {
+  async addCategory(categoryData: { name: string; }, nurse_id: any) {
     try {
       const newCategory = await this.prisma.medicineCategory.create({
         data: {
@@ -329,13 +329,13 @@ export class InventoryService {
     }
   }
 
-  async updateCategory(id: number, name: string, admin_id: any) {
+  async updateCategory(id: number, name: string, nurse_id: any) {
     try {
       console.log('Updating category:', { id, name }); // Add debugging
       
       // Get old category info before updating
       const oldCategory = await this.prisma.medicineCategory.findUnique({
-        where: { category_id: id }
+        where: { medCategory_id: id }
       });
       
       if (!oldCategory) {
@@ -344,7 +344,7 @@ export class InventoryService {
 
       // Update category - ensure proper schema
       const updatedCategory = await this.prisma.medicineCategory.update({
-        where: { category_id: id },
+        where: { medCategory_id: id },
         data: { name }
       });
 
@@ -355,16 +355,16 @@ export class InventoryService {
     }
   }
 
-  async deleteCategory(id: number, admin_id: any) {
+  async deleteCategory(id: number, nurse_id: any) {
     try {
       // First, delete all inventory items associated with this category
-      await this.prisma.inventory.deleteMany({
-        where: { category_id: id }
+      await this.prisma.medicine.deleteMany({
+        where: { medCategory_id: id }
       });
 
       // Then, delete the category itself
       return await this.prisma.medicineCategory.delete({
-        where: { category_id: id }
+        where: { medCategory_id: id }
       });
     } catch (error) {
       console.error('Error deleting category:', error);
@@ -379,8 +379,8 @@ export class InventoryService {
 
   async getMedicinesByCategory(categoryId: number) {
     try {
-      return await this.prisma.inventory.findMany({
-        where: { category_id: categoryId },
+      return await this.prisma.medicine.findMany({
+        where: { medCategory_id: categoryId },
       });
     } catch (error) {
       console.error('Error fetching medicines by category:', error);
@@ -388,15 +388,15 @@ export class InventoryService {
     }
   }
 
-  async updateMedicineName(oldName: string, newName: string, categoryId: number, admin_id?: number) {
+  async updateMedicineName(oldName: string, newName: string, categoryId: number, nurse_id?: number) {
     try {
       const numericCategoryId = Number(categoryId);
 
       // Get all medicine batches with this name
-      const medicineBatches = await this.prisma.inventory.findMany({
+      const medicineBatches = await this.prisma.medicine.findMany({
         where: { 
           medName: oldName,
-          category_id: numericCategoryId 
+          medCategory_id: numericCategoryId 
         }
       });
 
@@ -408,10 +408,10 @@ export class InventoryService {
       await this.prisma.$transaction(async (prisma) => {
         // 1. Update medicine name in inventory records
         for (const batch of medicineBatches) {
-          await prisma.inventory.update({
+          await prisma.medicine.update({
             where: { 
-              med_id_medName: {
-                med_id: batch.med_id,
+              medicine_id_medName: {
+                medicine_id: batch.medicine_id,
                 medName: batch.medName
               }
             },
@@ -421,8 +421,8 @@ export class InventoryService {
           });
         }
 
-        // 2. Update all references in editsInverntory table
-        await prisma.editsInverntory.updateMany({
+        // 2. Update all references in EditsMedicine table
+        await prisma.editsMedicine.updateMany({
           where: {
             medName: oldName,
             category_id: numericCategoryId
@@ -442,17 +442,17 @@ export class InventoryService {
     }
   }
 
-  async getInventoryEdits(admin_id: any) {
+  async getInventoryEdits(nurse_id: any) {
     try {
-      // Get all edit records with joined inventory, admin and category data
-      const edits = await this.prisma.editsInverntory.findMany({
+      // Get all edit records with joined inventory, nurse and category data
+      const edits = await this.prisma.editsMedicine.findMany({
         include: {
-          inventory: {
+          medicine: {
             select: {
               expiration: true
             }
           },
-          admin: {
+          nurse: {
             select: {
               name: true,
               username: true
@@ -469,15 +469,15 @@ export class InventoryService {
         }
       });
       
-      // Format the edits to include expiration date, admin info, and category
+      // Format the edits to include expiration date, nurse info, and category
       const formattedEdits = edits.map(edit => ({
         ...edit,
-        batchInfo: edit.inventory?.expiration
-          ? new Date(edit.inventory.expiration).toISOString().split('T')[0]
+        batchInfo: edit.medicine?.expiration
+          ? new Date(edit.medicine.expiration).toISOString().split('T')[0]
           : 'No batch info',
-        adminInfo: edit.admin
-          ? `${edit.admin.name} (${edit.admin.username})`
-          : 'No admin info',
+        nurseInfo: edit.nurse
+          ? `${edit.nurse.name} (${edit.nurse.username})`
+          : 'No nurse info',
         categoryName: edit.category.name || 'Unknown Category'
       }));
       
@@ -485,7 +485,7 @@ export class InventoryService {
         edits: formattedEdits
       };
     } catch (error) {
-      throw new BadRequestException('Failed to fetch inventory edits');
+      throw new BadRequestException('Failed to fetch medicine edits');
     }
   }
 
@@ -498,12 +498,12 @@ export class InventoryService {
     quantity: number, 
     consultationId: number, 
     patientName: string,
-    admin_id?: number
+    nurse_id?: number
   ) {
     try {
       // Find the inventory item by med_id and medName
-      const item = await this.prisma.inventory.findUnique({
-        where: { med_id_medName: { med_id, medName } }
+      const item = await this.prisma.medicine.findUnique({
+        where: { medicine_id_medName: { medicine_id: med_id, medName } }
       });
 
       if (!item) {
@@ -515,16 +515,16 @@ export class InventoryService {
       }
 
       // Update the inventory count
-      const updatedItem = await this.prisma.inventory.update({
-        where: { med_id_medName: { med_id, medName } },
+      const updatedItem = await this.prisma.medicine.update({
+        where: { medicine_id_medName: { medicine_id: med_id, medName } },
         data: { count: item.count - quantity }
       });
 
       // Calculate new running total
       const newTotal = item.count - quantity;
 
-      // Log the dispensing to EditsInverntory with running total
-      await this.prisma.editsInverntory.create({
+      // Log the dispensing to EditsMedicine with running total
+      await this.prisma.editsMedicine.create({
         data: {
           med_id: med_id,
           medName: medName,
@@ -532,8 +532,8 @@ export class InventoryService {
           cause: `Dispensed to patient ${patientName} (Consultation #${consultationId})`,
           addSubCount: -quantity, // Negative for dispensing
           runningTotal: newTotal, // Include running total
-          category_id: item.category_id, // Include category
-          admin_id: admin_id || null
+          category_id: item.medCategory_id, // Include category
+          nurse_id: nurse_id || null
         }
       });
 
@@ -545,9 +545,9 @@ export class InventoryService {
 
   async getOtcStatus(med_id: number, medName: string) {
     try {
-      const medicine = await this.prisma.inventory.findFirst({
+      const medicine = await this.prisma.medicine.findFirst({
         where: {
-          med_id: med_id,
+          medicine_id: med_id,
           medName: medName
         },
         select: {

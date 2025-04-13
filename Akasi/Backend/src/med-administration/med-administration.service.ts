@@ -1,7 +1,7 @@
 // med-administration.service.ts
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { InventoryService } from '../inventory/inventory.service'; // Add this import
+import { InventoryService } from '../medicine/inventory.service'; // Add this import
 
 @Injectable()
 export class MedAdministrationService {

@@ -2,16 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
-export class GetClientsService {
+export class GetPatientService {
     constructor(private prisma: PrismaService) { }
 
     async findAllStudents() {
-        return this.prisma.client.findMany({
+        return this.prisma.patient.findMany({
             where: {
-                category: 'student',
+                type: 'student',
             },
             select: {
-                client_id: true,
+                patient_id: true,
                 gmail: true,
                 name: true,
                 grade: true,
@@ -25,12 +25,12 @@ export class GetClientsService {
     }
 
     async findAllFaculty() {
-        return this.prisma.client.findMany({
+        return this.prisma.patient.findMany({
             where: {
-                category: 'faculty',
+                type: 'faculty',
             },
             select: {
-                client_id: true,
+                patient_id: true,
                 name: true,
                 section: true,
             },
@@ -42,12 +42,12 @@ export class GetClientsService {
     }
 
     async findAllStaff() {
-        return this.prisma.client.findMany({
+        return this.prisma.patient.findMany({
             where: {
-                category: 'staff',
+                type: 'staff',
             },
             select: {
-                client_id: true,
+                patient_id: true,
                 name: true,
                 section: true,
             },

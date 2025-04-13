@@ -13,7 +13,7 @@ import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 interface UpdateFileStatusDto {
     fileId: number;
     fileType: string;
-    clientId: number;
+    patientId: number;
     status: string;
     notes?: string | null;
 }
@@ -45,15 +45,15 @@ export class FileStatusController {
     }
 
     /**
-     * Retrieves all file statuses for a specific client
-     * @param clientId The ID of the client
+     * Retrieves all file statuses for a specific patient
+     * @param patientId The ID of the patient
      * @returns An object containing file statuses
      */
     @UseGuards(JwtAuthGuard)
     @Get('fetch-file-statuses')
-    async fetchFileStatuses(@Query('client_id') clientId: string) {
+    async fetchFileStatuses(@Query('patient_id') patientId: string) {
         try {
-            const fileStatuses = await this.fileStatusService.fetchFileStatuses(Number(clientId));
+            const fileStatuses = await this.fileStatusService.fetchFileStatuses(Number(patientId));
             return {
                 success: true,
                 data: fileStatuses,

@@ -17,7 +17,7 @@ export class FileStatusDto {
 
     @IsInt()
     @IsNotEmpty()
-    clientId: number;
+    patientId: number;
 }
 
 export class UpdateFileStatusDto extends FileStatusDto {
@@ -33,7 +33,7 @@ export class UpdateFileStatusDto extends FileStatusDto {
 export class FileStatusQueryDto {
     @IsInt()
     @IsNotEmpty()
-    client_id: number;
+    patient_id: number;
 }
 
 export class FileStatusResponseDto {
