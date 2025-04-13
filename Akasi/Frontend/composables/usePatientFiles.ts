@@ -86,14 +86,19 @@ export function usePatientFiles() {
     async function viewFile(file: CertificateFile) {
         try {
             selectedFile.value = file
+            loading.value = true
+            error.value = null
 
             const token = localStorage.getItem('token')
             if (!token) {
                 throw new Error('Authentication token not found')
             }
 
-            // Create a hidden iframe or fetch the file content and create a Blob URL
-            const response = await fetch(`http://localhost:3001/patient-files/file/${file.type}/${file.id}`, {
+            // Get the base API URL - use same approach as in the components
+            const apiBaseUrl = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001'
+            
+            // Use the fetch-client-files endpoint to get the file
+            const response = await fetch(`${apiBaseUrl}/fetch-client-files/file/${file.type}/${file.id}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -105,10 +110,15 @@ export function usePatientFiles() {
 
             // Get file content as blob
             const blob = await response.blob()
-
+            
+            // If blob is empty, throw error
+            if (blob.size === 0) {
+                throw new Error('Received empty file data')
+            }
+            
             // Create URL for the blob
             const url = URL.createObjectURL(blob)
-
+            
             // Update the selected file with the URL
             selectedFile.value = {
                 ...file,
@@ -124,6 +134,8 @@ export function usePatientFiles() {
             }
             console.error('Error viewing file:', err)
             return null
+        } finally {
+            loading.value = false
         }
     }
 

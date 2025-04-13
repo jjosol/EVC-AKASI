@@ -5,53 +5,26 @@ import { usePatientConsultations } from '~/composables/usePatientConsultations';
 // Add activeTab state
 const activeTab = ref('medicalRecords');
 
-// Add the consultations composable
+// Initialize the consultations composable
 const { 
   consultations, 
   loading: consultationsLoading, 
-  error: consultationsError,  
+  error: consultationsError,
+  fetchConsultations  
 } = usePatientConsultations();
 
 // Add function to fetch consultations for a student
-const fetchConsultations = async (clientId) => {
-  if (!clientId) {
-    consultationsError.value = 'Client ID is required';
+const fetchStudentConsultations = async (patientId) => {
+  if (!patientId) {
+    consultationsError.value = 'Patient ID is required';
     return;
   }
 
   try {
-    consultationsLoading.value = true;
-    consultationsError.value = null;
-
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Authentication token not found');
-    }
-
-    // Log the URL we're calling
-    const url = `http://localhost:3001/consultation-records/client/${clientId}`;
-    console.log('Fetching consultations from:', url);
-
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-
-    // Log the response status
-    console.log('Response status:', response.status, response.statusText);
-
-    if (!response.ok) {
-      throw new Error(`Error ${response.status}: ${response.statusText}`);
-    }
-
-    consultations.value = await response.json();
+    await fetchConsultations(patientId);
     console.log('Received consultations:', consultations.value.length);
   } catch (err) {
-    console.error('Error fetching consultations:', err);
-    consultationsError.value = err.message || 'Failed to load consultation records';
-  } finally {
-    consultationsLoading.value = false;
+    console.error('Error in fetchStudentConsultations:', err);
   }
 };
 
@@ -137,7 +110,7 @@ watch([showPendingOnly, searchQuery], () => {
 // Add this to your existing watch statements
 watch(activeTab, (newTab) => {
   if (newTab === 'consultationRecords' && selectedStudent.value) {
-    fetchConsultations(selectedStudent.value.client_id);
+    fetchStudentConsultations(selectedStudent.value.client_id);
   }
 });
 
@@ -153,7 +126,7 @@ const openStudentModal = (student) => {
   
   // If the current tab is consultationRecords, fetch consultations
   if (activeTab.value === 'consultationRecords') {
-    fetchConsultations(student.client_id);
+    fetchStudentConsultations(student.client_id);
   }
 };
 
@@ -938,7 +911,7 @@ watch(selectedGrade, (newGrade) => {
                   <div v-else-if="consultationsError" class="p-4 bg-red-50 text-red-700 rounded-md">
                     <p>{{ consultationsError }}</p>
                     <button 
-                      @click="fetchConsultations(selectedStudent?.client_id)" 
+                      @click="fetchStudentConsultations(selectedStudent?.client_id)" 
                       class="mt-2 text-sm underline hover:text-red-800"
                     >
                       Try again

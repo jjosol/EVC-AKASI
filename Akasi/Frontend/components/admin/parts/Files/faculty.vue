@@ -6,8 +6,9 @@ import { usePatientConsultations } from '~/composables/usePatientConsultations';
 // Initialize the consultations composable
 const { 
   consultations, 
-  loading: consultationsLoading, 
-  error: consultationsError,  
+  loading: consultationsLoading,
+  error: consultationsError,
+  fetchConsultations
 } = usePatientConsultations();
 
 // Initialize state

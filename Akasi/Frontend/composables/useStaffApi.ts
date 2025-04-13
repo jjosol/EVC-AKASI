@@ -4,6 +4,9 @@ import { ref } from 'vue';
 interface Staff {
     patient_id: number;
     name: string;
+    division: string;
+    type: string;
+    hasPendingFiles?: boolean;
 }
 
 interface ApiResponse<T> {
@@ -48,10 +51,55 @@ export const useStaffApi = () => {
         }
     };
 
+    // Function to get staff with pending files
+    const fetchStaffWithPendingFiles = async () => {
+        loading.value = true;
+        error.value = null;
+
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                throw new Error('Authentication token not found');
+            }
+
+            const response = await fetch(`${apiBaseUrl}/patients-with-pending-files?type=staff`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch staff with pending files: ${response.status}`);
+            }
+
+            const result = await response.json();
+            
+            if (result && result.success) {
+                // Update existing staff with pending file status
+                const pendingPatientIds = new Set(result.data.map((s: Staff) => s.patient_id));
+                
+                staff.value.forEach(member => {
+                    member.hasPendingFiles = pendingPatientIds.has(member.patient_id);
+                });
+                
+                return result.data;
+            } else {
+                throw new Error('Invalid response format');
+            }
+        } catch (err) {
+            console.error('Error fetching staff with pending files:', err);
+            error.value = err instanceof Error ? err.message : 'An unknown error occurred';
+            return [];
+        } finally {
+            loading.value = false;
+        }
+    };
+
     return {
         staff,
         loading,
         error,
         fetchStaff,
+        fetchStaffWithPendingFiles
     };
 };

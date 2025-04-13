@@ -6,8 +6,9 @@ import { usePatientConsultations } from '~/composables/usePatientConsultations';
 // Initialize the consultations composable
 const { 
   consultations, 
-  loading: consultationsLoading, 
-  error: consultationsError,  
+  loading: consultationsLoading,
+  error: consultationsError,
+  fetchConsultations
 } = usePatientConsultations();
 
 // Initialize state
@@ -50,6 +51,22 @@ const staffWithPendingFiles = computed(() => {
   return staff.value.filter(staff => staff.hasPendingFiles);
 });
 
+// Add these computed properties for the tabs
+const medicalFiles = computed(() => {
+  return staffFiles.value.filter(file => 
+    ['medical', 'dental', 'physical', 'opthal'].includes(file.type)
+  );
+});
+
+const consultationFiles = computed(() => {
+  return staffFiles.value.filter(file => 
+    ['admission', 'discharge', 'treatment', 'confinement'].includes(file.type)
+  );
+});
+
+// Add activeTab state
+const activeTab = ref('medicalRecords');
+
 // Apply filters to staff
 const applyFilters = () => {
   let result = [...staff.value];
@@ -77,45 +94,16 @@ watch([showPendingOnly, searchQuery], () => {
 });
 
 // Fetch consultation records for a staff member
-const fetchConsultations = async (clientId) => {
-  if (!clientId) {
-    console.warn('Cannot fetch consultations: No client ID provided');
+const fetchStaffConsultations = async (patientId) => {
+  if (!patientId) {
+    console.warn('Cannot fetch consultations: No patient ID provided');
     return;
   }
 
   try {
-    consultationsLoading.value = true;
-    consultationsError.value = null;
-
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Authentication token not found');
-    }
-
-    // Log the URL we're calling
-    const url = `http://localhost:3001/consultation-records/client/${clientId}`;
-    console.log('Fetching consultations from:', url);
-
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-
-    // Log the response status
-    console.log('Response status:', response.status, response.statusText);
-
-    if (!response.ok) {
-      throw new Error(`Error ${response.status}: ${response.statusText}`);
-    }
-
-    consultations.value = await response.json();
-    console.log('Received consultations:', consultations.value.length);
+    await fetchConsultations(patientId);
   } catch (err) {
     console.error('Error fetching consultations:', err);
-    consultationsError.value = err.message || 'Failed to load consultation records';
-  } finally {
-    consultationsLoading.value = false;
   }
 };
 
@@ -127,7 +115,7 @@ const openStaffModal = (staff) => {
   fetchStaffFiles();
   
   // Add this line to fetch consultation records when the modal opens
-  fetchConsultations(staff.client_id);
+  fetchStaffConsultations(staff.patient_id);
 };
 
 // Fetch staff from API
@@ -569,22 +557,6 @@ const formatFileType = (fileType) => {
   
   return types[fileType] || fileType;
 };  
-
-// Add these computed properties after the other state variables
-const medicalFiles = computed(() => {
-  return staffFiles.value.filter(file => 
-    ['medical', 'dental', 'physical', 'opthal'].includes(file.type)
-  );
-});
-
-const consultationFiles = computed(() => {
-  return staffFiles.value.filter(file => 
-    ['admission', 'discharge', 'treatment', 'confinement'].includes(file.type)
-  );
-});
-
-// Add activeTab state
-const activeTab = ref('medicalRecords');
 
 // Set up event listeners
 onMounted(() => {
