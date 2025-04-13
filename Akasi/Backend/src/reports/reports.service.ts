@@ -89,7 +89,7 @@ export class ReportsService {
         patient: {
           type: 'student',
           gender: 'Male',
-          category: 'Dormer',
+          category: 'Intern', // Changed from 'Dormer' to 'Intern' to match schema
         },
       },
       _count: {
@@ -130,7 +130,7 @@ export class ReportsService {
         patient: {
           type: 'student',
           gender: 'Female',
-          category: 'Dormer',
+          category: 'Intern', // Changed from 'Dormer' to 'Intern' to match schema
         },
       },
       _count: {
@@ -405,7 +405,12 @@ export class ReportsService {
 
       let patientType = '';
       if (record.patient.type === 'student') {
-        patientType = record.patient.category; // Dormer or Extern
+        patientType = record.patient.category; // Will be 'Intern' or 'Extern'
+        
+        // Map 'Intern' to 'Dormer' for report display consistency
+        if (patientType === 'Intern') {
+          patientType = 'Dormer';
+        }
       }
 
       return {

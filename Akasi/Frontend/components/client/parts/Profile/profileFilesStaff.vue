@@ -1,7 +1,7 @@
 <script setup>
     import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
     import { useProfile } from '~/composables/useProfile';
-    import { useClientConsultations } from '~/composables/useClientConsultations';
+    import { usePatientConsultations } from '~/composables/usePatientConsultations';
 
     const { profile, loading: profileLoading, error: profileError, fetchProfile } = useProfile();
 
@@ -32,7 +32,7 @@
     consultations, 
     loading: consultationsLoading, 
     error: consultationsError,  
-    } = useClientConsultations();
+    } = usePatientConsultations();
 
     const fetchConsultations = async (clientId) => {
         if (!clientId) {

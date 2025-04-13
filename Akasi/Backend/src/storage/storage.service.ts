@@ -55,8 +55,19 @@ export class StorageService {
     const timestamp = Date.now();
     const fileExtension = path.extname(file.originalname);
     const fileName = `${timestamp}_${postId}${fileExtension}`;
-    const filePath = path.join(this.bulletinDir, fileName);
-    const relativePath = path.join('bulletin', fileName).replace(/\\/g, '/');
+    
+    // Get the current year for organizing files
+    const today = new Date();
+    const year = today.getFullYear().toString();
+    
+    // Create year directory
+    const yearDir = path.join(this.bulletinDir, year);
+    if (!fs.existsSync(yearDir)) {
+      await mkdirAsync(yearDir, { recursive: true });
+    }
+    
+    const filePath = path.join(yearDir, fileName);
+    const relativePath = path.join('bulletin', year, fileName).replace(/\\/g, '/');
 
     try {
       // Ensure directory exists
@@ -64,6 +75,9 @@ export class StorageService {
       
       // Write file to disk
       await writeFileAsync(filePath, file.buffer);
+      
+      // Get the file type based on MIME type
+      const fileType = this.determineFileType(file.mimetype);
       
       // Create file record in database
       return await this.prisma.hsu_bulletin_files.create({
@@ -90,8 +104,19 @@ export class StorageService {
     const timestamp = Date.now();
     const fileExtension = path.extname(file.originalname);
     const fileName = `${timestamp}_${consultationId}${fileExtension}`;
-    const filePath = path.join(this.prescriptionDir, fileName);
-    const relativePath = path.join('prescriptions', fileName).replace(/\\/g, '/');
+    
+    // Get the current year for organizing files
+    const today = new Date();
+    const year = today.getFullYear().toString();
+    
+    // Create year directory
+    const yearDir = path.join(this.prescriptionDir, year);
+    if (!fs.existsSync(yearDir)) {
+      await mkdirAsync(yearDir, { recursive: true });
+    }
+    
+    const filePath = path.join(yearDir, fileName);
+    const relativePath = path.join('prescriptions', year, fileName).replace(/\\/g, '/');
 
     try {
       await this.ensureDirectoriesExist();
@@ -117,47 +142,78 @@ export class StorageService {
     mimetype: string;
     buffer: Buffer;
     size: number;
-  }, patientId: number, type: string, grade: number = null) {
+  }, patientId: number, type: string, grade: number = null, division: string = null) {
     const timestamp = Date.now();
     const fileExtension = path.extname(file.originalname);
     const fileName = `${timestamp}_${patientId}${fileExtension}`;
-    let directory: string;
-    let relativePath: string;
+    let baseDirectory: string;
     
-    // Determine the directory based on file type
+    // Determine the base directory based on file type
     switch (type) {
       case 'medical-certificate':
-        directory = this.medicalCertificatesDir;
-        relativePath = path.join('medical-certificates', fileName).replace(/\\/g, '/');
+        baseDirectory = this.medicalCertificatesDir;
         break;
       case 'dental-certificate':
-        directory = this.dentalCertificatesDir;
-        relativePath = path.join('dental-certificates', fileName).replace(/\\/g, '/');
+        baseDirectory = this.dentalCertificatesDir;
         break;
       case 'opthal-certificate':
-        directory = this.opthalCertificatesDir;
-        relativePath = path.join('opthal-certificates', fileName).replace(/\\/g, '/');
+        baseDirectory = this.opthalCertificatesDir;
         break;
       case 'physical-exam':
-        directory = this.physicalExamDir;
-        relativePath = path.join('physical-exam', fileName).replace(/\\/g, '/');
+        baseDirectory = this.physicalExamDir;
         break;
       case 'laboratory':
-        directory = this.laboratoryDir;
-        relativePath = path.join('laboratory', fileName).replace(/\\/g, '/');
+        baseDirectory = this.laboratoryDir;
         break;
       default:
         throw new Error(`Unsupported file type: ${type}`);
     }
 
-    const filePath = path.join(directory, fileName);
+    // Get the current year for organizing files
+    const today = new Date();
+    const year = today.getFullYear().toString();
+    
+    // Create year directory
+    const yearDir = path.join(baseDirectory, year);
+    if (!fs.existsSync(yearDir)) {
+      await mkdirAsync(yearDir, { recursive: true });
+    }
+    
+    // Create grade or division directory
+    let categoryDir = yearDir;
+    let relativeDirPath = path.join(type, year);
+    
+    // For students, use grade level; for staff, use division
+    if (grade !== null) {
+      // Student: use grade folder
+      const gradeFolderName = `g${grade}`;
+      categoryDir = path.join(yearDir, gradeFolderName);
+      relativeDirPath = path.join(type, year, gradeFolderName);
+    } else if (division !== null) {
+      // Staff: use division folder
+      categoryDir = path.join(yearDir, division);
+      relativeDirPath = path.join(type, year, division);
+    }
+    
+    // Ensure the category directory exists
+    if (categoryDir !== yearDir && !fs.existsSync(categoryDir)) {
+      await mkdirAsync(categoryDir, { recursive: true });
+    }
+    
+    // Full path for the file
+    const filePath = path.join(categoryDir, fileName);
+    
+    // Relative path for database storage (replacing backslashes with forward slashes)
+    const relativePath = path.join(relativeDirPath, fileName).replace(/\\/g, '/');
 
     try {
+      // Ensure base directories exist
       await this.ensureDirectoriesExist();
+      
+      // Write file to disk
       await writeFileAsync(filePath, file.buffer);
       
       // Create record in the appropriate table based on type
-      const today = new Date();
       const fileData = {
         patient_id: patientId,
         grade: grade,
@@ -225,5 +281,29 @@ export class StorageService {
   // Helper method to get file path for serving files
   getFilePath(relativePath: string): string {
     return path.join(this.uploadDir, relativePath);
+  }
+
+  // Helper method to determine file type based on MIME type
+  private determineFileType(mimeType: string): string {
+    if (mimeType.startsWith('image/')) {
+      return 'image';
+    } else if (mimeType.startsWith('video/')) {
+      return 'video';
+    } else if (mimeType === 'application/pdf') {
+      return 'pdf';
+    } else if (
+      mimeType === 'application/vnd.ms-excel' || 
+      mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      mimeType === 'application/vnd.ms-excel.sheet.macroEnabled.12'
+    ) {
+      return 'excel';
+    } else if (
+      mimeType === 'application/msword' ||
+      mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ) {
+      return 'word';
+    } else {
+      return 'document';
+    }
   }
 }

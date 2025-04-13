@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 
 interface Staff {
-    client_id: number;
+    patient_id: number;
     name: string;
 }
 
@@ -26,7 +26,7 @@ export const useStaffApi = () => {
 
         try {
             // Use correct variable destructuring
-            const { data: responseData, error: fetchError } = await useFetch(`${apiBaseUrl}/get-clients/staff`, {
+            const { data: responseData, error: fetchError } = await useFetch(`${apiBaseUrl}/get-patient/staff`, {
                 key: 'staff',
                 server: false // Get fresh data on client side
             });

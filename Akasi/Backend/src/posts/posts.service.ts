@@ -24,17 +24,12 @@ export class PostsService {
         // Handle files if any
         if (files?.length) {
           const filePromises = files.map(file => 
-            this.storageService.uploadFile({
-              originalname: file.originalname,
-              mimetype: file.mimetype,
-              buffer: file.buffer,
-              size: file.size
-            }, newPost.post_id)
+            this.storageService.uploadFile(file, newPost.post_id)
           );
           await Promise.all(filePromises);
         }
 
-        // Return complete post with files
+        // Return complete post with files and nurse information
         return await tx.hsu_bulletin.findUnique({
           where: { post_id: newPost.post_id },
           include: {
@@ -75,7 +70,8 @@ export class PostsService {
             file_name: true,
             file_path: true,
             mime_type: true,
-            file_size: true
+            file_size: true,
+            created_at: true
           }
         }
       },
@@ -86,7 +82,7 @@ export class PostsService {
   }
 
   async findOne(id: number) {
-    return this.prisma.hsu_bulletin.findUnique({
+    const post = await this.prisma.hsu_bulletin.findUnique({
       where: { post_id: id },
       include: {
         nurse: {
@@ -100,11 +96,27 @@ export class PostsService {
             file_name: true,
             file_path: true,
             mime_type: true,
-            file_size: true
+            file_size: true,
+            created_at: true
           }
         }
       }
     });
+
+    if (!post) {
+      throw new NotFoundException(`Post with ID ${id} not found`);
+    }
+
+    // Add file_type property based on mime_type for each file
+    const enhancedPost = {
+      ...post,
+      files: post.files.map(file => ({
+        ...file,
+        file_type: this.determineFileType(file.mime_type)
+      }))
+    };
+
+    return enhancedPost;
   }
 
   async update(id: number, updateData: { caption?: string }, files?: Express.Multer.File[], existingFileIds?: number[]) {
@@ -139,18 +151,13 @@ export class PostsService {
       // Handle new files if any
       if (files?.length) {
         const filePromises = files.map(file => 
-          this.storageService.uploadFile({
-            originalname: file.originalname,
-            mimetype: file.mimetype,
-            buffer: file.buffer,
-            size: file.size
-          }, id)
+          this.storageService.uploadFile(file, id)
         );
         await Promise.all(filePromises);
       }
 
-      // Return complete updated post with files
-      return await tx.hsu_bulletin.findUnique({
+      // Return complete updated post with files and nurse information
+      const post = await tx.hsu_bulletin.findUnique({
         where: { post_id: id },
         include: {
           files: {
@@ -169,6 +176,17 @@ export class PostsService {
           }
         }
       });
+
+      // Add file_type property based on mime_type for each file
+      const enhancedPost = {
+        ...post,
+        files: post.files.map(file => ({
+          ...file,
+          file_type: this.determineFileType(file.mime_type)
+        }))
+      };
+
+      return enhancedPost;
     });
   }
 
@@ -200,5 +218,29 @@ export class PostsService {
         where: { post_id: id }
       });
     });
+  }
+
+  // Helper method to determine file type based on MIME type
+  private determineFileType(mimeType: string): string {
+    if (mimeType.startsWith('image/')) {
+      return 'image';
+    } else if (mimeType.startsWith('video/')) {
+      return 'video';
+    } else if (mimeType === 'application/pdf') {
+      return 'pdf';
+    } else if (
+      mimeType === 'application/vnd.ms-excel' || 
+      mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      mimeType === 'application/vnd.ms-excel.sheet.macroEnabled.12'
+    ) {
+      return 'excel';
+    } else if (
+      mimeType === 'application/msword' ||
+      mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ) {
+      return 'word';
+    } else {
+      return 'document';
+    }
   }
 }

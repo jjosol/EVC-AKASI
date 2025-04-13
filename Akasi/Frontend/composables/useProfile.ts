@@ -10,9 +10,14 @@ type PatientProfile = {
   gmail: string;
   age: number;
   gender: string;
-  category: string;
-  grade: number | null;
-  section: string;
+  type_str: string;  // 'student', 'faculty', 'staff', 'other'
+  civil_status: string; // 'single', 'married', 'widowed', 'separated'
+  address: string;
+  division?: string;
+  position?: string;
+  grade?: number | null;
+  section?: string;
+  category?: string; // 'Intern', 'Extern'
 }
 
 type NurseProfile = {
@@ -142,7 +147,20 @@ export function useProfile() {
           // This is a patient profile
           profile.value = {
             type: 'patient',
-            ...userData
+            patient_id: userData.patient_id,
+            username: userData.username,
+            name: userData.name,
+            gmail: userData.gmail,
+            age: userData.age,
+            gender: userData.gender,
+            type_str: userData.type, // Store the type as type_str to avoid conflict with union type
+            civil_status: userData.civil_status,
+            address: userData.address,
+            division: userData.division,
+            position: userData.position,
+            grade: userData.grade,
+            section: userData.section,
+            category: userData.category
           }
           isNurse.value = false
           isDoctor.value = false
@@ -220,9 +238,14 @@ export function useProfile() {
       gmail: 'test@example.com',
       age: 15,
       gender: 'Male',
-      category: 'student',
+      type_str: 'student',
+      civil_status: 'single',
+      address: '123 Test Street',
+      division: 'Main',
+      position: 'student',
       grade: 9,
-      section: 'A'
+      section: 'A',
+      category: 'Extern'
     }
   }
 

@@ -1,6 +1,10 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue';
 import { getFileUrl, createPost, updatePost } from '../../../../services/bulletinService'; // Import the getFileUrl, createPost, and updatePost functions
+import { useProfile } from '~/composables/useProfile';
+
+// Add the profile composable to get the current user's information
+const { profile, loading: profileLoading, fetchProfile } = useProfile();
 
 const props = defineProps({
   post: {
@@ -14,6 +18,13 @@ const localMediaFiles = ref([]);
 const emit = defineEmits(['add-post', 'close']);
 const isLoading = ref(false);
 const error = ref(null);
+
+// Fetch the user profile when component is mounted
+onMounted(async () => {
+  if (!profile.value) {
+    await fetchProfile();
+  }
+});
 
 watch(() => props.post, (newPost) => {
   if (newPost) {
@@ -149,11 +160,25 @@ function removeFile(index) {
 const onSubmit = async () => {
   isLoading.value = true;
   try {
+    // Build postData using actual nurse information from profile
     const postData = {
-      admin_id: '1',
-      username: 'admin',
       caption: localText.value
     };
+    
+    // Use the authenticated nurse's information if available
+    if (profile.value && profile.value.type === 'nurse') {
+      postData.nurse_id = profile.value.nurse_id.toString();
+      postData.username = profile.value.username;
+    } else {
+      // Fallback values if profile isn't loaded yet or for testing
+      postData.nurse_id = '1';
+      postData.username = 'nurse';
+    }
+    
+    console.log('Using nurse data:', {
+      nurse_id: postData.nurse_id,
+      username: postData.username
+    });
 
     // Get only the file objects from localMediaFiles
     const filesToUpload = localMediaFiles.value

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFiles, NotFoundException, HttpStatus, HttpCode, InternalServerErrorException, Put, OnModuleInit } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFiles, NotFoundException, HttpStatus, HttpCode, InternalServerErrorException, Put, OnModuleInit, ParseIntPipe } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { PostsService } from './posts.service';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
@@ -15,9 +15,24 @@ export class PostsController implements OnModuleInit {
 
   @Post()
   @UseInterceptors(FilesInterceptor('files'))
-  async create(@Body() post: { nurse_id: number; username: string; caption?: string }, 
-               @UploadedFiles() files: Express.Multer.File[]) {
-    return this.postsService.create(post, files);
+  async create(
+    @Body() post: { nurse_id: string; username: string; caption?: string; text?: string },
+    @UploadedFiles() files: Express.Multer.File[] = []
+  ) {
+    // Handle text field by incorporating it into caption if both exist
+    const combinedCaption = post.text && post.caption 
+      ? `${post.caption}\n\n${post.text}` 
+      : post.text || post.caption;
+
+    // Convert nurse_id to number and pass along the username
+    return this.postsService.create(
+      { 
+        nurse_id: Number(post.nurse_id), 
+        username: post.username, 
+        caption: combinedCaption 
+      }, 
+      files
+    );
   }
 
   @Get()
@@ -28,10 +43,15 @@ export class PostsController implements OnModuleInit {
   @Put(':id')
   @UseInterceptors(FilesInterceptor('files'))
   async update(
-    @Param('id') id: string, 
-    @Body() updatePostDto: { caption?: string, existingFiles?: string },
-    @UploadedFiles() files: Express.Multer.File[]
+    @Param('id', ParseIntPipe) id: number, 
+    @Body() updatePostDto: { caption?: string, text?: string, existingFiles?: string },
+    @UploadedFiles() files: Express.Multer.File[] = []
   ) {
+    // Handle text field by incorporating it into caption if both exist
+    const combinedCaption = updatePostDto.text && updatePostDto.caption 
+      ? `${updatePostDto.caption}\n\n${updatePostDto.text}` 
+      : updatePostDto.text || updatePostDto.caption;
+
     // Parse existingFiles JSON string if it exists
     let existingFileIds: number[] | undefined = undefined;
     if (updatePostDto.existingFiles) {
@@ -43,8 +63,8 @@ export class PostsController implements OnModuleInit {
     }
 
     return this.postsService.update(
-      +id, 
-      { caption: updatePostDto.caption }, 
+      id, 
+      { caption: combinedCaption }, 
       files,
       existingFileIds
     );
@@ -53,10 +73,15 @@ export class PostsController implements OnModuleInit {
   @Post(':id/update')
   @UseInterceptors(FilesInterceptor('files'))
   async updateAlternative(
-    @Param('id') id: string, 
-    @Body() updatePostDto: { caption?: string, existingFiles?: string },
-    @UploadedFiles() files: Express.Multer.File[]
+    @Param('id', ParseIntPipe) id: number, 
+    @Body() updatePostDto: { caption?: string, text?: string, existingFiles?: string },
+    @UploadedFiles() files: Express.Multer.File[] = []
   ) {
+    // Handle text field by incorporating it into caption if both exist
+    const combinedCaption = updatePostDto.text && updatePostDto.caption 
+      ? `${updatePostDto.caption}\n\n${updatePostDto.text}` 
+      : updatePostDto.text || updatePostDto.caption;
+
     // Parse existingFiles JSON string if it exists
     let existingFileIds: number[] | undefined = undefined;
     if (updatePostDto.existingFiles) {
@@ -68,28 +93,21 @@ export class PostsController implements OnModuleInit {
     }
 
     return this.postsService.update(
-      +id, 
-      { caption: updatePostDto.caption }, 
+      id, 
+      { caption: combinedCaption }, 
       files,
       existingFileIds
     );
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.postsService.findOne(+id);
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.postsService.findOne(id);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('id') id: string) {
-    try {
-      await this.postsService.remove(+id);
-    } catch (error) {
-      if (error instanceof PrismaClientKnownRequestError && error.code === 'P2025') {
-        throw new NotFoundException(`Post with ID ${id} not found`);
-      }
-      throw new InternalServerErrorException('Failed to delete post');
-    }
+  async remove(@Param('id', ParseIntPipe) id: number) {
+    await this.postsService.remove(id);
   }
 }

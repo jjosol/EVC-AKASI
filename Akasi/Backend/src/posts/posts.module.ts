@@ -6,7 +6,8 @@ import { StorageModule } from '../storage/storage.module';
 
 @Module({
   imports: [PrismaModule, StorageModule],
-  providers: [PostsService],
   controllers: [PostsController],
+  providers: [PostsService],
+  exports: [PostsService]
 })
 export class PostsModule {}

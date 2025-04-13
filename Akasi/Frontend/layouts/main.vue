@@ -32,8 +32,8 @@
 <template>
     <div class="split left">
         <div class="center">
-            <SideBarA v-if="isAdmin"/>
-            <SideBarC v-else-if="isClient"/>
+            <SideBarA v-if="isNurse"/>
+            <SideBarC v-else-if="isPatient"/>
             <SideBarM v-else-if="isManager"/>
 
         </div>
@@ -47,6 +47,6 @@
 </template>
 <script setup>
 import { useAuth } from '~/composables/useAuth';
-const { isAdmin, isClient, isManager } = useAuth();
+const { isNurse, isPatient, isManager } = useAuth();
 
 </script>

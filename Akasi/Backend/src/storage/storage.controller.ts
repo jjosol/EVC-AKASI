@@ -37,13 +37,15 @@ export class StorageController {
     @Param('patientId') patientId: string,
     @Param('type') type: string,
     @Body('grade') grade?: string,
+    @Body('division') division?: string,
   ) {
     const gradeNum = grade ? parseInt(grade) : null;
     return this.storageService.uploadPatientFile(
       file, 
       parseInt(patientId), 
       type,
-      gradeNum
+      gradeNum,
+      division
     );
   }
 

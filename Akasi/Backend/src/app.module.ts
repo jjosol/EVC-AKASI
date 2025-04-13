@@ -33,6 +33,9 @@ import { ChangePasswordModule } from './change-password/changePass.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { EquipmentModule } from './equipment/equipment.module';
+import { DoctorService } from './doctor/doctor.service';
+import { DoctorController } from './doctor/doctor.controller';
+import { DoctorModule } from './doctor/doctor.module';
 
 
 @Module({
@@ -67,9 +70,10 @@ import { EquipmentModule } from './equipment/equipment.module';
     DiagnosisModule,
     ManagersModule,
     GetPatientConsultationsModule,
-    EquipmentModule
+    EquipmentModule,
+    DoctorModule
   ],
-  providers: [AppService], // ONLY services directly used by AppModule
-  controllers: [AppController], // ONLY controllers directly in AppModule
+  providers: [AppService, DoctorService], // ONLY services directly used by AppModule
+  controllers: [AppController, DoctorController], // ONLY controllers directly in AppModule
 })
 export class AppModule { }

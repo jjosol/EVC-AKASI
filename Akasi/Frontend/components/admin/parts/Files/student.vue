@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
-import { useClientConsultations } from '~/composables/useClientConsultations';
+import { usePatientConsultations } from '~/composables/usePatientConsultations';
 
 // Add activeTab state
 const activeTab = ref('medicalRecords');
@@ -10,7 +10,7 @@ const {
   consultations, 
   loading: consultationsLoading, 
   error: consultationsError,  
-} = useClientConsultations();
+} = usePatientConsultations();
 
 // Add function to fetch consultations for a student
 const fetchConsultations = async (clientId) => {

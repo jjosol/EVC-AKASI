@@ -1,4 +1,4 @@
-// composables/useClientFiles.ts
+// composables/usePatientFiles.ts
 import { ref, computed } from 'vue'
 import type { Ref } from 'vue'
 import { useProfile } from '~/composables/useProfile'
@@ -7,13 +7,13 @@ interface CertificateFile {
     id: number;
     type: string;
     typeLabel: string;
-    clientId: number;
+    patientId: number;
     grade: number;
     date: string;
     url?: string;
 }
 
-export function useClientFiles() {
+export function usePatientFiles() {
     const { profile } = useProfile()
 
     const certificateFiles: Ref<CertificateFile[]> = ref([])
@@ -21,16 +21,16 @@ export function useClientFiles() {
     const error = ref<string | null>(null)
     const selectedFile = ref<CertificateFile | null>(null)
 
-    // Create a computed property that safely accesses the client ID
-    const currentClientId = computed(() => {
+    // Create a computed property that safely accesses the patient ID
+    const currentPatientId = computed(() => {
         if (!profile.value) {
             console.log('Profile is null')
             return null
         }
 
         // Check all possible places where the ID might be stored
-        if (profile.value.client_id !== undefined) {
-            return profile.value.client_id
+        if (profile.value.patient_id !== undefined) {
+            return profile.value.patient_id
         }
         // If we're in development mode and using mock data
         return 1 // Default to ID 1 for testing
@@ -40,8 +40,8 @@ export function useClientFiles() {
      * Fetch certificates for a specific grade
      */
     async function fetchCertificates(grade: number) {
-        if (!currentClientId.value) {
-            error.value = 'Client ID not available'
+        if (!currentPatientId.value) {
+            error.value = 'Patient ID not available'
             return []
         }
 
@@ -54,7 +54,7 @@ export function useClientFiles() {
                 throw new Error('Authentication token not found')
             }
 
-            const response = await fetch(`http://localhost:3001/client-files?client_id=${currentClientId.value}&grade=${grade}`, {
+            const response = await fetch(`http://localhost:3001/patient-files?patient_id=${currentPatientId.value}&grade=${grade}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -93,7 +93,7 @@ export function useClientFiles() {
             }
 
             // Create a hidden iframe or fetch the file content and create a Blob URL
-            const response = await fetch(`http://localhost:3001/client-files/file/${file.type}/${file.id}`, {
+            const response = await fetch(`http://localhost:3001/patient-files/file/${file.type}/${file.id}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -174,7 +174,7 @@ export function useClientFiles() {
         loading,
         error,
         selectedFile,
-        currentClientId,
+        currentPatientId,
         fetchCertificates,
         viewFile,
         revokeFileUrl,

@@ -1,14 +1,14 @@
 <script setup>
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
 // Add the client consultations composable
-import { useClientConsultations } from '~/composables/useClientConsultations';
+import { usePatientConsultations } from '~/composables/usePatientConsultations';
 
 // Initialize the consultations composable
 const { 
   consultations, 
   loading: consultationsLoading, 
   error: consultationsError,  
-} = useClientConsultations();
+} = usePatientConsultations();
 
 // Initialize state
 const faculty = ref([]);

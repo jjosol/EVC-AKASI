@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 
-export function useClientConsultations() {
+export function usePatientConsultations() {
     const consultations = ref([])
     const loading = ref(false)
     const error = ref(null)
@@ -21,11 +21,11 @@ export function useClientConsultations() {
     }
 
     /**
-     * Fetch consultation records for the current client
+     * Fetch consultation records for the current patient
      */
-    const fetchConsultations = async (clientId) => {
-        if (!clientId) {
-            error.value = 'Client ID is required'
+    const fetchConsultations = async (patientId) => {
+        if (!patientId) {
+            error.value = 'Patient ID is required'
             return
         }
 
@@ -39,7 +39,7 @@ export function useClientConsultations() {
             }
 
             // Log the URL we're calling
-            const url = `http://localhost:3001/consultation-records/client/${clientId}`
+            const url = `http://localhost:3001/consultation-records/patient/${patientId}`
             console.log('Fetching consultations from:', url)
 
             const response = await fetch(url, {

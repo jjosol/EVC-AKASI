@@ -5,7 +5,7 @@ const FILES_URL = '/files';
 
 // Define interfaces to improve type safety
 interface PostData {
-  admin_id?: string;
+  nurse_id?: string;  // Changed from admin_id to nurse_id
   username?: string;
   caption?: string;
   text?: string;
@@ -14,13 +14,14 @@ interface PostData {
 interface PostFile {
   file_id: number;
   file_name: string;
-  file_type: string;
+  file_path: string;
   mime_type: string;
+  file_size: number;
 }
 
 interface PostResponse {
   post_id: number;
-  admin_id: string;
+  nurse_id: string;  // Changed from admin_id to nurse_id
   username: string;
   caption?: string;
   text?: string;
@@ -68,7 +69,7 @@ export const createPost = async (postData: PostData, files: File[]): Promise<Pos
   const formData = new FormData();
   
   // Add post data
-  if (postData.admin_id) formData.append('admin_id', postData.admin_id);
+  if (postData.nurse_id) formData.append('nurse_id', postData.nurse_id);  // Changed from admin_id to nurse_id
   if (postData.username) formData.append('username', postData.username);
   if (postData.caption) formData.append('caption', postData.caption);
   if (postData.text) formData.append('text', postData.text);
@@ -137,7 +138,7 @@ export const updatePost = async (
   // Add post data
   if (postData.caption !== undefined) formData.append('caption', postData.caption);
   if (postData.text) formData.append('text', postData.text);
-  if (postData.admin_id) formData.append('admin_id', postData.admin_id);
+  if (postData.nurse_id) formData.append('nurse_id', postData.nurse_id);  // Changed from admin_id to nurse_id
   if (postData.username) formData.append('username', postData.username);
   
   // Add files if any
