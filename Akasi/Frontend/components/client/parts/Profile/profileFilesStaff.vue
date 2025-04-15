@@ -710,20 +710,19 @@
             // Ensure these match the backend expectation
             formData.append('file', uploadForm.value.file); // Matches @UploadedFile() parameter
             formData.append('type', uploadForm.value.certType); // Matches @Body('type') parameter
-            formData.append('client_id', clientId.toString()); // Convert to string
+            formData.append('patient_id', clientId.toString()); // Convert to string - updated from client_id
             
             console.log('Sending form data:', {
                 file: uploadForm.value.file?.name,
                 type: uploadForm.value.certType,
-                client_id: clientId
+                patient_id: clientId
             });
 
-            // Send the request
-            const response = await fetch('http://localhost:3001/client-files-staff/upload', {
+            // Send the request to updated endpoint
+            const response = await fetch('http://localhost:3001/patient-files-staff/upload', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
-                    // DO NOT set Content-Type header with FormData
                 },
                 body: formData
             });

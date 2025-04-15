@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import PostClient from '../parts/Bulletin/PostClient.vue';
-import Post from '~/components/admin/parts/Bulletin/Post.vue';
+import Post from '~/components/NURSE/parts/Bulletin/Post.vue';
 
 const posts = ref([]);
 const isModalVisible = ref(false);

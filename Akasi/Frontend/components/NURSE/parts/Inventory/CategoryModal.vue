@@ -9,7 +9,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['closeModal', 'addCategory'])
-const { profile } = useProfile(); // Get the current admin profile
+const { profile } = useProfile(); // Get the current nurse profile
 
 const newCategory = ref({
   category_id: null,
@@ -80,10 +80,10 @@ const submitForm = async () => {
         { name: newCategory.value.name }
       );
     } else {
-      // Add new category with the admin ID
-      result = await inventoryService.addCategoryWithAdmin({ 
+      // Add new category with the nurse ID
+      result = await inventoryService.addCategoryWithNurse({ 
         name: newCategory.value.name 
-      }, profile.value?.admin_id);
+      }, profile.value?.nurse_id);
     }
     
     emit('addCategory', result);

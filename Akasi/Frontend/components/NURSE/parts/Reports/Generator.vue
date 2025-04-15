@@ -1,6 +1,6 @@
 <template>
-  <div class="bg-gray-50 min-h-screen py-8">
-    <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md overflow-hidden">
+  <div class="min-h-screen py-8 bg-gray-50">
+    <div class="max-w-4xl mx-auto overflow-hidden bg-white rounded-lg shadow-md">
       <!-- Header -->
       <div class="bg-[#2f4a71] px-6 py-4">
         <h2 class="text-2xl font-bold text-white">PSHS-EVC Health Services Report Generator</h2>
@@ -12,27 +12,27 @@
           <button 
             @click="selectedPeriod = 'monthly'"
             :class="{'text-blue-600 border-b-2 border-blue-600 font-medium': selectedPeriod === 'monthly'}"
-            class="px-4 py-2 text-gray-600 hover:text-blue-500 transition-colors">
+            class="px-4 py-2 text-gray-600 transition-colors hover:text-blue-500">
             Monthly
           </button>
           <button 
             @click="selectedPeriod = 'yearly'"
             :class="{'text-blue-600 border-b-2 border-blue-600 font-medium': selectedPeriod === 'yearly'}"
-            class="px-4 py-2 text-gray-600 hover:text-blue-500 transition-colors">
+            class="px-4 py-2 text-gray-600 transition-colors hover:text-blue-500">
             Yearly
           </button>
         </div>
 
         <div class="space-y-8">
           <!-- Date Selection -->
-          <div class="grid md:grid-cols-2 gap-6">
+          <div class="grid gap-6 md:grid-cols-2">
             <div v-if="selectedPeriod === 'monthly'" class="space-y-2">
               <label class="block text-sm font-medium text-gray-700">Month Range</label>
               <div class="flex items-center space-x-2">
                 <div class="flex-1">
                   <select 
                     v-model="startMonth" 
-                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50">
+                    class="block w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50">
                     <option value="" disabled selected>Start Month</option>
                     <option v-for="(month, index) in months" :key="index" :value="index">{{ month }}</option>
                   </select>
@@ -41,30 +41,30 @@
                 <div class="flex-1">
                   <select 
                     v-model="endMonth"
-                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50">
+                    class="block w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50">
                     <option value="" disabled selected>End Month</option>
                     <option value="null">Same as Start Month</option>
                     <option v-for="(month, index) in months" :key="index" :value="index">{{ month }}</option>
                   </select>
                 </div>
               </div>
-              <div v-if="endMonthError" class="text-red-500 text-sm mt-1">
+              <div v-if="endMonthError" class="mt-1 text-sm text-red-500">
                 {{ endMonthError }}
               </div>
             </div>
             
             <div v-if="selectedPeriod === 'yearly'" class="space-y-2">
               <label class="block text-sm font-medium text-gray-700">Period</label>
-              <div class="px-4 py-2 bg-gray-100 rounded-md border border-gray-200">
+              <div class="px-4 py-2 bg-gray-100 border border-gray-200 rounded-md">
                 Full School Year (July - June)
               </div>
             </div>
             
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">School Year</label>
+              <label class="block mb-2 text-sm font-medium text-gray-700">School Year</label>
               <select 
                 v-model="selectedYear"
-                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50">
+                class="block w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50">
                 <option value="" disabled selected>Select School Year</option>
                 <option v-for="year in schoolYears" :key="year" :value="year">{{ year }}</option>
               </select>
@@ -72,7 +72,7 @@
           </div>
 
           <!-- Report Preview -->
-          <div class="border rounded-lg overflow-hidden bg-gray-50">
+          <div class="overflow-hidden border rounded-lg bg-gray-50">
             <div class="px-4 py-3 bg-gray-100 border-b border-gray-200">
               <h3 class="font-medium text-gray-700">Report Preview</h3>
             </div>
@@ -103,12 +103,12 @@
 
     <!-- Modal for PDF Preview -->
     <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div class="bg-white rounded-lg shadow-lg overflow-hidden w-11/12 max-w-4xl h-5/6 flex flex-col">
-        <div class="px-4 py-2 flex justify-between items-center border-b">
+      <div class="flex flex-col w-11/12 max-w-4xl overflow-hidden bg-white rounded-lg shadow-lg h-5/6">
+        <div class="flex items-center justify-between px-4 py-2 border-b">
           <h3 class="text-lg font-medium">Report Preview</h3>
           <button @click="showModal = false" class="text-gray-500 hover:text-gray-700">
             <span class="sr-only">Close</span>
-            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -121,7 +121,7 @@
             @load="onIframeLoad"
           ></iframe>
         </div>
-        <div class="px-4 py-2 border-t flex justify-end">
+        <div class="flex justify-end px-4 py-2 border-t">
           <button 
             @click="generateReport" 
             :disabled="fetchingData"
@@ -137,7 +137,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-//import moment from 'moment-timezone'
+import { fetchIllnessSummary, fetchConsultationMonitoring, generatePdf, formatReportDate } from '../../../../services/reportService'
 
 // Import HTML template - this will be loaded as a string
 const reportHtmlTemplate = ref('')
@@ -235,31 +235,11 @@ onMounted(async () => {
   }
 })
 
-const generatePdf = async (htmlContent) => {
+const generatePdfFile = async (htmlContent) => {
   try {
-    // Ensure conclusion text is in the HTML before generating
-    htmlContent = htmlContent.replace(
-      /<textarea[^>]*id="conclusion"[^>]*>.*?<\/textarea>/g,
-      `<textarea id="conclusion" name="conclusion" rows="4">${conclusionText.value}</textarea>`
-    );
+    // Use the reportService function to generate PDF
+    const blob = await generatePdf(htmlContent, conclusionText.value);
     
-    const response = await fetch('/_generate-pdf', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ 
-        html: htmlContent,
-        conclusionText: conclusionText.value 
-      })
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || 'Failed to generate PDF')
-    }
-
-    const blob = await response.blob()
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -292,27 +272,16 @@ const fetchReportData = async (startMonthName, endMonthName, year, isYearly = fa
   fetchError.value = null;
   
   try {
-    // Add URL encode for month names with spaces and proper handling of year
-    const encodedStartMonth = encodeURIComponent(startMonthName);
-    const encodedEndMonth = encodeURIComponent(endMonthName || startMonthName);
+    console.log(`Fetching data for: ${startMonthName} to ${endMonthName || startMonthName}, ${year}, yearly=${isYearly}`);
     
-    // Add yearly parameter to API call
-    const yearlyParam = isYearly ? '&yearly=true' : '';
-    
-    console.log(`Fetching data for: ${encodedStartMonth} to ${encodedEndMonth}, ${year}, yearly=${isYearly}`);
-    
-    const response = await fetch(
-      `http://localhost:3001/reports/illness-summary?startMonth=${encodedStartMonth}&endMonth=${encodedEndMonth}&year=${year}${yearlyParam}`
+    // Use the reportService function to fetch illness summary data
+    const data = await fetchIllnessSummary(
+      startMonthName, 
+      endMonthName || null, 
+      year, 
+      isYearly
     );
     
-    if (!response.ok) {
-      console.error(`API error: ${response.status}`);
-      const errorText = await response.text();
-      console.error(`Error details: ${errorText}`);
-      throw new Error(`API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
     console.log("API response:", data);
     reportData.value = data;
     return data;
@@ -325,28 +294,18 @@ const fetchReportData = async (startMonthName, endMonthName, year, isYearly = fa
   }
 };
 
-const fetchConsultationMonitoring = async (startMonthName, endMonthName, year, isYearly = false) => {
+const fetchConsultationMonitoringData = async (startMonthName, endMonthName, year, isYearly = false) => {
   try {
-    const encodedStartMonth = encodeURIComponent(startMonthName);
-    const encodedEndMonth = encodeURIComponent(endMonthName || startMonthName);
+    console.log(`Fetching monitoring data for: ${startMonthName} to ${endMonthName || startMonthName}, ${year}, yearly=${isYearly}`);
     
-    // Add yearly parameter to API call
-    const yearlyParam = isYearly ? '&yearly=true' : '';
-    
-    console.log(`Fetching monitoring data for: ${encodedStartMonth} to ${encodedEndMonth}, ${year}, yearly=${isYearly}`);
-    
-    const response = await fetch(
-      `http://localhost:3001/reports/monitoring?startMonth=${encodedStartMonth}&endMonth=${encodedEndMonth}&year=${year}${yearlyParam}`
+    // Use the reportService function to fetch consultation monitoring data
+    const data = await fetchConsultationMonitoring(
+      startMonthName,
+      endMonthName || null,
+      year,
+      isYearly
     );
     
-    if (!response.ok) {
-      console.error(`API error: ${response.status}`);
-      const errorText = await response.text();
-      console.error(`Error details: ${errorText}`);
-      throw new Error(`API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
     console.log("Consultation monitoring data:", data);
     return data;
   } catch (error) {
@@ -427,7 +386,7 @@ const generateReport = async () => {
 
   try {
     // Generate PDF with the final HTML
-    await generatePdf(finalHtml);
+    await generatePdfFile(finalHtml);
   } catch (error) {
     console.error("Error generating report:", error);
     alert("Failed to generate report. Please try again later.");
@@ -609,7 +568,7 @@ const processTemplate = async (html, selectedMonths, data, isYearly = false) => 
   }
   
   // Fetch the consultation monitoring data
-  const monitoringData = await fetchConsultationMonitoring(startMonthName, endMonthName, year, isYearly);
+  const monitoringData = await fetchConsultationMonitoringData(startMonthName, endMonthName, year, isYearly);
   
   // Replace the consultation monitoring rows in the template
   if (monitoringData && monitoringData.length > 0) {

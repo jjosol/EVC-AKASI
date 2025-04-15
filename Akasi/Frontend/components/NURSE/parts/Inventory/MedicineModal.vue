@@ -134,11 +134,11 @@ const prepareSubmit = () => {
 
 const submitForm = async () => {
   try {
-    const result = await inventoryService.addInventoryItem({
+    const result = await inventoryService.addMedicineItem({
       name: newItem.value.name,
       expirationDate: newItem.value.expirationDate,
       count: newItem.value.count,
-      category_id: newItem.value.category_id,
+      medCategory_id: newItem.value.category_id,
       isOTC: newItem.value.isOTC, // Include OTC status in API call
     });
     showConfirmModal.value = false;
