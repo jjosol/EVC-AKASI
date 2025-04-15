@@ -5,27 +5,40 @@ import moment from 'moment-timezone';
 import { useProfile } from '~/composables/useProfile'
 import { useAppointmentsByDate } from '~/composables/useAppointmentsByDate';
 import * as consultationRecordService from '~/services/consultationRecordService';
-// Add this if not already present
-import * as inventoryService from '~/services/inventoryService';
-// Import the confirmation modal component
+import { Icon } from '@iconify/vue';
+
+// Import all the components
 import ConfirmationModal from '~/components/SHARED/parts/confirmationModal.vue';
+import AddModal from './addListComponents/AddModal.vue';
+import EditModal from './addListComponents/EditModal.vue';
+import MedicineModal from './addListComponents/MedicineModal.vue';
+import MedicineDetailModal from './addListComponents/MedicineDetailModal.vue';
+import AddDiagnosisModal from './addListComponents/AddDiagnosisModal.vue';
+import AddCategoryModal from './addListComponents/AddCategoryModal.vue';
+import StatusModal from './addListComponents/StatusModal.vue';
 
 // Properly initialize the profile composable
 const { profile, loading: profileLoading, fetchProfile } = useProfile();
 
-// Create a computed property for the current user that handles both admin and client types
+// Create a computed property for the current user that handles multiple role types
 const currentUser = computed(() => {
   if (!profile.value) return { name: 'School Physician', admin_id: 1 };
   
   // Handle different profile types
-  if (profile.value.type === 'admin') {
+  if (profile.value.type === 'doctor') {
     return {
-      admin_id: profile.value.admin_id,
+      admin_id: profile.value.doctor_id,
       name: profile.value.name,
-      role: 'admin'
+      role: 'doctor'
+    };
+  } else if (profile.value.type === 'nurse') {
+    return {
+      admin_id: profile.value.nurse_id,
+      name: profile.value.name,
+      role: 'nurse'
     };
   } else {
-    // In case a client somehow accesses this admin component
+    // Default fallback
     return { name: 'School Physician', admin_id: 1 };
   }
 });
@@ -116,31 +129,18 @@ const updateConsultationRecord = async (consultation_id, person) => {
     // First, fetch the existing record to get the original date
     const existingRecord = await fetchConsultationRecord(consultation_id);
 
-    const response = await fetch(`http://localhost:3001/consultation-records/${consultation_id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        client_id: person.clientId,
-        admin_id: currentUser?.admin_id, // Replace with actual admin_id
-        date: existingRecord.date, // Use the original date and time
-        patient_name: person.name,
-        patient_occupation: person.occupation || `${person.grade}-${person.section}`,
-        doctor: currentUser?.name,
-        complaint: person.generalComplaint || '',
-        remarks: person.remarks || '',
-        confined: person.confined || false,
-        medAdministration: person.medicationAdministration || false,
-      }),
+    return await consultationRecordService.updateConsultationRecord(consultation_id, {
+      patient_id: person.clientId,
+      nurse_id: currentUser.value.admin_id,
+      date: existingRecord.date, // Use the original date and time
+      patient_name: person.name,
+      patient_occupation: person.occupation || `${person.grade}-${person.section}`,
+      nurse_name: currentUser.value.name,
+      complaint: person.generalComplaint || '',
+      remarks: person.remarks || '',
+      confined: person.confined || false,
+      medAdministration: person.medicationAdministration || false,
     });
-
-    if (!response.ok) {
-      throw new Error('Failed to update consultation record');
-    }
-
-    const data = await response.json();
-    return data;
   } catch (error) {
     console.error('Error updating consultation record:', error);
     throw error;
@@ -154,19 +154,7 @@ const updateConsultationRecord = async (consultation_id, person) => {
  */
 const updateConsultationWithMedication = async (consultation_id) => {
   try {
-    const response = await fetch(`http://localhost:3001/consultation-records/${consultation_id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        medAdministration: true
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to update consultation record medication status');
-    }
+    await consultationRecordService.updateConsultationWithMedication(consultation_id);
   } catch (error) {
     console.error('Error updating medication status:', error);
     throw error;
@@ -182,7 +170,7 @@ const createConsultationRecord = async (person) => {
   try {
     // Validate required fields
     if (!person.clientId) {
-      throw new Error('Client ID is required');
+      throw new Error('Patient ID is required');
     }
     const selectedDateTime = new Date(props.currentDay.date);
     const now = new Date();
@@ -190,33 +178,27 @@ const createConsultationRecord = async (person) => {
     
     const formattedDateTime = selectedDateTime.toISOString();
 
-    const response = await fetch('http://localhost:3001/consultation-records', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        client_id: person.clientId,
-        admin_id: currentUser?.admin_id, // Default admin ID
-        date: formattedDateTime,
-        patient_name: person.name,
-        patient_occupation: person.occupation || `${person.grade}-${person.section}`,
-        complaint: selectedConsultationRecord.value?.complaint || '',
-        remarks: selectedConsultationRecord.value?.remarks || '',
-        confined: selectedConsultationRecord.value?.confined || false,
-        medAdministration: true,
-        fatality: selectedConsultationRecord.value?.fatality || false,
-        intervention: selectedConsultationRecord.value?.intervention || '',
-        doctor: currentUser?.name
-      })
-    });
+    // Prepare the data object for the service call
+    const consultationData = {
+      patient_id: person.clientId, // Updated from client_id to patient_id
+      nurse_id: currentUser.value.admin_id, // Updated from admin_id to nurse_id
+      date: formattedDateTime,
+      patient_name: person.name,
+      patient_occupation: person.occupation || `${person.grade}-${person.section}`,
+      nurse_name: currentUser.value.name,
+      complaint: selectedConsultationRecord.value?.complaint || '',
+      remarks: selectedConsultationRecord.value?.remarks || '',
+      confined: selectedConsultationRecord.value?.confined || false,
+      medAdministration: true,
+      intervention: selectedConsultationRecord.value?.intervention || '',
+      action: '',
+      disposition: '',
+      doctor_id: currentUser.value.role === 'doctor' ? currentUser.value.admin_id : undefined,
+      doctor_name: currentUser.value.role === 'doctor' ? currentUser.value.name : undefined
+    };
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to create consultation record');
-    }
-
-    return await response.json();
+    // Use the service function instead of direct fetch
+    return await consultationRecordService.createConsultationRecord(consultationData);
   } catch (error) {
     console.error('Error creating consultation record:', error);
     throw error;
@@ -229,21 +211,17 @@ const createConsultationRecord = async (person) => {
  */
 const fetchPeople = async () => {
   try {
-    const response = await fetch('http://localhost:3001/clients');
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status} - ${response.statusText}`);
-    }
-    const data = await response.json();
-    allPeople.value = data.map((client) => ({
-      clientId: client.client_id,
-      name: client.name,
-      section: client.section || 'N/A',
-      grade: client.grade || 'N/A',
-      age: client.age || 0,
-      sex: client.sex || 'N/A',
-      type: client.type || 'N/A',
-      category: client.category || 'N/A', // Added category field
-      occupation: client.occupation || 'N/A', // Added occupation field
+    const data = await consultationRecordService.fetchPeople();
+    allPeople.value = data.map((patient) => ({
+      clientId: patient.patient_id, // Keep clientId for backward compatibility
+      name: patient.name,
+      section: patient.section || 'N/A',
+      grade: patient.grade || 'N/A',
+      age: patient.age || 0,
+      sex: patient.gender || 'N/A',
+      type: patient.type || 'N/A',
+      category: patient.category || 'N/A',
+      occupation: patient.position || 'N/A',
     }));
   } catch (error) {
     console.error('Error fetching people:', error.message);
@@ -256,12 +234,8 @@ const fetchPeople = async () => {
  */
 const fetchPatients = async () => {
   try {
-    const response = await fetch('http://localhost:3001/consultation-records');
-    if (!response.ok) {
-      throw new Error('Failed to fetch consultation records');
-    }
-    const data = await response.json();
-
+    const data = await consultationRecordService.fetchConsultationRecords();
+    
     // Use moment.js for consistent timezone handling
     const currentDate = moment(props.currentDay.date).tz("Asia/Manila");
     
@@ -271,7 +245,7 @@ const fetchPatients = async () => {
         return recordDate.isSame(currentDate, 'day');
       })
       .map((record) => ({
-        id: record.client_id,
+        id: record.patient_id,
         consultation_id: record.consultation_id,
         name: record.patient_name,
         occupation: record.patient_occupation || 'N/A',
@@ -280,8 +254,9 @@ const fetchPatients = async () => {
         remarks: record.remarks,
         confined: record.confined,
         medAdministration: record.medAdministration,
-        fatality: record.fatality,
         intervention: record.intervention,
+        action: record.action,
+        disposition: record.disposition
       }));
   } catch (error) {
     console.error('Error fetching patients:', error.message);
@@ -296,11 +271,7 @@ const fetchRecordCount = async () => {
   try {
     const year = props.currentDay.date.getFullYear();
     const month = props.currentDay.date.getMonth();
-    const response = await fetch(`http://localhost:3001/consultation-records/count?year=${year}&month=${month}&confined=true`);
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status} - ${response.statusText}`);
-    }
-    const count = await response.json();
+    const count = await consultationRecordService.fetchConfinedConsultationRecordsCount(year, month);
     confinedCount.value = count;
     emit('update-confined', confinedCount.value);
     console.log(confinedCount.value); // Update the confined count
@@ -357,12 +328,6 @@ onMounted(() => {
   }
 });
 console.log(patients)
-
-
-
-
-
-
 ////////////////
 /**
  * Saves/updates person and consultation record
@@ -737,16 +702,15 @@ const openEditModal = async (patient) => {
     let clientOccupation = 'N/A';
 
     try {
-      const clientResponse = await fetch(`http://localhost:3001/clients/${patient.id}`);
-      if (clientResponse.ok) {
-        const clientData = await clientResponse.json();
+      const clientData = await consultationRecordService.fetchPatientById(patient.id);
+      if (clientData) {
         clientCategory = clientData.category || 'N/A';
         clientGrade = clientData.grade || 'N/A';
         clientSection = clientData.section || 'N/A';
-        clientOccupation = clientData.occupation || 'N/A';
+        clientOccupation = clientData.position || 'N/A';
       }
     } catch (clientError) {
-      console.error('Error fetching client details:', clientError);
+      console.error('Error fetching patient details:', clientError);
     }
 
     // Fetch medication administration records
@@ -1349,7 +1313,7 @@ const deleteCategory = async (categoryId) => {
     // Delete all diseases in the category first
     const diseasesToDelete = diseases.value.filter(d => d.category_id === categoryId);
     for (const disease of diseasesToDelete) {
-      await consultationRecordService.deleteDisease(disease.diagnosis_id);
+      await consultationRecordService.deleteDisease(diagnosis_id);
     }
 
     // Then delete the category itself
@@ -1545,22 +1509,12 @@ const updateAppointmentStatus = async () => {
   try {
     isUpdatingStatus.value = true;
     
-    const response = await fetch(`http://localhost:3001/add-appointment/${selectedAppointment.value.appointment_id}/status`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        status: appointmentStatus.value,
-        notes: appointmentNotes.value
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to update appointment status');
-    }
+    // Use the service function instead of direct fetch
+    const data = await consultationRecordService.updateAppointmentStatus(
+      selectedAppointment.value.appointment_id,
+      appointmentStatus.value,
+      appointmentNotes.value
+    );
     
     // Update the appointment in the list
     const index = appointments.value.findIndex(a => a.appointment_id === selectedAppointment.value.appointment_id);
@@ -1772,33 +1726,16 @@ const delayedAction = (callback, delay) => {
       
       <button @click="cancelAdd" v-if="showAddModal" class="block pl-3 pr-3 pt-1 pb-1 float-right ml-5 text-1xl active:bg-blue-700 text-white rounded-lg  bg-[#745dab] "> <Icon icon="mdi:close" class="w-5 h-5" /></button>
       <div v-if="showAddModal">
-        <div class="flex items-center mt-1 mb-4">
-          <div class="relative w-full">
-            <input
-              v-model="searchQuery"
-              placeholder="Search"
-              class="w-full p-1 pl-10 border border-[#2f4a71] rounded-full focus:outline-none"
-            />
-            <Icon icon="fluent:search-12-regular" class="absolute top-2 left-3 text-[#2f4a71]" />
-          </div>
-          <!-- <button @click="cancelAdd" class="ml-4 text-[#2f4a71] hover:underline">Cancel</button> -->
-        </div>
-        <!-- People List -->
-        <ul class="overflow-y-auto max-h-60 text-[#2f4a71] border-b-2 border-[#2f4a71]">
-          <li
-            v-for="person in filteredPeople"
-            :key="person.name"
-            class="flex items-center justify-between p-2 mb-2 text-lg rounded-lg hover:bg-indigo-100"
-          >
-            <span>{{ person.name }}</span>
-            <button @click="addPerson(person)" class="p-2 text-[#2f4a71] hover:text-white bg-transparent hover:bg-[#2f4a71] rounded-full">
-              <Icon icon="subway:add-1" />
-            </button>
-          </li>
-        </ul>
+        <!-- Use the AddModal component -->
+        <AddModal 
+          :show="showAddModal"
+          :people="filteredPeople"
+          :search-query="searchQuery"
+          @update:search-query="searchQuery = $event"
+          @cancel="cancelAdd"
+          @add-person="addPerson"
+        />
       </div>
-  
-
       <ul class="mt-4 overflow-y-auto max-h-60">
         <li v-for="(patient, index) in patients" :key="patient.consultationId" class="flex items-center justify-between mb-2 text-lg confinement-item text-[#2f4a71]">
           <span @click="openEditModal(patient)" class="cursor-pointer confinement-details">
@@ -1894,579 +1831,335 @@ const delayedAction = (callback, delay) => {
     <!-- Add Modal -->
     <!-- Edit Modal -->
     <!-- Edit Modal with Pagination -->
-<div v-if="showEditModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
-    <div class="flex flex-col justify-center w-3/6 h-screen p-8 bg-white rounded-2xl">
-      <div class="flex items-center justify-between mb-6">
-        <h2 class="text-2xl text-[#2f4a71] font-bold">Consultation Record</h2>
-        <div class="flex items-center">
-          <div class="flex items-center space-x-2">
-            <div class="flex items-center">
-              <div class="flex items-center justify-center w-8 h-8 rounded-full" 
-                :class="currentModalPage === 1 ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'">1</div>
-              <div class="w-8 h-[2px]" :class="currentModalPage === 2 ? 'bg-purple-600' : 'bg-gray-300'"></div>
-              <div class="flex items-center justify-center w-8 h-8 rounded-full"
-                :class="currentModalPage === 2 ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'">2</div>
-            </div>
+<EditModal 
+  v-if="showEditModal"
+  :show="showEditModal"
+  :is-view-only="isViewOnly"
+  :current-page="currentModalPage"
+  :total-pages="2"
+  @cancel="cancelEdit"
+  @save="confirmAction('consultation')"
+  @next-page="currentModalPage = 2"
+  @prev-page="currentModalPage = 1"
+>
+  <!-- Content from original modal -->
+  <!-- Page 1: Patient Details, Diagnosis, Remarks, Medicines -->
+  <div v-if="currentModalPage === 1" class="flex-grow overflow-y-auto">
+    <div class="grid grid-cols-2 gap-6">
+      <!-- Left Column -->
+      <div>
+        <!-- Attending Physician -->
+          <div class="mb-4">
+            <label for="ap" class="block text-sm font-semibold text-gray-600">Attending Physician</label>
+            <input 
+              type="text" 
+              :value="currentUser?.name || 'Current User'" 
+              id="ap" 
+              disabled
+              class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg"
+            >
           </div>
-        </div>
-      </div>
-      
-      <!-- Page 1: Patient Details, Diagnosis, Remarks, Medicines -->
-      <div v-if="currentModalPage === 1" class="flex-grow overflow-y-auto">
-        <div class="grid grid-cols-2 gap-6">
-          <!-- Left Column -->
-          <div>
-            <!-- Attending Physician -->
-              <div class="mb-4">
-                <label for="ap" class="block text-sm font-semibold text-gray-600">Attending Physician</label>
-                <input 
-                  type="text" 
-                  :value="currentUser?.name || 'Current User'" 
-                  id="ap" 
-                  disabled
-                  class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg"
-                >
-              </div>
 
-              <!-- Name -->
-              <div class="mb-4">
-                <label for="name" class="block text-sm font-semibold text-gray-600">Name</label>
-                <input type="text" :value="selectedPerson.name" id="name" disabled
-                  class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
-              </div>
-              
-              <!-- Category -->
-              <div class="mb-4">
-                <label for="category" class="block text-sm font-semibold text-gray-600">Category</label>
-                <input 
-                  type="text" 
-                  :value="selectedPerson.category || 'N/A'" 
-                  id="category" 
-                  disabled
-                  class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg"
-                >
-              </div>
+          <!-- Name -->
+          <div class="mb-4">
+            <label for="name" class="block text-sm font-semibold text-gray-600">Name</label>
+            <input type="text" :value="selectedPerson.name" id="name" disabled
+              class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
           </div>
           
-          <!-- Right Column -->
-          <div>
-            <!-- Date -->
-              <div class="mb-4">
-                <label for="date" class="block text-sm font-semibold text-gray-600">Date</label>
-                <input type="text" :value="selectedDate.monthYear" id="date" disabled
-                  class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
-              </div>
+          <!-- Category -->
+          <div class="mb-4">
+            <label for="category" class="block text-sm font-semibold text-gray-600">Category</label>
+            <input 
+              type="text" 
+              :value="selectedPerson.category || 'N/A'" 
+              id="category" 
+              disabled
+              class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg"
+            >
+          </div>
+      </div>
+      
+      <!-- Right Column -->
+      <div>
+        <!-- Date -->
+          <div class="mb-4">
+            <label for="date" class="block text-sm font-semibold text-gray-600">Date</label>
+            <input type="text" :value="selectedDate.monthYear" id="date" disabled
+              class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg">
+          </div>
 
-              <!-- Grade Level & Section - Only shown for students -->
-            <div v-if="isStudent" class="flex items-center mb-4 space-x-4">
-              <div class="w-1/2">
-                <label for="grade-level" class="block text-sm font-semibold text-gray-600">Grade Level</label>
-                <input 
-                  type="text" 
-                  :value="selectedPerson.grade || 'N/A'" 
-                  id="grade-level" 
-                  disabled
-                  class="w-full px-4 py-2 mt-1 text-center bg-gray-200 border border-gray-300 rounded-full"
-                >
-              </div>
-              <div class="w-1/2">
-                <label for="section" class="block text-sm font-semibold text-gray-600">Section</label>
-                <input 
-                  type="text" 
-                  :value="selectedPerson.section || 'N/A'" 
-                  id="section" 
-                  disabled
-                  class="w-full px-4 py-2 mt-1 text-center bg-gray-200 border border-gray-300 rounded-full"
-                >
-              </div>
+          <!-- Grade Level & Section - Only shown for students -->
+        <div v-if="isStudent" class="flex items-center mb-4 space-x-4">
+          <div class="w-1/2">
+            <label for="grade-level" class="block text-sm font-semibold text-gray-600">Grade Level</label>
+            <input 
+              type="text" 
+              :value="selectedPerson.grade || 'N/A'" 
+              id="grade-level" 
+              disabled
+              class="w-full px-4 py-2 mt-1 text-center bg-gray-200 border border-gray-300 rounded-full"
+            >
+          </div>
+          <div class="w-1/2">
+            <label for="section" class="block text-sm font-semibold text-gray-600">Section</label>
+            <input 
+              type="text" 
+              :value="selectedPerson.section || 'N/A'" 
+              id="section" 
+              disabled
+              class="w-full px-4 py-2 mt-1 text-center bg-gray-200 border border-gray-300 rounded-full"
+            >
+          </div>
+        </div>
+
+        <!-- Occupation - Shown for non-students -->
+        <div v-else class="mb-4">
+          <label for="occupation" class="block text-sm font-semibold text-gray-600">Occupation</label>
+          <input 
+            type="text" 
+            :value="selectedPerson.occupation || 'N/A'" 
+            id="occupation" 
+            disabled
+            class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg"
+          >
+        </div>
+      </div>
+    </div>
+    
+    <!-- Complaint/Diagnosis Section -->
+    <div class="mb-4">
+      <label for="complaint" class="block text-sm font-semibold text-gray-600">Diagnosis</label>
+      <div v-if="!isViewOnly" class="flex items-center mb-2 space-x-2">
+        <div class="relative flex-grow">
+          <input 
+            v-model="diagnosisSearchQuery"
+            type="text"
+            placeholder="Search or select diagnoses..."
+            class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md"
+            @blur="(e) => delayedAction(() => { closeDiagnosisDropdown() }, 200)"
+          />
+          <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            <Icon icon="mdi:magnify" class="w-5 h-5 text-gray-400" />
+          </div>
+          <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+            <button 
+              @click="toggleDiagnosisDropdown" 
+              type="button"
+              class="text-gray-400 focus:outline-none"
+            >
+              <Icon :icon="showDiagnosisDropdown ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="w-5 h-5" />
+            </button>
+          </div>
+          
+          <!-- Diagnosis dropdown -->
+          <div v-if="showDiagnosisDropdown || diagnosisSearchQuery" 
+              class="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg">
+            <div v-if="filteredDiseases.length === 0" class="p-3 text-sm text-gray-500">
+              No matching diagnoses
             </div>
-
-            <!-- Occupation - Shown for non-students -->
-            <div v-else class="mb-4">
-              <label for="occupation" class="block text-sm font-semibold text-gray-600">Occupation</label>
-              <input 
-                type="text" 
-                :value="selectedPerson.occupation || 'N/A'" 
-                id="occupation" 
-                disabled
-                class="w-full px-4 py-2 mt-1 bg-gray-200 border border-gray-300 rounded-lg"
-              >
+            <div v-else class="overflow-y-auto max-h-60">
+              <!-- Group diagnoses by category -->
+              <div v-for="(categoryId, index) in Object.keys(diseasesByCategory)" :key="categoryId" class="border-b last:border-b-0">
+                <div class="px-3 py-1 text-xs font-semibold text-gray-500 bg-gray-50">
+                  {{ getCategoryName(categoryId) }}
+                </div>
+                <div 
+                  v-for="disease in filteredDiagnosesByCategory(categoryId, diagnosisSearchQuery)"
+                  :key="disease.diagnosis_id"
+                  @click="selectDisease(disease)"
+                  class="flex items-center justify-between p-2 cursor-pointer hover:bg-gray-100"
+                >
+                  <div>
+                    <div class="font-medium">{{ disease.name }}</div>
+                  </div>
+                  <Icon icon="mdi:plus" class="text-green-500" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
         
-        <!-- Complaint/Diagnosis Section -->
-        <div class="mb-4">
-          <label for="complaint" class="block text-sm font-semibold text-gray-600">Diagnosis</label>
-          <div v-if="!isViewOnly" class="flex items-center mb-2 space-x-2">
-            <div class="relative flex-grow">
-              <input 
-                v-model="diagnosisSearchQuery"
-                type="text"
-                placeholder="Search or select diagnoses..."
-                class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md"
-                @blur="(e) => delayedAction(() => { closeDiagnosisDropdown() }, 200)"
-              />
-              <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <Icon icon="mdi:magnify" class="w-5 h-5 text-gray-400" />
-              </div>
-              <div class="absolute inset-y-0 right-0 flex items-center pr-3">
-                <button 
-                  @click="toggleDiagnosisDropdown" 
-                  type="button"
-                  class="text-gray-400 focus:outline-none"
-                >
-                  <Icon :icon="showDiagnosisDropdown ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="w-5 h-5" />
-                </button>
-              </div>
-              
-              <!-- Diagnosis dropdown -->
-              <div v-if="showDiagnosisDropdown || diagnosisSearchQuery" 
-                  class="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg">
-                <div v-if="filteredDiseases.length === 0" class="p-3 text-sm text-gray-500">
-                  No matching diagnoses
-                </div>
-                <div v-else class="overflow-y-auto max-h-60">
-                  <!-- Group diagnoses by category -->
-                  <div v-for="(categoryId, index) in Object.keys(diseasesByCategory)" :key="categoryId" class="border-b last:border-b-0">
-                    <div class="px-3 py-1 text-xs font-semibold text-gray-500 bg-gray-50">
-                      {{ getCategoryName(categoryId) }}
-                    </div>
-                    <div 
-                      v-for="disease in filteredDiagnosesByCategory(categoryId, diagnosisSearchQuery)"
-                      :key="disease.diagnosis_id"
-                      @click="selectDisease(disease)"
-                      class="flex items-center justify-between p-2 cursor-pointer hover:bg-gray-100"
-                    >
-                      <div>
-                        <div class="font-medium">{{ disease.name }}</div>
-                      </div>
-                      <Icon icon="mdi:plus" class="text-green-500" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <!-- Buttons for managing diagnoses/categories -->
-            
-            <button 
-              @click="openManageModal" 
-              class="flex items-center px-3 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700"
-            >
-              <Icon icon="mdi:cog" class="mr-1" />
-              Manage
-            </button>
-          </div>
-          
-          <!-- Selected diagnoses display -->
-          <div class="flex flex-wrap gap-2 mb-2">
-            <div v-for="complaint in selectedPerson.complaints" :key="complaint.id" class="flex items-center px-3 py-1 bg-purple-100 rounded-full">
-              {{ complaint.text }}
-              <button v-if="!isViewOnly" @click="removeComplaint(complaint.id)" class="ml-2 text-red-500 hover:text-red-700">
-                <Icon icon="mdi:delete" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Remarks -->
-        <div class="mb-4">
-          <label for="remarks" class="block text-sm font-semibold text-gray-600">Remarks</label>
-          <textarea 
-            v-model="selectedPerson.remarks" 
-            placeholder="Remarks"
-            :disabled="isViewOnly"
-            class="w-full h-32 px-4 py-2 mt-1 border border-gray-300 rounded-lg"></textarea>
-        </div>
-
-        <!-- Confined and Medication Administration -->
-        <div class="flex items-center w-full mb-6 space-x-8">
-          <!-- Confined Checkbox -->
-          <div class="flex items-center space-x-2">
-            <input 
-              type="checkbox" 
-              id="confined" 
-              v-model="selectedPerson.confined" 
-              :disabled="isViewOnly" 
-              class="text-blue-500 form-checkbox">
-            <label for="confined" class="text-sm font-semibold">Confined</label>
-          </div>
-          <!-- Medicine Administration Checkbox -->
-          <div class="flex items-center space-x-2">
-            <input 
-              type="checkbox" 
-              id="medication-admin" 
-              v-model="selectedPerson.medicationAdministration" 
-              :disabled="isViewOnly" 
-              class="text-blue-500 form-checkbox">
-            <label for="medication-admin" class="text-sm font-semibold">Medication Administration</label>
-          </div>
-          <!-- Add Product Button -->
-          <div class="flex justify-end w-7/12">
-            <button 
-              v-if="selectedPerson.medicationAdministration && !isViewOnly" 
-              @click="openMedicineModal" 
-              class="px-4 text-purple-800 bg-transparent rounded-lg">
-              Add Product
-            </button>
-          </div>
-        </div>
-
-        <!-- Medicines Table -->
-        <div class="overflow-x-auto" v-if="selectedPerson.medicationAdministration">
-          <table class="w-full text-left border-t">
-            <thead class="text-sm font-semibold text-gray-600">
-              <tr>
-                <th class="px-2 py-3">Name</th>
-                <th class="px-2 py-3">Quantity</th>
-                <th class="px-2 py-3">Schedule</th>
-                <th class="px-2 py-3">Start - End</th>
-                <th class="px-2 py-3">Remarks</th>
-                <th v-if="!isViewOnly" class="px-2 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(medicine, index) in filteredMedicines" :key="index">
-                <td class="px-2 py-2">
-                  <!-- Make medicine name clickable in view-only mode -->
-                  <span v-if="isViewOnly" class="text-blue-600 cursor-pointer hover:underline"
-                    @click="openViewMedicineModal(medicine)">
-                    {{ medicine.name }}
-                  </span>
-                  <span v-else>{{ medicine.name }}</span>
-                </td>
-                <td class="px-2 py-2">{{ medicine.quantity }}</td>
-                <td class="px-2 py-2">{{ medicine.schedule }}</td>
-                <td class="px-2 py-2">{{ medicine.startDate }} - {{ medicine.endDate }}</td>
-                <td class="px-2 py-2">{{ medicine.remarks }}</td>
-                <td class="px-2 py-2" v-if="!isViewOnly">
-                  <div class="flex space-x-2">
-                    <button @click="editMedicine(medicine, index)" class="text-blue-500 hover:text-blue-700">
-                      <Icon icon="mdi:pencil" />
-                    </button>
-                    <button @click="removeMedicine(index)" class="text-red-500 hover:text-red-700">
-                      <Icon icon="mdi:trash-can" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <!-- Buttons for managing diagnoses/categories -->
+        
+        <button 
+          @click="openManageModal" 
+          class="flex items-center px-3 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700"
+        >
+          <Icon icon="mdi:cog" class="mr-1" />
+          Manage
+        </button>
       </div>
       
-      <!-- Page 2: Action's Taken and Disposition -->
-      <div v-else-if="currentModalPage === 2" class="flex-grow overflow-y-auto">
-        <div class="pt-4 mb-4">
-          <div class="mb-6">
-            <label for="action" class="block text-sm font-semibold text-gray-600">Action's Taken</label>
-            <textarea
-              id="action"
-              v-model="selectedPerson.action"
-              rows="6"
-              :disabled="isViewOnly"
-              class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter actions taken...">
-            </textarea>
-          </div>
-
-          <div class="mb-4">
-            <label for="disposition" class="block text-sm font-semibold text-gray-600">Disposition of the Student</label>
-            <textarea
-              id="disposition"
-              v-model="selectedPerson.disposition"
-              rows="6"
-              :disabled="isViewOnly"
-              class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter student disposition...">
-            </textarea>
-          </div>
-        </div>
-      </div>
-
-      <!-- Navigation Buttons -->
-      <div class="flex justify-between mt-6">
-        <div>
-          <button @click="cancelEdit" class="text-purple-600 underline">Cancel</button>
-        </div>
-        <div class="flex space-x-3">
-          <button 
-            v-if="currentModalPage === 2" 
-            @click="currentModalPage = 1" 
-            class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">
-            Back
-          </button>
-          <button 
-            v-if="currentModalPage === 1" 
-            @click="currentModalPage = 2" 
-            class="px-4 py-2 text-white bg-purple-500 rounded-lg">
-            Next
-          </button>
-          <button 
-            v-if="currentModalPage === 2 && !isViewOnly" 
-            @click="confirmAction('consultation')" 
-            class="px-4 py-2 text-white bg-purple-500 rounded-lg">
-            Submit
+      <!-- Selected diagnoses display -->
+      <div class="flex flex-wrap gap-2 mb-2">
+        <div v-for="complaint in selectedPerson.complaints" :key="complaint.id" class="flex items-center px-3 py-1 bg-purple-100 rounded-full">
+          {{ complaint.text }}
+          <button v-if="!isViewOnly" @click="removeComplaint(complaint.id)" class="ml-2 text-red-500 hover:text-red-700">
+            <Icon icon="mdi:delete" />
           </button>
         </div>
       </div>
     </div>
-</div>
 
-
-
-    <!-- Medicine Modal -->
-    <div v-if="showMedicineModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
-  <div class="w-2/3 p-6 bg-white rounded-2xl">
-    <h2 class="mb-4 text-2xl font-semibold">Add Product</h2>
-    <div class="flex items-center mb-4">
-      <input
-        v-model="medicineSearchQuery"
-        placeholder="Search Product"
-        class="w-full p-2 border border-gray-300 rounded-l-md"
-      />
-      <button class="p-2 bg-gray-100 border-t border-b border-r rounded-r-md">
-        <Icon icon="mdi:magnify" />
-      </button>
-      <button class="p-2 ml-2 bg-gray-100 border rounded-md">
-        <Icon icon="mdi:filter-variant" />
-      </button>
-      <button class="p-2 ml-2 bg-gray-100 border rounded-md">
-        <Icon icon="mdi:sort-ascending" />
-      </button>
+    <!-- Remarks -->
+    <div class="mb-4">
+      <label for="remarks" class="block text-sm font-semibold text-gray-600">Remarks</label>
+      <textarea 
+        v-model="selectedPerson.remarks" 
+        placeholder="Remarks"
+        :disabled="isViewOnly"
+        class="w-full h-32 px-4 py-2 mt-1 border border-gray-300 rounded-lg"></textarea>
     </div>
-    <table class="w-full table-auto">
-      <thead class="border-b-2 border-gray-300">
-        <tr class="text-left text-gray-600">
-          <th class="pb-2">Medicine Name</th>
-          <th class="pb-2">Total Count</th>
-          <th class="pb-2">Actions</th>
-        </tr>
-      </thead>
-      <tbody class="text-gray-700">
-        <template v-for="(medicines, name) in groupedMedicines" :key="name">
-          <tr class="border-b border-gray-200">
-            <td class="py-2">
-              <div class="flex items-center">
-                <button @click="toggleMedicineExpand(name)" class="mr-2">
-                  <Icon :icon="expandedMedicines.has(name) ? 'mdi:chevron-down' : 'mdi:chevron-right'" />
-                </button>
-                <span>{{ name }}</span>
-              </div>
-            </td>
-            <td class="py-2">
-              {{ medicines.reduce((sum, med) => sum + (med.displayCount || 0), 0) }}
-            </td>
-            <td></td>
-          </tr>
-          <tr v-if="expandedMedicines.has(name)" v-for="medicine in medicines" :key="medicine.med_id">
-            <td colspan="2" class="py-2 pl-6 bg-gray-50">
-              <div class="flex items-center justify-between">
-                <div>
-                  <div class="font-medium">{{ medicine.name }} ({{ medicine.batch_number || 'No Batch' }})</div>
-                  <div class="text-xs text-gray-500">Exp: {{ medicine.expiry_date }}</div>
-                </div>
-                <div>Available: {{ medicine.displayCount }}</div>
-              </div>
-            </td>
-            <td class="py-2 bg-gray-50">
-              <div class="flex items-center space-x-2">
-                <input
-                  type="number"
-                  min="1"
-                  :max="medicine.displayCount"
-                  v-model="medicine.requestedQuantity"
-                  class="w-16 p-1 border border-gray-300 rounded-md"
-                />
-                <button
-  @click="prepareAddMedicine(medicine)"
-  :disabled="!canAddMedicine(medicine)"
-  :class="canAddMedicine(medicine) ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-500'"
-  class="p-1 rounded-md"
->
-  Add
-</button>
-              </div>
-            </td>
-          </tr>
-        </template>
-      </tbody>
-    </table>
-    <div class="flex justify-end mt-6">
-      <button @click="cancelMedicine" class="p-2 ml-2 text-white bg-gray-500 rounded-md">Cancel</button>
-    </div>
-  </div>
-</div>
-    <!-- Medicine Modal -->
-    <div v-if="showMedicineModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
-    <div class="w-2/3 p-6 bg-white rounded-2xl">
-      <h2 class="mb-4 text-2xl font-semibold">Add Product</h2>
-      <div class="flex items-center mb-4">
-        <input
-          v-model="medicineSearchQuery"
-          placeholder="Search Product"
-          class="w-full p-2 border border-gray-300 rounded-l-md"
-        />
-        <button class="p-2 bg-gray-100 border-t border-b border-r rounded-r-md">
-          <Icon icon="mdi:magnify" />
-        </button>
-        <button class="p-2 ml-2 bg-gray-100 border rounded-md">
-          <Icon icon="mdi:filter-variant" />
-        </button>
-        <button class="p-2 ml-2 bg-gray-100 border rounded-md">
-          <Icon icon="mdi:sort-ascending" />
+
+    <!-- Confined and Medication Administration -->
+    <div class="flex items-center w-full mb-6 space-x-8">
+      <!-- Confined Checkbox -->
+      <div class="flex items-center space-x-2">
+        <input 
+          type="checkbox" 
+          id="confined" 
+          v-model="selectedPerson.confined" 
+          :disabled="isViewOnly" 
+          class="text-blue-500 form-checkbox">
+        <label for="confined" class="text-sm font-semibold">Confined</label>
+      </div>
+      <!-- Medicine Administration Checkbox -->
+      <div class="flex items-center space-x-2">
+        <input 
+          type="checkbox" 
+          id="medication-admin" 
+          v-model="selectedPerson.medicationAdministration" 
+          :disabled="isViewOnly" 
+          class="text-blue-500 form-checkbox">
+        <label for="medication-admin" class="text-sm font-semibold">Medication Administration</label>
+      </div>
+      <!-- Add Product Button -->
+      <div class="flex justify-end w-7/12">
+        <button 
+          v-if="selectedPerson.medicationAdministration && !isViewOnly" 
+          @click="openMedicineModal" 
+          class="px-4 text-purple-800 bg-transparent rounded-lg">
+          Add Product
         </button>
       </div>
-      <table class="w-full table-auto">
-        <thead class="border-b-2 border-gray-300">
-          <tr class="text-left text-gray-600">
-            <th class="pb-2">Medicine Name</th>
-            <th class="pb-2">Total Count</th>
-            <th class="pb-2">Actions</th>
+    </div>
+
+    <!-- Medicines Table -->
+    <div class="overflow-x-auto" v-if="selectedPerson.medicationAdministration">
+      <table class="w-full text-left border-t">
+        <thead class="text-sm font-semibold text-gray-600">
+          <tr>
+            <th class="px-2 py-3">Name</th>
+            <th class="px-2 py-3">Quantity</th>
+            <th class="px-2 py-3">Schedule</th>
+            <th class="px-2 py-3">Start - End</th>
+            <th class="px-2 py-3">Remarks</th>
+            <th v-if="!isViewOnly" class="px-2 py-3">Actions</th>
           </tr>
         </thead>
-        <tbody class="text-gray-700">
-          <template v-for="(medicines, name) in groupedMedicines" :key="name">
-            <tr class="border-b border-gray-200">
-              <td class="py-2">
-                <div class="flex items-center">
-                  <button @click="toggleMedicineExpand(name)" class="flex items-center">
-                    <Icon 
-                      :icon="expandedMedicines.has(name) ? 'mdi:chevron-down' : 'mdi:chevron-right'" 
-                      class="mr-2"
-                    />
-                    {{ name }}
-                  </button>
-                </div>
-              </td>
-              <td class="py-2">
-                {{ medicines.reduce((sum, med) => sum + med.displayCount, 0) }}
-              </td>
-              <td></td>
-            </tr>
-            <tr v-if="expandedMedicines.has(name)" v-for="medicine in medicines" :key="medicine.med_id">
-              <td colspan="3" class="py-2 pl-6 bg-gray-50">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <span class="mr-4">Exp: {{ medicine.expirationDate || 'None' }}</span>
-                    <span>Count: {{ medicine.displayCount }}</span>
-                  </div>
-                  <div class="flex items-center space-x-2">
-                    <input 
-                      type="number"
-                      v-model.number="medicine.requestedQuantity"
-                      class="w-20 p-1 text-center border rounded"
-                      min="1"
-                      :max="medicine.displayCount"
-                      placeholder="Qty"
-                    >
-                    <button 
-                      @click="addMedicine(medicine)"
-                      class="text-[#2f4a71] hover:text-white hover:bg-[#2f4a71] rounded-md p-2"
-                      :disabled="!canAddMedicine(medicine)"
-                      :class="{ 'opacity-50 cursor-not-allowed': !canAddMedicine(medicine) }"
-                    >
-                      <Icon icon="subway:add-1" />
-                    </button>
-                  </div>
-                </div>
-              </td>
-            </tr>
-          </template>
+        <tbody>
+          <tr v-for="(medicine, index) in filteredMedicines" :key="index">
+            <td class="px-2 py-2">
+              <!-- Make medicine name clickable in view-only mode -->
+              <span v-if="isViewOnly" class="text-blue-600 cursor-pointer hover:underline"
+                @click="openViewMedicineModal(medicine)">
+                {{ medicine.name }}
+              </span>
+              <span v-else>{{ medicine.name }}</span>
+            </td>
+            <td class="px-2 py-2">{{ medicine.quantity }}</td>
+            <td class="px-2 py-2">{{ medicine.schedule }}</td>
+            <td class="px-2 py-2">{{ medicine.startDate }} - {{ medicine.endDate }}</td>
+            <td class="px-2 py-2">{{ medicine.remarks }}</td>
+            <td class="px-2 py-2" v-if="!isViewOnly">
+              <div class="flex space-x-2">
+                <button @click="editMedicine(medicine, index)" class="text-blue-500 hover:text-blue-700">
+                  <Icon icon="mdi:pencil" />
+                </button>
+                <button @click="removeMedicine(index)" class="text-red-500 hover:text-red-700">
+                  <Icon icon="mdi:trash-can" />
+                </button>
+              </div>
+            </td>
+          </tr>
         </tbody>
       </table>
-      <div class="flex justify-end mt-6">
-        <button @click="cancelMedicine" class="p-2 ml-2 text-white bg-gray-500 rounded-md">Cancel</button>
+    </div>
+  </div>
+  
+  <!-- Page 2: Action's Taken and Disposition -->
+  <div v-else-if="currentModalPage === 2" class="flex-grow overflow-y-auto">
+    <div class="pt-4 mb-4">
+      <div class="mb-6">
+        <label for="action" class="block text-sm font-semibold text-gray-600">Action's Taken</label>
+        <textarea
+          id="action"
+          v-model="selectedPerson.action"
+          rows="6"
+          :disabled="isViewOnly"
+          class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Enter actions taken...">
+        </textarea>
+      </div>
+
+      <div class="mb-4">
+        <label for="disposition" class="block text-sm font-semibold text-gray-600">Disposition of the Student</label>
+        <textarea
+          id="disposition"
+          v-model="selectedPerson.disposition"
+          rows="6"
+          :disabled="isViewOnly"
+          class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Enter student disposition...">
+        </textarea>
       </div>
     </div>
   </div>
+</EditModal>
 
-      <!-- Medicine Detail Modal -->
-      <div v-if="showMedicineDetailModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
-    <div class="w-1/3 p-6 bg-white rounded-2xl">
-      <h2 class="mb-4 text-2xl font-semibold">Medicine Details</h2>
-      
-      <div class="space-y-4">
-        <!-- Medicine Name -->
-        <div>
-          <label class="block text-gray-700">Medicine Name</label>
-          <input type="text" v-model="selectedMedicine.name" :disabled="isViewOnly"
-            class="w-full p-2 bg-gray-100 border rounded-md">
-        </div>
-        
-        <!-- Quantity -->
-        <div>
-          <label class="block text-gray-700">Quantity</label>
-          <input type="number" v-model="selectedMedicine.quantity" :disabled="isViewOnly"
-            class="w-full p-2 border rounded-md">
-        </div>
-        
-        <!-- Schedule -->
-        <div>
-          <label class="block text-gray-700">Schedule</label>
-          <input type="text" v-model="selectedMedicine.schedule" :disabled="isViewOnly"
-            placeholder="e.g., 3 times a day after meals"
-            class="w-full p-2 border rounded-md">
-        </div>
-        
-        <!-- Dates -->
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-gray-700">Start Date</label>
-            <input type="date" v-model="selectedMedicine.startDate" :disabled="isViewOnly"
-              class="w-full p-2 border rounded-md">
-          </div> 
-          <div>
-            <label class="block text-gray-700">End Date</label>
-            <input type="date" v-model="selectedMedicine.endDate" :disabled="isViewOnly"
-              class="w-full p-2 border rounded-md">
-          </div>
-        </div>
-        
-        <!-- Remarks -->
-        <div>
-          <label class="block text-gray-700">Remarks</label>
-          <textarea v-model="selectedMedicine.remarks" :disabled="isViewOnly"
-            class="w-full p-2 border rounded-md"
-            rows="3"></textarea>
-        </div>
-      </div>
 
-      <div class="flex justify-end mt-6 space-x-4">
-          <button @click="cancelMedicineDetails"
-            class="px-4 py-2 text-gray-600 bg-gray-200 rounded-md">Cancel</button>
-          <button v-if="!isViewOnly" @click="saveMedicineDetails()"
-            class="px-4 py-2 text-white bg-blue-600 rounded-md">Save</button>
-        </div>
-        
-      </div>
-    </div>
-  </div>
+
+    <!-- Medicine Modal -->
+    <MedicineModal
+      v-if="showMedicineModal"
+      :show="showMedicineModal"
+      :grouped-medicines="groupedMedicines"
+      :expanded-medicines="expandedMedicines"
+      @cancel="cancelMedicine"
+      @add-medicine="prepareAddMedicine"
+      @toggle-expand="toggleMedicineExpand"
+      @update:search-query="medicineSearchQuery = $event"
+    />
+
+    <!-- Medicine Detail Modal -->
+    <MedicineDetailModal
+      v-if="showMedicineDetailModal"
+      :show="showMedicineDetailModal"
+      :medicine="selectedMedicine"
+      :is-view-only="isViewOnly"
+      @cancel="cancelMedicineDetails"
+      @save="saveMedicineDetails"
+    />
+
 </div>
 
 
   <!-- Add Category Modal -->
-  <div v-if="showAddCategoryModal"
-    class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 z-[70]">
-    <div class="w-1/3 p-6 bg-white rounded-2xl">
-      <h2 class="mb-4 text-2xl font-semibold">Add New Category</h2>
-      <div class="space-y-4">
-        <div>
-          <label for="category-name" class="block text-sm font-medium text-gray-700">Category Name</label>
-          <input v-model="newCategory.name" id="category-name" type="text" placeholder="Enter category name"
-            class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" />
-        </div>
+  <AddCategoryModal
+    :show="showAddCategoryModal"
+    title="Add New Category"
+    @cancel="cancelAddCategory"
+    @save="addNewCategory"
+    :save-disabled="!newCategory.name"
+  >
+    <div class="space-y-4">
+      <div>
+        <label for="category-name" class="block text-sm font-medium text-gray-700">Category Name</label>
+        <input v-model="newCategory.name" id="category-name" type="text" placeholder="Enter category name"
+          class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" />
       </div>
-      <div class="flex justify-end mt-6 space-x-3">
-        <button @click="showAddCategoryModal = false"
-          class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">
-          Cancel
-        </button>
-        <button @click="addNewCategory" class="px-4 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600">
-          Add Category
-        </button>
-      </div>
+    
       <!-- Existing Categories List -->
       <div class="mt-6">
         <h3 class="mb-2 text-lg font-semibold">Existing Categories</h3>
@@ -2485,62 +2178,48 @@ const delayedAction = (callback, delay) => {
         </div>
       </div>
     </div>
-  </div>
+  </AddCategoryModal>
 
   <!-- Add Diagnosis Modal -->
-  <div v-if="showAddDiagnosisModal"
-    class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[500]">
-    <div class="w-full max-w-md p-6 bg-white rounded-lg shadow-lg">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-xl font-semibold text-gray-800">Add New Diagnosis</h2>
-        <button @click="cancelAddDiagnosis" class="text-gray-500 hover:text-gray-700">
-          <Icon icon="mdi:close" class="w-6 h-6" />
-        </button>
+  <AddDiagnosisModal
+    :show="showAddDiagnosisModal"
+    title="Add New Diagnosis"
+    @cancel="cancelAddDiagnosis"
+    @save="saveDiagnosis"
+    :save-disabled="!newDisease.name || !newDisease.category_id"
+  >
+    <div class="space-y-4">
+      <!-- Diagnosis Name -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Diagnosis Name</label>
+        <input v-model="newDisease.name" type="text" placeholder="Enter diagnosis name"
+          class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md" />
       </div>
 
-      <div class="space-y-4">
-        <!-- Diagnosis Name -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700">Diagnosis Name</label>
-          <input v-model="newDisease.name" type="text" placeholder="Enter diagnosis name"
-            class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md" />
-        </div>
-
-        <!-- Category Dropdown -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700">Category</label>
-          <div class="flex space-x-2">
-            <div class="relative flex-grow">
-              <select v-model="newDisease.category_id"
-                class="w-full px-3 py-2 pr-8 mt-1 border border-gray-300 rounded-md appearance-none">
-                <option value="" disabled>Select a category</option>
-                <option v-for="category in diseaseCategories" :key="category.category_id" :value="category.category_id">
-                  {{ category.name }}
-                </option>
-              </select>
-              <div class="absolute inset-y-0 right-0 flex items-center px-2 mt-1 pointer-events-none">
-                <Icon icon="mdi:chevron-down" class="w-5 h-5 text-gray-400" />
-              </div>
+      <!-- Category Dropdown -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Category</label>
+        <div class="flex space-x-2">
+          <div class="relative flex-grow">
+            <select v-model="newDisease.category_id"
+              class="w-full px-3 py-2 pr-8 mt-1 border border-gray-300 rounded-md appearance-none">
+              <option value="" disabled>Select a category</option>
+              <option v-for="category in diseaseCategories" :key="category.category_id" :value="category.category_id">
+                {{ category.name }}
+              </option>
+            </select>
+            <div class="absolute inset-y-0 right-0 flex items-center px-2 mt-1 pointer-events-none">
+              <Icon icon="mdi:chevron-down" class="w-5 h-5 text-gray-400" />
             </div>
-            <button @click="openAddCategoryModal"
-              class="px-3 py-2 mt-1 text-white bg-blue-600 rounded-md hover:bg-blue-700" title="Add new category">
-              <Icon icon="mdi:plus" />
-            </button>
           </div>
+          <button @click="openAddCategoryModal"
+            class="px-3 py-2 mt-1 text-white bg-blue-600 rounded-md hover:bg-blue-700" title="Add new category">
+            <Icon icon="mdi:plus" />
+          </button>
         </div>
-      </div>
-
-      <div class="flex justify-end mt-6 space-x-3">
-        <button @click="cancelAddDiagnosis" class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">
-          Cancel
-        </button>
-        <button @click="saveDiagnosis" class="px-4 py-2 text-white bg-purple-600 rounded-md hover:bg-purple-700"
-          :disabled="!newDisease.name || !newDisease.category_id">
-          Add Diagnosis
-        </button>
       </div>
     </div>
-  </div>
+  </AddDiagnosisModal>
 
   <!-- Management Modal -->
   <div v-if="showManageModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60]">
@@ -2642,67 +2321,16 @@ const delayedAction = (callback, delay) => {
   </div>
 
   <!-- Add the Status Modal -->
-  <div v-if="showStatusModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-    <div class="w-full max-w-md p-6 bg-white rounded-lg">
-      <h3 class="text-xl font-bold text-[#2f4a71] mb-4">Update Appointment Status</h3>
-      
-      <div class="mb-4">
-        <label class="block mb-2 text-sm font-medium text-gray-700">Appointment Status</label>
-        <div class="grid grid-cols-3 gap-2">
-          <button 
-            @click="appointmentStatus = 'pending'"
-            class="flex items-center justify-center px-3 py-2 text-sm border rounded-md focus:outline-none"
-            :class="appointmentStatus === 'pending' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'border-gray-300 hover:bg-gray-50'"
-          >
-            <span>Pending</span>
-          </button>
-          <button 
-            @click="appointmentStatus = 'approved'"
-            class="flex items-center justify-center px-3 py-2 text-sm border rounded-md focus:outline-none"
-            :class="appointmentStatus === 'approved' ? 'bg-green-50 border-green-500 text-green-700' : 'border-gray-300 hover:bg-gray-50'"
-          >
-            <span>Approved</span>
-          </button>
-          <button 
-            @click="appointmentStatus = 'rejected'"
-            class="flex items-center justify-center px-3 py-2 text-sm border rounded-md focus:outline-none"
-            :class="appointmentStatus === 'rejected' ? 'bg-red-50 border-red-500 text-red-700' : 'border-gray-300 hover:bg-gray-50'"
-          >
-            <span>Rejected</span>
-          </button>
-        </div>
-      </div>
-      
-      <div class="mb-4">
-        <label for="notes" class="block mb-2 text-sm font-medium text-gray-700">
-          Notes (Optional)
-        </label>
-        <textarea
-          id="notes"
-          v-model="appointmentNotes"
-          rows="3"
-          class="shadow-sm block w-full focus:ring-[#2f4a71] focus:border-[#2f4a71] sm:text-sm border border-gray-300 rounded-md"
-          placeholder="Add any notes about this appointment..."
-        ></textarea>
-      </div>
-      
-      <div class="flex justify-end space-x-3">
-        <button 
-          @click="closeStatusModal"
-          class="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
-        >
-          Cancel
-        </button>
-        <button 
-          @click="updateAppointmentStatus"
-          :disabled="isUpdatingStatus"
-          class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#2f4a71] hover:bg-[#8b67db] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
-        >
-          {{ isUpdatingStatus ? 'Updating...' : 'Update Status' }}
-        </button>
-      </div>
-    </div>
-  </div>
+  <StatusModal 
+    :show="showStatusModal"
+    :selected-status="appointmentStatus"
+    :notes="appointmentNotes"
+    :is-loading="isUpdatingStatus"
+    @update:status="(status) => appointmentStatus = status"
+    @update:notes="(notes) => appointmentNotes = notes"
+    @cancel="closeStatusModal"
+    @save="updateAppointmentStatus"
+  />
 
   <!-- Confirmation Modal -->
   <ConfirmationModal
@@ -2711,6 +2339,7 @@ const delayedAction = (callback, delay) => {
     @confirm="handleConfirm"
     @cancel="handleCancel"
   />
+</div>
 </template>
 <style scoped>
 textarea {

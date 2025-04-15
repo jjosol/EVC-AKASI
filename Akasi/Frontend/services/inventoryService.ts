@@ -1,6 +1,6 @@
 import { get, post, put, del } from './apiService.js';
 
-const BASE_URL = '/inventory';
+const BASE_URL = '/medicine';
 const CATEGORY_URL = `${BASE_URL}/category`;
 const EQUIPMENT_URL = '/equipment';
 
@@ -22,11 +22,11 @@ export const addCategory = async (data: { name: string }) => {
   }
 };
 
-export const addCategoryWithAdmin = async (data: { name: string }, adminId?: number) => {
+export const addCategoryWithNurse = async (data: { name: string }, nurseId?: number) => {
   try {
     return await post(CATEGORY_URL, {
       ...data,
-      admin_id: adminId
+      nurse_id: nurseId
     });
   } catch (error) {
     // Check if this is just a response error but category was actually created
@@ -46,46 +46,49 @@ export const deleteCategory = async (id: number) => {
 };
 
 
-// Inventory item operations
-export const fetchInventoryItems = async () => {
+// Medicine item operations
+export const fetchMedicineItems = async () => {
   return await get(BASE_URL);
 };
 
-export const addInventoryItem = async (data: {
+export const addMedicineItem = async (data: {
   name: string;
   expirationDate: string;
   count: number;
-  category_id: number;
+  medCategory_id: number;
   isOTC?: boolean;
 }) => {
   // Map isOTC to otc before sending to backend
   return await post(BASE_URL, {
-    name: data.name,
-    expirationDate: data.expirationDate,
+    medName: data.name,
+    expiration: data.expirationDate,
     count: data.count,
-    category_id: data.category_id,
+    medCategory_id: data.medCategory_id,
     otc: data.isOTC // Make sure this property matches your backend expectation
   });
 };
 
-export const updateInventoryItem = async (
+export const updateMedicineItem = async (
   id: number, 
   name: string, 
   data: {
     name: string;
     expirationDate: string;
     count: number;
-    category_id: number;
+    medCategory_id: number;
     isOTC?: boolean;
   }
 ) => {
   return await put(`${BASE_URL}/${id}/${name}`, {
-    ...data,
+    medName: data.name,
+    expiration: data.expirationDate,
+    count: data.count,
+    medCategory_id: data.medCategory_id,
     otc: data.isOTC // Make sure this property matches your backend expectation
   });
 };
 
-export const deleteInventoryItem = async (id: number, name: string) => {
+export const deleteMedicineItem = async (id: number, name: string) => {
   return await del(`${BASE_URL}/${id}/${name}`);
 };
 
@@ -93,7 +96,7 @@ export const deleteMedicineGroup = async (name: string) => {
   return await del(`${BASE_URL}/group/${name}`);
 };
 
-export const increaseInventory = async (
+export const increaseMedicine = async (
   id: number, 
   data: { 
     medName: string;
@@ -104,7 +107,7 @@ export const increaseInventory = async (
   return await post(`${BASE_URL}/increase/${id}`, data);
 };
 
-export const reduceInventory = async (
+export const reduceMedicine = async (
   id: number, 
   name: string, 
   data: { 
@@ -120,26 +123,26 @@ export const updateMedicineName = async (
   newName: string, 
   categoryId: number | string
 ) => {
-  return await put(`${BASE_URL}/medicine/update-name`, {
+  return await put(`${BASE_URL}/update-name`, {
     oldName,
     newName,
     categoryId: Number(categoryId) // Ensure it's sent as a number
   });
 };
 
-export const fetchInventoryEdits = async () => {
+export const fetchMedicineEdits = async () => {
   return await get(`${BASE_URL}/edits`);
 };
 
 export const logConsultationDispensing = async (
-  med_id: number,
+  medicine_id: number,
   medName: string,
   quantity: number,
   consultationId: number,
   patientName: string
 ) => {
   return await post(`${BASE_URL}/dispense-consultation`, {
-    med_id,
+    medicine_id,
     medName,
     quantity, 
     consultationId,
@@ -168,8 +171,15 @@ export const addEquipmentItem = async (data: {
   count: number;
   unit: string;
   expirationDate?: string;
+  equipCategory_id?: number;
 }) => {
-  return await post(EQUIPMENT_URL, data);
+  return await post(EQUIPMENT_URL, {
+    equipName: data.name,
+    count: data.count,
+    unit: data.unit,
+    expiration: data.expirationDate,
+    equipCategory_id: data.equipCategory_id || 1
+  });
 };
 
 export const updateEquipmentItem = async (
@@ -179,9 +189,16 @@ export const updateEquipmentItem = async (
     count: number;
     unit: string;
     expirationDate?: string;
+    equipCategory_id?: number;
   }
 ) => {
-  return await put(`${EQUIPMENT_URL}/${id}`, data);
+  return await put(`${EQUIPMENT_URL}/${id}`, {
+    equipName: data.name,
+    count: data.count,
+    unit: data.unit,
+    expiration: data.expirationDate,
+    equipCategory_id: data.equipCategory_id || 1
+  });
 };
 
 export const deleteEquipmentItem = async (id: number) => {
@@ -210,5 +227,10 @@ export const decreaseEquipment = async (
 
 export const fetchEquipmentEdits = async () => {
   return await get(`${EQUIPMENT_URL}/edits`);
+};
+
+// Equipment categories
+export const fetchEquipmentCategories = async () => {
+  return await get(`${EQUIPMENT_URL}/categories`);
 };
 

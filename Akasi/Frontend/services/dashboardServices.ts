@@ -1,130 +1,137 @@
 import { get, post, put, del, uploadFile } from './apiService.js';
 
 // Base URLs for API endpoints
-const ADMIN_URL = '/admins';
-const CLIENT_URL = '/clients';
-const MANAGER_URL = '/managers'; 
+const DOCTOR_URL = '/doctor';
+const PATIENT_URL = '/patient'; 
+const NURSE_URL = '/nurse'; 
 const BACKUP_URL = '/backup'; 
 
-// Admin account management
-export const fetchAdminAccounts = async () => {
-  return await get(ADMIN_URL);
+// Doctor account management
+export const fetchDoctorAccounts = async () => {
+  return await get(DOCTOR_URL);
 };
 
-export const createAdminAccount = async (adminData: {
+export const createDoctorAccount = async (doctorData: {
   username: string;
   password: string;
   gmail: string;
+  name: string;
 }) => {
-  return await post(ADMIN_URL, adminData);
+  return await post(DOCTOR_URL, doctorData);
 };
 
-export const updateAdminAccount = async (
-  adminId: number,
-  adminData: {
+export const updateDoctorAccount = async (
+  doctorId: number,
+  doctorData: {
     username: string;
     password?: string; // Optional for updates
     gmail: string;
+    name: string;
   }
 ) => {
-  return await put(`${ADMIN_URL}/${adminId}`, adminData);
+  return await put(`${DOCTOR_URL}/${doctorId}`, doctorData);
 };
 
-export const deleteAdminAccount = async (adminId: number) => {
-  return await del(`${ADMIN_URL}/${adminId}`);
+export const deleteDoctorAccount = async (doctorId: number) => {
+  return await del(`${DOCTOR_URL}/${doctorId}`);
 };
 
-// Client account management
-export const fetchClientAccounts = async () => {
-  return await get(CLIENT_URL);
+// Patient account management
+export const fetchPatientAccounts = async () => {
+  return await get(PATIENT_URL);
 };
 
-export const createClientAccount = async (clientData: {
+export const createPatientAccount = async (patientData: {
   username: string;
   password: string;
   name: string;
   gmail: string;
   age: number;
   gender: string;
-  category: string;
+  type: string; // 'student', 'faculty', 'staff'
+  civil_status: string; // 'single', 'married', 'widowed', 'separated'
+  address: string;
+  division?: string;
+  position?: string;
   grade?: number;
-  section: string;
-  type?: string; // Add the type field
+  section?: string;
+  category?: string; // Additional category info
 }) => {
   try {
-    // Add default type if not provided
-    if (!clientData.type) {
-      clientData.type = 'Intern';
-    }
-    
-    console.log('Creating client with data:', JSON.stringify(clientData, null, 2));
-    return await post(CLIENT_URL, clientData);
+    console.log('Creating patient with data:', JSON.stringify(patientData, null, 2));
+    return await post(PATIENT_URL, patientData);
   } catch (error) {
-    console.error('Client creation failed with details:', error);
+    console.error('Patient creation failed with details:', error);
     // Check if age is being sent as a string instead of a number
-    if (typeof clientData.age === 'string') {
-      clientData.age = parseInt(clientData.age, 10);
+    if (typeof patientData.age === 'string') {
+      patientData.age = parseInt(patientData.age, 10);
       console.log('Converting age to number and retrying...');
-      return await post(CLIENT_URL, clientData);
+      return await post(PATIENT_URL, patientData);
     }
     throw error;
   }
 };
 
-export const updateClientAccount = async (
-  clientId: number,
-  clientData: {
+export const updatePatientAccount = async (
+  patientId: number,
+  patientData: {
     username: string;
     password?: string; // Optional for updates
     name: string;
     gmail: string;
     age: number;
     gender: string;
-    category: string;
+    type: string;
+    civil_status: string;
+    address: string;
+    division?: string;
+    position?: string;
     grade?: number;
-    section: string;
-    type?: string; // Add the type field
+    section?: string;
+    category?: string;
   }
 ) => {
-  return await put(`${CLIENT_URL}/${clientId}`, clientData);
+  return await put(`${PATIENT_URL}/${patientId}`, patientData);
 };
 
-export const deleteClientAccount = async (clientId: number) => {
-  return await del(`${CLIENT_URL}/${clientId}`);
+export const deletePatientAccount = async (patientId: number) => {
+  return await del(`${PATIENT_URL}/${patientId}`);
 };
 
-// Manager account management
-export const fetchManagerAccounts = async () => {
-  return await get(MANAGER_URL);
+// Nurse account management
+export const fetchNurseAccounts = async () => {
+  return await get(NURSE_URL);
 };
 
-export const createManagerAccount = async (managerData: {
+export const createNurseAccount = async (nurseData: {
   username: string;
   password: string;
   gmail: string;
+  name: string;
 }) => {
-  return await post(MANAGER_URL, managerData);
+  return await post(NURSE_URL, nurseData);
 };
 
-export const updateManagerAccount = async (
-  managerId: number,
-  managerData: {
+export const updateNurseAccount = async (
+  nurseId: number,
+  nurseData: {
     username: string;
     password?: string; // Optional for updates
     gmail: string;
+    name: string;
   }
 ) => {
-  return await put(`${MANAGER_URL}/${managerId}`, managerData);
+  return await put(`${NURSE_URL}/${nurseId}`, nurseData);
 };
 
-export const deleteManagerAccount = async (managerId: number) => {
-  return await del(`${MANAGER_URL}/${managerId}`);
+export const deleteNurseAccount = async (nurseId: number) => {
+  return await del(`${NURSE_URL}/${nurseId}`);
 };
 
 // Password hashing functionality
 export const hashAllPasswords = async () => {
   return await post('/auth/hash-passwords', {});
-}; // Fixed: Added missing closing brace
+};
 
 // Backup management functions
 export const createBackup = async (models: string[]) => {
@@ -138,7 +145,7 @@ export const listBackups = async () => {
 export const downloadBackup = async (filename: string) => {
   try {
     // Get auth token for authorization
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('token');
     const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
     
     // Build full URL with base
@@ -203,7 +210,7 @@ export const createDriveFolder = async (folderName: string) => {
   }
 };
 
-// Add these new functions
+// Full backup functionality
 export const createFullBackup = async () => {
   return await post(`${BACKUP_URL}/create-all`, {});
 };

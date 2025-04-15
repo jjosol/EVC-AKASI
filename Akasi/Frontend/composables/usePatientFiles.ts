@@ -10,7 +10,7 @@ interface CertificateFile {
     patientId: number;
     grade: number;
     date: string;
-    url?: string;
+    url?: string;   
 }
 
 export function usePatientFiles() {
