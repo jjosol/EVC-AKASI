@@ -156,9 +156,13 @@ export class BackupService {
   }
 
   // Create a backup with all available models
-  async createBackupAll() {
+  async createBackupAll(options?: { gradeLevel?: number, division?: string }) {
     try {
-      this.logger.log('Starting full backup of all models');
+      if (options?.gradeLevel || options?.division) {
+        this.logger.log(`Starting selective backup: ${options.gradeLevel ? `Grade ${options.gradeLevel}` : ''}${options.division ? ` Division: ${options.division}` : ''}`);
+      } else {
+        this.logger.log('Starting full backup of all models');
+      }
       
       // Get all available models from Prisma
       const prismaModels = Object.keys(this.prisma)
@@ -180,7 +184,7 @@ export class BackupService {
       
       this.logger.log(`Found ${prismaModels.length} models to backup`);
       
-      return this.createBackup(prismaModels);
+      return this.createBackup(prismaModels, options);
     } catch (error) {
       this.logger.error('Error creating full backup', error);
       throw new InternalServerErrorException(`Failed to create full backup: ${error.message}`);
@@ -293,10 +297,18 @@ export class BackupService {
     }
   }
 
-  async createBackup(models: string[]) {
+  async createBackup(models: string[], options?: { gradeLevel?: number, division?: string }) {
     try {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `backup-${timestamp}.json`;
+      let filename = `backup-${timestamp}.json`;
+      
+      // Add identifiers for selective backup
+      if (options?.gradeLevel) {
+        filename = `backup-grade${options.gradeLevel}-${timestamp}.json`;
+      } else if (options?.division) {
+        filename = `backup-${options.division.replace(/\s+/g, '-')}-${timestamp}.json`;
+      }
+      
       const backupPath = path.join(this.backupDir, filename);
       
       // Define data with a type that allows additional properties
@@ -316,22 +328,107 @@ export class BackupService {
         try {
           // Check if model exists in Prisma client
           if (typeof this.prisma[modelName] === 'object' && this.prisma[modelName] !== null) {
-            // Use Prisma client to fetch data from each model
-            const modelData = await this.prisma[modelName].findMany();
-            
-            // For models with file paths, include file existence information
-            if (fileModels.includes(modelName)) {
-              for (const record of modelData) {
-                if (record.file_path && fs.existsSync(record.file_path)) {
-                  // Add file metadata but not the content
-                  record._fileExists = true;
-                  record._fileSize = record.file_size || fs.statSync(record.file_path).size;
+            // For patient model with filtering options
+            if (modelName === 'patient' && (options?.gradeLevel !== undefined || options?.division !== undefined)) {
+              const filter: any = {};
+              
+              if (options.gradeLevel !== undefined) {
+                filter.grade = options.gradeLevel;
+              }
+              
+              if (options.division !== undefined) {
+                filter.division = options.division;
+              }
+              
+              const modelData = await this.prisma[modelName].findMany({
+                where: filter
+              });
+              
+              // If we're doing a filtered backup, also collect the IDs to filter related records
+              if (modelData.length > 0) {
+                const patientIds = modelData.map(p => p.patient_id);
+                
+                // Store the patient data
+                data[modelName] = modelData;
+                this.logger.log(`Successfully backed up model: ${modelName} (${modelData.length} records with filter: ${JSON.stringify(filter)})`);
+                
+                // For filtered backups, also get related patient data instead of entire tables
+                if (patientIds.length > 0) {
+                  // Handle related patient models separately
+                  const relatedModels = [
+                    'appointment', 'consultation_records', 'dental_certificates', 
+                    'medical_certificates', 'opthal_certificates', 'physical_exam',
+                    'medical_consent', 'dental_consent', 'dental_history', 
+                    'hh_pds', 'laboratory', 'medAdministration'
+                  ];
+                  
+                  for (const relatedModel of relatedModels) {
+                    if (models.includes(relatedModel)) {
+                      try {
+                        const relatedData = await this.prisma[relatedModel].findMany({
+                          where: {
+                            patient_id: { in: patientIds }
+                          }
+                        });
+                        
+                        data[relatedModel] = relatedData;
+                        this.logger.log(`Successfully backed up related model: ${relatedModel} (${relatedData.length} records)`);
+                        
+                        // Special handling for consultation records to get related data
+                        if (relatedModel === 'consultation_records' && relatedData.length > 0) {
+                          const consultationIds = relatedData.map(c => c.consultation_id);
+                          
+                          // Get related consultation diagnoses
+                          if (models.includes('consultation_diagnosis')) {
+                            const diagnosisData = await this.prisma.consultation_diagnosis.findMany({
+                              where: {
+                                consultation_id: { in: consultationIds }
+                              }
+                            });
+                            data['consultation_diagnosis'] = diagnosisData;
+                            this.logger.log(`Successfully backed up related model: consultation_diagnosis (${diagnosisData.length} records)`);
+                          }
+                          
+                          // Get related prescriptions
+                          if (models.includes('prescription')) {
+                            const prescriptionData = await this.prisma.prescription.findMany({
+                              where: {
+                                consultation_id: { in: consultationIds }
+                              }
+                            });
+                            data['prescription'] = prescriptionData;
+                            this.logger.log(`Successfully backed up related model: prescription (${prescriptionData.length} records)`);
+                          }
+                        }
+                      } catch (error) {
+                        this.logger.error(`Error backing up related model ${relatedModel}:`, error);
+                        errors.push(`${relatedModel}: ${error.message}`);
+                      }
+                    }
+                  }
+                }
+              } else {
+                data[modelName] = [];
+                this.logger.warn(`No records found for model: ${modelName} with filter: ${JSON.stringify(filter)}`);
+              }
+            } else {
+              // Regular case for non-patient models or when not filtering
+              const modelData = await this.prisma[modelName].findMany();
+              
+              // For models with file paths, include file existence information
+              if (fileModels.includes(modelName)) {
+                for (const record of modelData) {
+                  if (record.file_path && fs.existsSync(record.file_path)) {
+                    // Add file metadata but not the content
+                    record._fileExists = true;
+                    record._fileSize = record.file_size || fs.statSync(record.file_path).size;
+                  }
                 }
               }
+              
+              data[modelName] = modelData;
+              this.logger.log(`Successfully backed up model: ${modelName} (${modelData.length} records)`);
             }
-            
-            data[modelName] = modelData;
-            this.logger.log(`Successfully backed up model: ${modelName} (${modelData.length} records)`);
           } else {
             this.logger.warn(`Skipping model ${modelName}: Not found in Prisma client`);
           }
@@ -344,12 +441,16 @@ export class BackupService {
       
       // Add metadata to backup
       const metadata = {
-        version: '1.1', // Updated version
+        version: '1.2', // Updated version
         timestamp: new Date().toISOString(),
         models: models.filter(m => data[m] !== undefined),
         recordCounts: {},
         errors: errors,
-        includesFiles: this.autoBackupConfig.includeFiles
+        includesFiles: this.autoBackupConfig.includeFiles,
+        selective: options ? {
+          gradeLevel: options.gradeLevel,
+          division: options.division
+        } : null
       };
       
       // Add record counts for each model

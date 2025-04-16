@@ -11,6 +11,7 @@ const links = [
   { path: '/files/student', label: 'Files' },
   { path: '/reports', label: 'Reports' },
   { path: '/inventory', label: 'Inventory' },
+  { path: '/dashboard', label: 'Dashboard'}
 ];
 
 // Separate profile link for special formatting
@@ -38,13 +39,13 @@ onMounted(() => {
         <MidTitle class="text-5xl"/>
       </div>
       
-      <div class="flex flex-col space-y-5 w-full px-6">
+      <div class="flex flex-col w-full px-6 space-y-5">
         <!-- Regular navigation links -->
         <router-link
           v-for="link in links" 
           :key="link.path"
           :to="link.path"
-          class="px-5 py-3 text-lg font-medium text-center rounded-full transition-all duration-200 ease-in-out"
+          class="px-5 py-3 text-lg font-medium text-center transition-all duration-200 ease-in-out rounded-full"
           :class="isActive(link.path).value 
             ? 'bg-[#f8f4ff] text-[#4c2f71] shadow-md border-4 border-[#745dab]' 
             : 'text-white hover:bg-[#f8f4ff] hover:text-[#2F4A71]'"
@@ -60,9 +61,9 @@ onMounted(() => {
           ? 'bg-[#f8f4ff] text-[#4c2f71] shadow-md border-4 border-[#745dab]' 
           : 'text-white hover:bg-[#f8f4ff] hover:text-[#2F4A71]'"
       >
-        <div class="flex flex-row items-center py-3 px-5">
+        <div class="flex flex-row items-center px-5 py-3">
           <!-- Profile avatar -->
-          <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3 flex-shrink-0" :class="isActive(profileLink.path).value ? 'bg-[#2F4A71]' : 'bg-[#f8f4ff]'">
+          <div class="flex items-center justify-center flex-shrink-0 w-10 h-10 mr-3 rounded-full" :class="isActive(profileLink.path).value ? 'bg-[#2F4A71]' : 'bg-[#f8f4ff]'">
             <span class="text-lg font-bold" :class="isActive(profileLink.path).value ? 'text-[#f8f4ff]' : 'text-[#2F4A71]'">
               {{ profile?.name?.charAt(0) || '?' }}
             </span>

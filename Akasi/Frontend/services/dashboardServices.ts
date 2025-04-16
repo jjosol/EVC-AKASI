@@ -237,3 +237,11 @@ export const updateAutoBackupConfig = async (config: AutoBackupConfig): Promise<
 export const runBackupNow = async () => {
   return await post(`${BACKUP_URL}/run-now`, {});
 };
+
+export const createGradeBackup = async (gradeLevel: number) => {
+  return await post(`${BACKUP_URL}/create-grade`, { gradeLevel });
+};
+
+export const createDivisionBackup = async (division: string) => {
+  return await post(`${BACKUP_URL}/create-division`, { division });
+};

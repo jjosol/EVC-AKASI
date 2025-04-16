@@ -28,17 +28,27 @@
       <!-- Manual Backup Section -->
       <div class="p-5 border rounded-lg shadow-sm">
         <h3 class="mb-4 text-xl font-semibold text-[#2f4a71]">Manual Backup</h3>
-        <p class="mb-4 text-gray-600">Create a backup of your entire database with one click.</p>
+        <p class="mb-4 text-gray-600">Create a backup of your entire database or selected patient groups.</p>
         
         <div class="flex flex-col space-y-4">
-          <button 
-            @click="createFullBackupHandler" 
-            class="px-4 py-2 text-white transition-colors rounded bg-[#2f4a71] hover:bg-[#1d3050] disabled:bg-gray-400 disabled:cursor-not-allowed"
-            :disabled="isBackingUp || !isOnline"
-          >
-            <span v-if="isBackingUp">Creating Backup...</span>
-            <span v-else>Create Full Backup</span>
-          </button>
+          <div class="flex gap-4 mb-2">
+            <button 
+              @click="createFullBackupHandler" 
+              class="px-4 py-2 text-white transition-colors rounded bg-[#2f4a71] hover:bg-[#1d3050] disabled:bg-gray-400 disabled:cursor-not-allowed"
+              :disabled="isBackingUp || !isOnline"
+            >
+              <span v-if="isBackingUp">Creating Backup...</span>
+              <span v-else>Create Full Backup</span>
+            </button>
+            
+            <button 
+              @click="showSelectiveBackupModal = true"
+              class="px-4 py-2 text-white transition-colors rounded bg-[#4a71a0] hover:bg-[#3a5175] disabled:bg-gray-400 disabled:cursor-not-allowed"
+              :disabled="isBackingUp || !isOnline"
+            >
+              Selective Backup
+            </button>
+          </div>
         </div>
       </div>
 
@@ -297,6 +307,82 @@
             :disabled="isLoadingDrive || !autoConfig.driveFolderId || !isOnline"
           >
             Export
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Selective Backup Modal -->
+    <div v-if="showSelectiveBackupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div class="w-full max-w-lg p-6 bg-white rounded-lg shadow-xl">
+        <h3 class="mb-4 text-xl font-bold">Selective Backup</h3>
+        
+        <div v-if="isSelectiveBackupLoading" class="flex flex-col items-center my-4">
+          <div class="w-10 h-10 border-4 border-dashed rounded-full animate-spin border-[#2f4a71]"></div>
+          <p class="mt-3 text-gray-600">Creating backup...</p>
+        </div>
+        
+        <div v-else>
+          <p class="mb-4">Select which patient data you want to include in the backup:</p>
+          
+          <div class="grid grid-cols-1 gap-4 mb-5">
+            <div>
+              <label class="block mb-2 text-sm font-medium text-gray-700">Backup Type</label>
+              <div class="flex flex-col space-y-3">
+                <label class="flex items-center">
+                  <input type="radio" v-model="selectiveBackupType" value="grade" class="mr-2">
+                  Specific Grade Level
+                </label>
+                <label class="flex items-center">
+                  <input type="radio" v-model="selectiveBackupType" value="division" class="mr-2">
+                  Specific Division
+                </label>
+              </div>
+            </div>
+            
+            <!-- Grade Level Selection -->
+            <div v-if="selectiveBackupType === 'grade'" class="mb-4">
+              <label class="block mb-2 text-sm font-medium text-gray-700">Select Grade Level</label>
+              <select 
+                v-model="selectedGradeLevel"
+                class="w-full p-2 border rounded"
+              >
+                <option value="">-- Select a grade level --</option>
+                <option v-for="grade in availableGrades" :key="grade" :value="grade">
+                  Grade {{ grade }}
+                </option>
+              </select>
+            </div>
+            
+            <!-- Division Selection -->
+            <div v-if="selectiveBackupType === 'division'" class="mb-4">
+              <label class="block mb-2 text-sm font-medium text-gray-700">Enter Division Name</label>
+              <input
+                type="text"
+                v-model="selectedDivision"
+                placeholder="Enter division name exactly"
+                class="w-full p-2 border rounded"
+              />
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex justify-end gap-3 mt-6">
+          <button 
+            @click="closeSelectiveBackupModal"
+            class="px-4 py-2 text-gray-700 transition-colors bg-gray-200 rounded hover:bg-gray-300"
+          >
+            Cancel
+          </button>
+          <button 
+            @click="createSelectiveBackup"
+            class="px-4 py-2 text-white transition-colors rounded bg-[#2f4a71] hover:bg-[#1d3050]"
+            :disabled="isSelectiveBackupLoading || 
+                     (selectiveBackupType === 'grade' && !selectedGradeLevel) || 
+                     (selectiveBackupType === 'division' && !selectedDivision) || 
+                     !isOnline"
+          >
+            Create Backup
           </button>
         </div>
       </div>
@@ -796,6 +882,59 @@ const formatSize = (bytes) => {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+// Selective backup state variables
+const showSelectiveBackupModal = ref(false);
+const selectiveBackupType = ref('grade');
+const selectedGradeLevel = ref('');
+const selectedDivision = ref('');
+const isSelectiveBackupLoading = ref(false);
+const availableGrades = ref([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+
+// Selective backup functions
+const closeSelectiveBackupModal = () => {
+  showSelectiveBackupModal.value = false;
+  selectiveBackupType.value = 'grade';
+  selectedGradeLevel.value = '';
+  selectedDivision.value = '';
+};
+
+const createSelectiveBackup = async () => {
+  if (!isOnline.value) {
+    errorMessage.value = "Can't create backups while offline. Please reconnect to the internet.";
+    return;
+  }
+  
+  try {
+    isSelectiveBackupLoading.value = true;
+    loadingMessage.value = 'Creating selective backup...';
+    
+    let result;
+    if (selectiveBackupType.value === 'grade') {
+      if (!selectedGradeLevel.value) {
+        errorMessage.value = 'Please select a grade level';
+        return;
+      }
+      result = await createGradeBackup(Number(selectedGradeLevel.value));
+    } else {
+      if (!selectedDivision.value) {
+        errorMessage.value = 'Please enter a division name';
+        return;
+      }
+      result = await createDivisionBackup(selectedDivision.value);
+    }
+    
+    successMessage.value = `Selective backup created successfully! Filename: ${result.filename}`;
+    await fetchBackups();
+    closeSelectiveBackupModal();
+  } catch (error) {
+    console.error('Error creating selective backup:', error);
+    errorMessage.value = `Failed to create selective backup: ${error.message}`;
+  } finally {
+    isSelectiveBackupLoading.value = false;
+    loadingMessage.value = '';
+  }
 };
 
 // Lifecycle hooks

@@ -13,6 +13,16 @@ export class BackupController {
     return this.backupService.createBackupAll();
   }
 
+  @Post('create-grade')
+  async createGradeBackup(@Body() body: { gradeLevel: number }) {
+    return this.backupService.createBackupAll({ gradeLevel: body.gradeLevel });
+  }
+
+  @Post('create-division')
+  async createDivisionBackup(@Body() body: { division: string }) {
+    return this.backupService.createBackupAll({ division: body.division });
+  }
+
   @Get('auto-config')
   async getAutoBackupConfig() {
     return this.backupService.getAutoBackupConfig();

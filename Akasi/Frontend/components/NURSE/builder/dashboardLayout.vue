@@ -3,4 +3,4 @@
       <accounts />
       <backup />
     </div>
-</template>.
+</template>

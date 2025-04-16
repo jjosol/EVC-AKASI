@@ -3,17 +3,17 @@ import { useAuth } from '~/composables/useAuth';
 
 definePageMeta({
   middleware: 'auth', 
-  requiredRole: ['manager'],
+  requiredRole: ['doctor'],
   layout: 'main',
 });
 
-const { isManager, userRole } = useAuth();
+const { isNurse, userRole } = useAuth();
 
 onMounted(() => {
   console.log('User Role:', userRole.value);
 });
 </script>
 <template>
-    <dashboardLayout v-if="isManager"/>
+    <dashboardLayout v-if="isNurse"/>
 </template>
 
