@@ -14,7 +14,7 @@
     <InventoryHistory
       ref="historyRef"
     />
-    <MedicineModal 
+    <MedicineModalInv 
       :isOpen="isModalOpen && modalType === 'medicine'" 
       :categories="categories"
       :prefillData="currentItem"
