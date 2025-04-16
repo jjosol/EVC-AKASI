@@ -78,7 +78,7 @@ watch([showPendingOnly, searchQuery], () => {
 });
 
 // Fetch consultation records for a faculty member
-const fetchConsultations = async (clientId) => {
+const fetchFacultyConsultations = async (clientId) => {
   if (!clientId) {
     console.warn('Cannot fetch consultations: No client ID provided');
     return;
@@ -128,7 +128,7 @@ const openFacultyModal = (faculty) => {
   fetchFacultyFiles();
   
   // Add this line to fetch consultation records when the modal opens
-  fetchConsultations(faculty.client_id);
+  fetchFacultyConsultations(faculty.client_id);
 };
 
 // Fetch faculty from API

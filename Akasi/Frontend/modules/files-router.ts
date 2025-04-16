@@ -12,17 +12,17 @@ export default defineNuxtModule({
           {
             name: 'files-student',
             path: 'student',
-            file: '~/components/admin/parts/Files/student.vue',
+            file: '~/components/NURSE/parts/Files/student.vue',
           },
           {
             name: 'files-faculty',
             path: 'faculty',
-            file: '~/components/admin/parts/Files/faculty.vue',
+            file: '~/components/NURSE/parts/Files/faculty.vue',
           },
           {
             name: 'files-non-teaching-staff',
             path: 'non-teaching-staff',
-            file: '~/components/admin/parts/Files/non-teaching-staff.vue',
+            file: '~/components/NURSE/parts/Files/non-teaching-staff.vue',
           },
         ],
       });

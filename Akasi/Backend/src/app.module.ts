@@ -26,7 +26,6 @@ import { FileStatusModule } from './file-status/file-status.module';
 import { PatientStatusModule } from './patient-status/patient-status.module';
 import { PatientFilesStaffModule } from './patient-files-staff/patient-files-staff.module';
 import { DiagnosisModule } from './diagnosis/diagnosis.module';
-import { ManagersModule } from './managers/managers.module';
 import { GetPatientConsultationsModule } from './get-patient-consultations/get-patient-consultations.module';
 import { BackupModule } from './backup/backup.module';
 import { ChangePasswordModule } from './change-password/changePass.module';
@@ -68,7 +67,6 @@ import { DoctorModule } from './doctor/doctor.module';
     PatientStatusModule,
     PatientFilesStaffModule,
     DiagnosisModule,
-    ManagersModule,
     GetPatientConsultationsModule,
     EquipmentModule,
     DoctorModule
