@@ -4,7 +4,8 @@
       <div class="flex items-center mb-4">
         <div class="relative w-full">
           <input
-            v-model="searchQuery"
+            :value="searchQuery"
+            @input="$emit('update:searchQuery', $event.target.value)"
             placeholder="Search"
             class="w-full p-1 pl-10 border border-[#2f4a71] rounded-full focus:outline-none"
           />

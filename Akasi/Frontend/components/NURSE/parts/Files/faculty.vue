@@ -606,8 +606,8 @@ onUnmounted(() => {
   <div class="faculty-container">
     <ClientOnly>
       <!-- Filter Controls -->
-      <div class="mb-6 p-4 bg-white rounded-lg shadow">
-        <div class="flex flex-col sm:flex-row gap-3 items-center">
+      <div class="p-4 mb-6 bg-white rounded-lg shadow">
+        <div class="flex flex-col items-center gap-3 sm:flex-row">
           <div class="w-full sm:w-1/2">
             <input
               v-model="searchQuery"
@@ -631,44 +631,44 @@ onUnmounted(() => {
       
       <!-- Wrap dynamic content in ClientOnly to prevent hydration mismatches -->
       <div v-if="loading" class="flex justify-center py-8">
-        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <div class="w-12 h-12 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin"></div>
       </div>
       
-      <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+      <div v-else-if="error" class="px-4 py-3 text-red-700 bg-red-100 border border-red-400 rounded">
         <p>{{ error }}</p>
       </div>
       
-      <div v-else-if="filteredFaculty.length === 0" class="text-center py-8 text-gray-500">
+      <div v-else-if="filteredFaculty.length === 0" class="py-8 text-center text-gray-500">
         <p v-if="showPendingOnly">No faculty with pending files found</p>
         <p v-else>No faculty found</p>
       </div>
       
       <div v-else>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div 
             v-for="faculty in filteredFaculty" 
             :key="faculty.client_id"
-            class="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow cursor-pointer"
+            class="p-4 transition-shadow bg-white rounded-lg shadow cursor-pointer hover:shadow-md"
             @click="openFacultyModal(faculty)"
           >
             <div class="flex justify-between">
-              <h3 class="font-semibold text-lg text-gray-800">{{ faculty.name }}</h3>
+              <h3 class="text-lg font-semibold text-gray-800">{{ faculty.name }}</h3>
               <span 
                 v-if="faculty.hasPendingFiles" 
-                class="inline-block bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full"
+                class="inline-block px-2 py-1 text-xs text-yellow-800 bg-yellow-100 rounded-full"
               >
                 Pending
               </span>
             </div>
-            <div class="mt-2 flex items-center justify-between">
-              <span class="text-gray-600 text-sm">{{ faculty.section }}</span>
+            <div class="flex items-center justify-between mt-2">
+              <span class="text-sm text-gray-600">{{ faculty.section }}</span>
             </div>
           </div>
         </div>
       </div>
       
       <!-- Debugging section -->
-      <div v-if="error" class="mt-8 p-4 bg-gray-100 rounded">
+      <div v-if="error" class="p-4 mt-8 bg-gray-100 rounded">
         <h3 class="font-semibold">Debugging Information:</h3>
         <p>{{ debugInfo }}</p>
       </div>
@@ -678,15 +678,15 @@ onUnmounted(() => {
   <!-- Faculty Detail Modal -->
   <div 
     v-if="showFacultyModal" 
-    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto"
+    class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50"
     @click.self="closeFacultyModal"
   >
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-5xl mx-4 my-8 overflow-hidden">
+    <div class="w-full max-w-5xl mx-4 my-8 overflow-hidden bg-white rounded-lg shadow-xl">
       <!-- Modal Header -->
       <div class="bg-[#2f4a71] text-white p-5 flex justify-between items-center">
         <h3 class="text-xl font-bold">Faculty Information</h3>
         <button @click="closeFacultyModal" class="text-white hover:text-gray-200">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
@@ -694,7 +694,7 @@ onUnmounted(() => {
 
       <!-- Faculty Details -->
       <div class="p-6 border-b border-gray-200" v-if="selectedFaculty">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
             <h4 class="text-sm font-medium text-gray-500">Name</h4>
             <p class="text-lg">{{ selectedFaculty.name }}</p>
@@ -711,7 +711,7 @@ onUnmounted(() => {
       </div>
 
       <!-- Files Section with Tabs -->
-        <div class="bg-white shadow-md rounded-xl overflow-hidden">
+        <div class="overflow-hidden bg-white shadow-md rounded-xl">
           <div class="tabs-container">
             <!-- Tab Navigation -->
             <div class="tab-nav">
@@ -741,8 +741,8 @@ onUnmounted(() => {
                   </div>
 
                   <!-- No Files State -->
-                  <div v-else-if="medicalFiles.length === 0" class="text-center py-12">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div v-else-if="medicalFiles.length === 0" class="py-12 text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     <p class="mt-3 text-gray-500">
@@ -751,12 +751,12 @@ onUnmounted(() => {
                   </div>
 
                   <!-- Files Grid -->
-                  <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <!-- File Card with Status -->
                     <div 
                       v-for="file in medicalFiles" 
                       :key="`${file.type}-${file.id}`" 
-                      class="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                      class="overflow-hidden transition-shadow border rounded-lg shadow-sm hover:shadow-md"
                     >
                       <div class="p-4">
                         <div class="flex items-start">
@@ -772,7 +772,7 @@ onUnmounted(() => {
                                 'inline-block p-2 rounded-md'
                               ]"
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                               </svg>
                             </span>
@@ -780,7 +780,7 @@ onUnmounted(() => {
                           
                           <!-- File Info -->
                           <div class="flex-1 min-w-0">
-                            <div class="flex justify-between items-start">
+                            <div class="flex items-start justify-between">
                               <h3 class="text-sm font-medium text-gray-900 truncate">{{ formatFileType(file.type) }}</h3>
                               
                               <!-- Status Badge -->
@@ -797,24 +797,24 @@ onUnmounted(() => {
                                 {{ file.status ? (file.status.charAt(0).toUpperCase() + file.status.slice(1)) : 'Pending' }}
                               </span>
                             </div>
-                            <p class="text-xs text-gray-400 mt-1">
+                            <p class="mt-1 text-xs text-gray-400">
                               {{ formatDate(file.date) }}
                             </p>
                             
                             <!-- Notes (if any) -->
-                            <p v-if="file.notes" class="text-xs italic text-gray-500 mt-1 truncate">
+                            <p v-if="file.notes" class="mt-1 text-xs italic text-gray-500 truncate">
                               Note: {{ file.notes }}
                             </p>
                           </div>
                         </div>
                         
                         <!-- Actions -->
-                        <div class="mt-3 flex justify-end">
+                        <div class="flex justify-end mt-3">
                           <button 
                             @click.stop="viewFile(file)"
                             class="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71] mr-2"
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
@@ -826,7 +826,7 @@ onUnmounted(() => {
                             @click.stop="openReviewModal(file)"
                             class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-[#2f4a71] hover:bg-[#1d2e47] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             Review
@@ -848,7 +848,7 @@ onUnmounted(() => {
                   </div>
                   
                   <!-- Error state -->
-                  <div v-else-if="consultationsError" class="p-4 bg-red-50 text-red-700 rounded-md">
+                  <div v-else-if="consultationsError" class="p-4 text-red-700 rounded-md bg-red-50">
                     <p>{{ consultationsError }}</p>
                     <button 
                       @click="fetchConsultations(selectedFaculty.client_id)" 
@@ -859,8 +859,8 @@ onUnmounted(() => {
                   </div>
                   
                   <!-- No records state -->
-                  <div v-else-if="consultations.length === 0" class="text-center py-12">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div v-else-if="consultations.length === 0" class="py-12 text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     <p class="mt-3 text-gray-500">No consultation records found</p>
@@ -868,27 +868,27 @@ onUnmounted(() => {
                   
                   <!-- Consultation records list -->
                   <div v-else class="divide-y divide-gray-200">
-                    <div v-for="record in consultations" :key="record.id" class="py-4 hover:bg-gray-50 transition-colors rounded-lg p-4">
-                      <div class="flex justify-between items-start">
+                    <div v-for="record in consultations" :key="record.id" class="p-4 py-4 transition-colors rounded-lg hover:bg-gray-50">
+                      <div class="flex items-start justify-between">
                         <div>
                           <div class="text-sm text-gray-500">{{ formatDate(record.date) }}</div>
                           <h3 class="font-medium text-lg text-[#2f4a71]">
                             {{ record.diagnoses || 'General Consultation' }}
                           </h3>
-                          <div class="mt-1 flex items-center">
+                          <div class="flex items-center mt-1">
                             <span class="text-sm text-gray-600">Attended by: {{ record.doctor || 'School Physician' }}</span>
                           </div>
                         </div>
                         
                         <!-- Status indicators -->
                         <div class="flex space-x-2">
-                          <span v-if="record.confined" class="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">
+                          <span v-if="record.confined" class="px-2 py-1 text-xs font-medium text-red-800 bg-red-100 rounded-full">
                             Confined
                           </span>
-                          <span v-if="record.medAdministration" class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+                          <span v-if="record.medAdministration" class="px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full">
                             Medication
                           </span>
-                          <span v-if="record.intern" class="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full font-medium">
+                          <span v-if="record.intern" class="px-2 py-1 text-xs font-medium text-purple-800 bg-purple-100 rounded-full">
                             Intern
                           </span>
                         </div>
@@ -911,13 +911,13 @@ onUnmounted(() => {
                             <p class="font-medium text-gray-700">Medications:</p>
                             <div class="mt-1 space-y-2">
                               <div v-for="(medication, index) in record.medications" :key="medication.id" 
-                                  class="flex items-start bg-blue-50 p-2 rounded">
-                                <div class="flex-shrink-0 h-5 w-5 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center mr-2 text-xs font-bold">
+                                  class="flex items-start p-2 rounded bg-blue-50">
+                                <div class="flex items-center justify-center flex-shrink-0 w-5 h-5 mr-2 text-xs font-bold text-blue-800 bg-blue-100 rounded-full">
                                   {{ index + 1 }}
                                 </div>
                                 <div class="flex-1">
                                   <p class="font-medium">{{ medication.name }}</p>
-                                  <div class="text-xs text-gray-600 mt-1">
+                                  <div class="mt-1 text-xs text-gray-600">
                                     <p><span class="font-medium">Quantity:</span> {{ medication.count }}</p>
                                     <p><span class="font-medium">Schedule:</span> {{ medication.schedule }}</p>
                                     <p><span class="font-medium">Duration:</span> {{ formatDate(medication.startDate) }} - {{ formatDate(medication.endDate) }}</p>
@@ -960,15 +960,15 @@ onUnmounted(() => {
   <!-- File Viewer Modal -->
   <div 
     v-if="showFileViewerModal" 
-    class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70"
     @click.self="closeFileViewerModal"
   >
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 overflow-hidden h-5/6 flex flex-col">
+    <div class="flex flex-col w-full max-w-4xl mx-4 overflow-hidden bg-white rounded-lg shadow-xl h-5/6">
       <!-- Viewer Header -->
-      <div class="flex justify-between items-center p-4 border-b">
+      <div class="flex items-center justify-between p-4 border-b">
         <div class="flex items-center">
           <h3 class="text-lg font-medium text-gray-900">{{ selectedFile?.typeLabel || formatFileType(selectedFile?.type) }}</h3>
-          <span class="ml-2 px-2 py-1 bg-gray-100 text-xs rounded">
+          <span class="px-2 py-1 ml-2 text-xs bg-gray-100 rounded">
             {{ getFileExtension(selectedFile?.mimeType) }}
           </span>
           
@@ -995,7 +995,7 @@ onUnmounted(() => {
             class="mr-3 text-gray-700 hover:text-gray-900 focus:outline-none"
             title="Download File"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
           </button>
@@ -1007,7 +1007,7 @@ onUnmounted(() => {
             class="mr-3 text-[#2f4a71] hover:text-[#1d2e47] focus:outline-none"
             title="Review File"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </button>
@@ -1017,7 +1017,7 @@ onUnmounted(() => {
             @click="closeFileViewerModal" 
             class="text-gray-400 hover:text-gray-500 focus:outline-none"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -1025,7 +1025,7 @@ onUnmounted(() => {
       </div>
       
       <!-- File Information section - notes -->
-      <div v-if="selectedFile?.notes" class="px-4 py-2 bg-gray-50 border-b">
+      <div v-if="selectedFile?.notes" class="px-4 py-2 border-b bg-gray-50">
         <p class="text-sm text-gray-600">
           <span class="font-medium">Note:</span> {{ selectedFile.notes }}
         </p>
@@ -1051,11 +1051,11 @@ onUnmounted(() => {
           <!-- Image Files (PNG, JPG, etc) -->
           <div 
             v-else-if="isFileType('image')" 
-            class="flex items-center justify-center h-full bg-gray-100 overflow-auto"
+            class="flex items-center justify-center h-full overflow-auto bg-gray-100"
           >
             <img 
               :src="selectedFile.url" 
-              class="max-w-full max-h-full object-contain"
+              class="object-contain max-w-full max-h-full"
               alt="Document image"
             />
           </div>
@@ -1065,10 +1065,10 @@ onUnmounted(() => {
             v-else 
             class="flex flex-col items-center justify-center h-full"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 mb-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <p class="text-gray-600 mb-2">File preview not available</p>
+            <p class="mb-2 text-gray-600">File preview not available</p>
             <button
               @click="downloadFile"
               class="px-4 py-2 bg-[#2f4a71] text-white rounded hover:bg-[#1d2e47] focus:outline-none"
@@ -1079,12 +1079,12 @@ onUnmounted(() => {
         </template>
         
         <!-- Error state -->
-        <div v-else-if="fileError" class="flex flex-col items-center justify-center h-full text-center p-6">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-red-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div v-else-if="fileError" class="flex flex-col items-center justify-center h-full p-6 text-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mb-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p class="text-red-500 mb-2">Failed to load file</p>
-          <p class="text-gray-500 text-sm">{{ fileError }}</p>
+          <p class="mb-2 text-red-500">Failed to load file</p>
+          <p class="text-sm text-gray-500">{{ fileError }}</p>
         </div>
       </div>
     </div>
@@ -1093,15 +1093,15 @@ onUnmounted(() => {
   <!-- Review Status Modal -->
   <div 
     v-if="showReviewModal" 
-    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
     @click.self="closeReviewModal"
   >
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
+    <div class="w-full max-w-md mx-4 overflow-hidden bg-white rounded-lg shadow-xl">
       <!-- Modal Header -->
       <div class="bg-[#2f4a71] text-white p-4 flex justify-between items-center">
         <h3 class="text-xl font-bold">Update File Status</h3>
         <button @click="closeReviewModal" class="text-white hover:text-gray-200">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
@@ -1120,36 +1120,36 @@ onUnmounted(() => {
         </div>
 
         <div class="mb-6">
-          <label class="block text-sm font-medium text-gray-700 mb-2">
+          <label class="block mb-2 text-sm font-medium text-gray-700">
             Set Status
           </label>
           <div class="grid grid-cols-3 gap-2">
             <button 
               @click="updateStatus = 'complete'"
-              class="py-2 px-3 rounded-md border flex items-center justify-center text-sm focus:outline-none"
+              class="flex items-center justify-center px-3 py-2 text-sm border rounded-md focus:outline-none"
               :class="updateStatus === 'complete' ? 'bg-green-50 border-green-500 text-green-700' : 'border-gray-300 hover:bg-gray-50'"
             >
-              <svg v-if="updateStatus === 'complete'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+              <svg v-if="updateStatus === 'complete'" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-1 text-green-500" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
               </svg>
               <span>Complete</span>
             </button>
             <button 
               @click="updateStatus = 'ongoing'"
-              class="py-2 px-3 rounded-md border flex items-center justify-center text-sm focus:outline-none"
+              class="flex items-center justify-center px-3 py-2 text-sm border rounded-md focus:outline-none"
               :class="updateStatus === 'ongoing' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'border-gray-300 hover:bg-gray-50'"
             >
-              <svg v-if="updateStatus === 'ongoing'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+              <svg v-if="updateStatus === 'ongoing'" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-1 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
               </svg>
               <span>Ongoing</span>
             </button>
             <button 
               @click="updateStatus = 'rejected'"
-              class="py-2 px-3 rounded-md border flex items-center justify-center text-sm focus:outline-none"
+              class="flex items-center justify-center px-3 py-2 text-sm border rounded-md focus:outline-none"
               :class="updateStatus === 'rejected' ? 'bg-red-50 border-red-500 text-red-700' : 'border-gray-300 hover:bg-gray-50'"
             >
-              <svg v-if="updateStatus === 'rejected'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+              <svg v-if="updateStatus === 'rejected'" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-1 text-red-500" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
               </svg>
               <span>Rejected</span>
@@ -1158,7 +1158,7 @@ onUnmounted(() => {
         </div>
 
         <div class="mb-6">
-          <label for="notes" class="block text-sm font-medium text-gray-700 mb-2">
+          <label for="notes" class="block mb-2 text-sm font-medium text-gray-700">
             Notes (Optional)
           </label>
           <textarea
@@ -1182,7 +1182,7 @@ onUnmounted(() => {
             :disabled="!updateStatus || isSubmitting"
             class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#2f4a71] hover:bg-[#1d2e47] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg v-if="isSubmitting" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <svg v-if="isSubmitting" class="w-4 h-4 mr-2 -ml-1 text-white animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>

@@ -45,11 +45,11 @@ const handleLogin = async () => {
       setToken(token);
       
       // Redirect based on role
-      if (role === 'admin') {
+      if (role === 'nurse') {
         router.push('/home');
-      } else if (role === 'client') {
+      } else if (role === 'patient') {
         router.push('/bulletin');
-      } else if (role === 'manager') {
+      } else if (role === 'doctor') {
         router.push('/dashboard');
       } else {
         router.push('/login');
