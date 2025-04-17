@@ -49,7 +49,7 @@ onMounted(() => {
 
 <template>
   <div class="fixed top-0 left-0 z-50 h-full font-inter">
-    <nav class="flex flex-col items-center h-full py-10 w-64 text-white bg-[#2F4A71] shadow-lg">
+    <nav class="flex flex-col items-center h-full py-10 w-64 text-white bg-[#2F4A71] shadow-right">
       <div class="mb-12">
         <MidTitle class="text-5xl"/>
       </div>
@@ -106,3 +106,9 @@ onMounted(() => {
     </nav>
   </div>
 </template>
+
+<style scoped>
+.shadow-right {
+  box-shadow: 1px 0 12px 0px rgba(0, 0, 0, 0.5);
+}
+</style>
