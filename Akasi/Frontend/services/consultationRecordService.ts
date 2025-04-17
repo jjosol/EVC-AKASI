@@ -2,9 +2,9 @@ import { get, post, put, del } from './apiService.js';
 
 const BASE_URL = '/consultation-records';
 const MED_ADMIN_URL = '/med-administration';
-const PATIENT_URL = '/patient';
+const PATIENT_URL = '/patients'; // Updated to use patients (plural) instead of patient
 const INVENTORY_URL = '/medicine'; // Updated to use medicine instead of inventory
-const DIAGNOSIS_URL = '/diagnosis';
+const DIAGNOSIS_URL = '/diagnoses'; // Updated to use diagnoses (plural) instead of diagnosis
 const APPOINTMENT_URL = '/add-appointment'; // Added appointment URL
 
 // Define interfaces for type safety
@@ -260,7 +260,7 @@ export const fetchDiseases = async () => {
  * @returns {Promise<any>} List of disease categories
  */
 export const fetchDiseaseCategories = async () => {
-  return get(`${DIAGNOSIS_URL}/categories`);
+  return get(`${DIAGNOSIS_URL}/categories/all`);
 };
 
 /**
