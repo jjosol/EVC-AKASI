@@ -3,17 +3,31 @@ import puppeteer from 'puppeteer'
 
 export default defineEventHandler(async (event) => {
   try {
-    const { html } = await readBody(event)
+    const body = await readBody(event)
+    const { html, conclusionText } = body
     
+    if (!html) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'HTML content is required' })
+      }
+    }
+    
+    console.log('Launching puppeteer...')
     const browser = await puppeteer.launch({ 
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     })
     
     const page = await browser.newPage()
-    await page.goto('http://localhost:3000') // Ensure the base URL is set
-    await page.setContent(html, { waitUntil: 'networkidle0' })
     
+    console.log('Setting page content...')
+    await page.setContent(html, { 
+      waitUntil: 'networkidle0',
+      timeout: 30000
+    })
+    
+    console.log('Generating PDF...')
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
@@ -26,20 +40,17 @@ export default defineEventHandler(async (event) => {
     })
 
     await browser.close()
+    console.log('PDF generated successfully')
 
-    return new Response(pdf, {
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': 'attachment; filename=report.pdf'
-      }
-    })
+    // Return PDF buffer with proper headers
+    event.node.res.setHeader('Content-Type', 'application/pdf')
+    event.node.res.setHeader('Content-Disposition', 'attachment; filename="report.pdf"')
+    return pdf
   } catch (error) {
     console.error('PDF generation error:', error)
-    return new Response(JSON.stringify({ error: 'Failed to generate PDF' }), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Failed to generate PDF' })
+    }
   }
 })

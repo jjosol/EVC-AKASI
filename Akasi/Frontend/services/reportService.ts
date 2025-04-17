@@ -1,4 +1,4 @@
-import { get } from './apiService';
+import { get } from './apiService.js';
 
 // Base URL for reports API endpoints
 const REPORTS_URL = '/reports';
@@ -155,7 +155,7 @@ export const generatePdf = async (
       );
     }
     
-    const response = await fetch('/api/pdf', {
+    const response = await fetch('/_generate-pdf', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
