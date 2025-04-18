@@ -214,10 +214,35 @@ export const deletePost = async (postId: number): Promise<any> => {
 };
 
 /**
- * Gets the file URL for a given file ID
- * @param {number} fileId - ID of the file
+ * Gets the file URL for a given file ID or path
+ * @param {number|string} fileIdOrPath - ID or path of the file
  * @returns {string} URL to access the file
  */
-export const getFileUrl = (fileId: number): string => {
-  return `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}${FILES_URL}/${fileId}`;
+export const getFileUrl = (fileIdOrPath: number | string): string => {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+  
+  // If fileIdOrPath is a number, it's an ID and we should use the files endpoint
+  if (typeof fileIdOrPath === 'number') {
+    // Check if we have a record of the file path in local cache
+    const file = localStorage.getItem(`file_${fileIdOrPath}`);
+    if (file) {
+      try {
+        const fileData = JSON.parse(file);
+        if (fileData.file_path) {
+          console.log(`Using cached path for file ${fileIdOrPath}: ${fileData.file_path}`);
+          return `${baseUrl}/storage/file/${fileData.file_path}`;
+        }
+      } catch (e) {
+        console.warn(`Failed to parse cached file data for ID ${fileIdOrPath}`, e);
+      }
+    }
+    
+    // Fallback to ID-based URL - this may require backend support
+    console.log(`Using ID-based URL for file ${fileIdOrPath}`);
+    return `${baseUrl}${FILES_URL}/${fileIdOrPath}`;
+  } 
+  
+  // It's a path, use the storage endpoint
+  console.log(`Using path-based URL for file path: ${fileIdOrPath}`);
+  return `${baseUrl}/storage/file/${fileIdOrPath}`;
 };

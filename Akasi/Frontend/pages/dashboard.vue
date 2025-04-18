@@ -3,7 +3,7 @@ import { useAuth } from '~/composables/useAuth';
 
 definePageMeta({
   middleware: 'auth', 
-  requiredRole: ['doctor'],
+  requiredRole: ['nurse'],
   layout: 'main',
 });
 

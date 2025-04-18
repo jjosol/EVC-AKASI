@@ -34,8 +34,6 @@
         <div class="center">
             <SideBarA v-if="isNurse"/>
             <SideBarC v-else-if="isPatient"/>
-            <SideBarM v-else-if="isManager"/>
-
         </div>
     </div>
 
@@ -47,6 +45,6 @@
 </template>
 <script setup>
 import { useAuth } from '~/composables/useAuth';
-const { isNurse, isPatient, isManager } = useAuth();
+const { isNurse, isPatient } = useAuth();
 
 </script>
