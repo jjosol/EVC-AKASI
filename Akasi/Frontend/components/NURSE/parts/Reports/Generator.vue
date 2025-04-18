@@ -672,8 +672,11 @@ const previewReport = async () => {
   finalHtml = await processTemplate(finalHtml, selectedMonths, data, isYearly);
 
   try {
+    // Add preview-mode class to the HTML for preview
+    const previewHtml = finalHtml.replace('<body>', '<body class="preview-mode">');
+    
     // Create a blob from the HTML content
-    const blob = new Blob([finalHtml], { type: 'text/html' });
+    const blob = new Blob([previewHtml], { type: 'text/html' });
     
     // Create a URL from the blob
     pdfPreviewUrl.value = URL.createObjectURL(blob);
@@ -702,10 +705,20 @@ const onIframeLoad = (event) => {
     // Set the textarea value from our ref
     textArea.value = conclusionText.value;
     
-    // Add an event listener to update our ref when the textarea changes
+    // Function to adjust height
+    const adjustHeight = () => {
+      textArea.style.height = 'auto'; // Reset height
+      textArea.style.height = textArea.scrollHeight + 'px'; // Set new height
+    };
+
+    // Add listeners for input changes
     textArea.addEventListener('input', () => {
       conclusionText.value = textArea.value;
+      adjustHeight();
     });
+
+    // Initial height adjustment
+    adjustHeight();
   }
 }
 
