@@ -942,7 +942,7 @@ const downloadSampleTemplate = () => {
             class="flex items-center px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700"
           >
             <Icon icon="mdi:plus" class="mr-2" />
-            Add {{ activeTab === 'admins' ? 'Admin' : activeTab === 'clients' ? 'Client' : 'Manager' }}
+            Add {{ activeTab === 'nurse' ? 'Nurse' : activeTab === 'clients' ? 'Client' : 'Manager' }}
           </button>
           
           <!-- Hash Passwords Button -->
@@ -1013,7 +1013,7 @@ const downloadSampleTemplate = () => {
           class="px-4 py-2 bg-[#2f4a71] text-white rounded-md flex items-center"
         >
           <Icon icon="mdi:plus" class="mr-2" />
-          Add {{ activeTab === 'admins' ? 'Admin' : 'Client' }}
+          Add {{ activeTab === 'nurse' ? 'Nurse' : 'Client' }}
         </button>
       </div>
       
@@ -1145,7 +1145,7 @@ const downloadSampleTemplate = () => {
       <div class="relative p-5 mx-auto bg-white border rounded-md shadow-lg top-20 w-96">
         <div class="mt-3">
           <h3 class="text-lg font-medium leading-6 text-center text-gray-900">
-            Create {{ activeTab === 'admins' ? 'Admin' : activeTab === 'clients' ? 'Client' : 'Manager' }} Account
+            Create {{ activeTab === 'nurse' ? 'Nurse' : activeTab === 'clients' ? 'Client' : 'Manager' }} Account
           </h3>
           
           <!-- Error Message -->
@@ -1335,7 +1335,7 @@ const downloadSampleTemplate = () => {
       <div class="relative p-5 mx-auto bg-white border rounded-md shadow-lg top-20 w-96">
         <div class="mt-3">
           <h3 class="text-lg font-medium leading-6 text-center text-gray-900">
-            Edit {{ activeTab === 'admins' ? 'Admin' : activeTab === 'clients' ? 'Client' : 'Manager' }} Account
+            Edit {{ activeTab === 'nurse' ? 'Nurse' : activeTab === 'clients' ? 'Client' : 'Manager' }} Account
           </h3>
           
           <!-- Error Message -->
@@ -1524,7 +1524,7 @@ const downloadSampleTemplate = () => {
       <div class="relative max-w-2xl p-5 mx-auto bg-white border rounded-md shadow-lg top-20">
         <div class="mt-3">
           <h3 class="text-lg font-medium leading-6 text-center text-gray-900">
-            Mass Import {{ massImportType === 'admins' ? 'Admin' : massImportType === 'clients' ? 'Client' : 'Manager' }} Accounts
+            Mass Import {{ massImportType === 'nurse' ? 'Nurse' : massImportType === 'clients' ? 'Client' : 'Manager' }} Accounts
           </h3>
           
           <!-- Error Message -->

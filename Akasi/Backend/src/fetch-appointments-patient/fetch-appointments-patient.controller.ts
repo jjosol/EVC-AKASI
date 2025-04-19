@@ -16,7 +16,7 @@ export class FetchAppointmentsPatientController {
         if (userRole === 'patient') {
             // For patients, always use their own patient_id from the token
             patientIdNum = req.user.patient_id;
-        } else if (userRole === 'admin' && patientId) {
+        } else if (userRole === 'nurse' && patientId) {
             // For admins, they can query specific patients if desired
             patientIdNum = parseInt(patientId, 10);
         }

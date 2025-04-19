@@ -155,10 +155,10 @@ function updateUserInfo() {
   if (props.profile) {
     console.log("Checking profile data:", props.profile);
     
-    if (props.profile.admin_id) {
-      userType.value = 'admin';
-      userId.value = props.profile.admin_id;
-      console.log(`Found admin_id in profile: ${userId.value}`);
+    if (props.profile.nurse_id) {
+      userType.value = 'nurse';
+      userId.value = props.profile.nurse_id;
+      console.log(`Found nurse_id in profile: ${userId.value}`);
       return;
     } 
     else if (props.profile.client_id) {
@@ -182,9 +182,9 @@ function updateUserInfo() {
       const userData = JSON.parse(userStr);
       console.log("User data from localStorage:", userData);
       
-      if (userData.admin_id) {
-        userType.value = 'admin';
-        userId.value = userData.admin_id;
+      if (userData.nurse_id) {
+        userType.value = 'nurse';
+        userId.value = userData.nurse_id;
       } 
       else if (userData.client_id) {
         userType.value = 'client';
@@ -232,10 +232,10 @@ async function changePassword() {
       // Special handling for Akasi's expected profile structure
       if (props.profile) {
         // Try to extract info from profile based on structure
-        if (props.profile.role && props.profile.role.toLowerCase() === 'admin') {
-          userType.value = 'admin';
-          // Try to find admin_id in various potential locations
-          userId.value = props.profile.admin_id || props.profile.id || props.profile.userId;
+        if (props.profile.role && props.profile.role.toLowerCase() === 'nurse') {
+          userType.value = 'nurse';
+          // Try to find nurse_id in various potential locations
+          userId.value = props.profile.nurse_id || props.profile.id || props.profile.userId;
         } else {
           userType.value = 'client';
           userId.value = props.profile.client_id || props.profile.id || props.profile.userId;
