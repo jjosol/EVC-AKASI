@@ -13,7 +13,7 @@
         
         @page {
             size: A4;
-            margin: 2cm 1cm;
+            margin: 3cm 0;
         }
         
         html, body {
@@ -23,30 +23,61 @@
             background: white;
             color: #333;
             line-height: 1.4;
+            padding: 20px 0;
         }
 
         body {
             padding-bottom: 1cm;  
         }
 
+        /* Header and footer styles */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3.5cm;
+            z-index: 1000;
+            transform-origin: top;
+        }
+
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3cm;
+            z-index: 1000;
+            transform-origin: bottom;
+        }
+
+        .header img, .footer img {
+            width: 100%;
+            display: block;
+        }
+
         .page-container {
-            width: 210mm; /* A4 width in mm */
+            width: 210mm;
+            min-height: 100%;
             margin: 0 auto;
             position: relative;
             background: white;
-            page-break-after: always; /* Force page break after each container */
-            padding-bottom: 2cm;
+            page-break-after: always;
         }
         
         /* Content area with proper margins and overflow handling */
         .content {
-            width: 180mm; /* Narrower than page width */
+            width: 180mm;
             margin: 0 auto;
             background: white;
             position: relative;
             z-index: 1;
-            margin-top: 2cm; 
-            margin-bottom: 2cm; /* Add space to avoid footer overlap */
+            transform: translateY(3.5cm);
+            min-height: calc(100vh - 6.5cm);
+            display: block;
+            min-height: calc(100vh - 6cm); /* Subtract header + footer height */
+            overflow: visible;
+            page-break-inside: avoid;
         }
         
         /* Typography - using pt units for print */
@@ -84,7 +115,7 @@
             border: 1px solid #ccc;
             padding: 5pt 6pt;
             text-align: center;
-            font-size: 10pt;
+            font-size: 9pt;
             word-wrap: break-word; /* Handle text overflow */
             overflow: hidden; /* Prevent content overflow */
         }
@@ -137,9 +168,11 @@
             padding: 8pt;
             font-family: Arial, sans-serif;
             font-size: 11pt;
-            resize: vertical;
+            resize: none; /* Change from vertical to none */
             min-height: 60pt;
             background-color: transparent;
+            overflow: hidden; /* Hide scrollbar */
+            box-sizing: border-box;
         }
 
         .conclusion-form label {
@@ -190,17 +223,50 @@
             
             /* Essential: ensure content doesn't overlap with header/footer */
             .content {
-                margin-bottom: 2cm;
+                margin-top: 3.5cm; /* Accommodate header in print */
+                margin-bottom: 3.5cm;
+                min-height: 0; /* Remove minimum height constraint in print */
             }
             
             /* After page break, ensure spacing from header */
             .pagebreak + .content {
                 padding-top: 1.5cm;
             }
+
+            /* Ensure header and footer appear on every page */
+            .header, .footer {
+                display: block !important;
+            }
+
+            /* Force page break if content is too close to footer */
+            .content > *:last-child {
+                margin-bottom: 7cm;
+            }
+
+            /* Break to next page if content would overlap footer */
+            .section:has(+ .section:last-child) {
+                break-after: page;
+            }
+        }
+
+        /* Hide header/footer in preview mode */
+        .preview-mode .header,
+        .preview-mode .footer {
+            display: none !important;
         }
     </style>
 </head>
 <body>
+    <!-- Fixed header that appears on every page -->
+    <div class="header">
+        <img src="http://localhost:3000/images/header.png" alt="PSHS-EVC Health Services Header">
+    </div>
+    
+    <!-- Fixed footer that appears on every page -->
+    <div class="footer">
+        <img src="http://localhost:3000/images/footer.png" alt="PSHS-EVC Health Services Footer">
+    </div>
+
     <div class="page-container">
             <!--summary of illnesses-->
             <div class="content">
@@ -270,7 +336,7 @@
                         </table>
                     </div>
                     
-                <div class="content">
+                    <br><br>
                     <div class="section">
                         <h3>Non-Teaching Staff</h3>
                         <table>
@@ -303,13 +369,15 @@
                             <textarea id="conclusion" name="conclusion" rows="4"></textarea>
                         </form>
                     </div>
-                </div>
-            
             </div>
+            
             <!--PAGE BREAKKK-->
             <div class="pagebreak"></div>
+
             <!--list of common illnesses-->
+            
             <!--PAGE BREAKKK-->
+
             <!--monitoring-->
             <div class="content">
                 <h2>CONSULTATION MONITORING TOOL<br>{{dateRange}}</h2>

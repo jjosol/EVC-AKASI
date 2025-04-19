@@ -18,7 +18,7 @@
 
 <script setup>
 import ProfileHeader from '../parts/profileInformation.vue'
-import ProfileFiles from '../../client/parts/Profile/profileFiles.vue'
+import ProfileFiles from '../../PATIENT/parts/Profile/profileFiles.vue'
 import { useProfile } from '~/composables/useProfile'
 import { useAuth } from '~/composables/useAuth';
 const {isClient } = useAuth();
@@ -26,7 +26,7 @@ const {isClient } = useAuth();
 definePageMeta({
   layout: 'main',
   middleware: 'auth',
-  requiredRole: ['admin', 'client'],
+  requiredRole: ['nurse', 'client'],
 })
 
 const { loading, error, fetchProfile } = useProfile()

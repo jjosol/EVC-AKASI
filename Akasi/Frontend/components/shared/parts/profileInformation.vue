@@ -156,9 +156,9 @@ const getUserTypeOrCategory = computed(() => {
     return 'User';
   }
   
-  // If user is admin, display "Admin"
-  if (profile.value.type === 'admin') {
-    return 'Admin';
+  // If user is nurse, display "nurse"
+  if (profile.value.type === 'nurse') {
+    return 'Nurse';
   }
   else{
     return profile.value.category; // Student, Faculty, Staff, etc.
