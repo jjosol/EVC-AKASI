@@ -147,7 +147,9 @@ const startMonth = ref("")
 const endMonth = ref("")
 const selectedPeriod = ref("monthly")
 const endMonthError = ref("")
-const conclusionText = ref("")
+const conclusionStudent = ref("") // Renamed and added others
+const conclusionTeaching = ref("")
+const conclusionNonTeaching = ref("")
 const reportData = ref(null);
 const fetchingData = ref(false);
 const fetchError = ref(null);
@@ -237,8 +239,13 @@ onMounted(async () => {
 
 const generatePdfFile = async (htmlContent) => {
   try {
-    // Use the reportService function to generate PDF
-    const blob = await generatePdf(htmlContent, conclusionText.value);
+    // Use the reportService function to generate PDF with all three conclusions
+    const blob = await generatePdf(
+      htmlContent, 
+      conclusionStudent.value, 
+      conclusionTeaching.value, 
+      conclusionNonTeaching.value
+    );
     
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -700,26 +707,36 @@ const onIframeLoad = (event) => {
   const doc = iframe.contentDocument || iframe.contentWindow.document;
   if (!doc) return;
   
-  const textArea = doc.getElementById('conclusion');
-  if (textArea) {
-    // Set the textarea value from our ref
-    textArea.value = conclusionText.value;
-    
-    // Function to adjust height
-    const adjustHeight = () => {
-      textArea.style.height = 'auto'; // Reset height
-      textArea.style.height = textArea.scrollHeight + 'px'; // Set new height
-    };
+  const textAreas = [
+    { id: 'conclusion-student', ref: conclusionStudent },
+    { id: 'conclusion-teaching', ref: conclusionTeaching },
+    { id: 'conclusion-nonteaching', ref: conclusionNonTeaching }
+  ];
 
-    // Add listeners for input changes
-    textArea.addEventListener('input', () => {
-      conclusionText.value = textArea.value;
+  textAreas.forEach(({ id, ref }) => {
+    const textArea = doc.getElementById(id);
+    if (textArea) {
+      // Set the textarea value from our ref
+      textArea.value = ref.value;
+      
+      // Function to adjust height
+      const adjustHeight = () => {
+        textArea.style.height = 'auto'; // Reset height
+        textArea.style.height = textArea.scrollHeight + 'px'; // Set new height
+      };
+
+      // Add listeners for input changes
+      textArea.addEventListener('input', () => {
+        ref.value = textArea.value; // Update the correct ref
+        adjustHeight();
+      });
+
+      // Initial height adjustment
       adjustHeight();
-    });
-
-    // Initial height adjustment
-    adjustHeight();
-  }
+    } else {
+      console.warn(`Textarea with ID ${id} not found in iframe.`);
+    }
+  });
 }
 
 // Update the fetchReport method:

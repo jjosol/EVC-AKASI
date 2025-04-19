@@ -139,19 +139,35 @@ export const fetchConsultationMonitoring = async (
  * Generates a PDF from HTML content
  * 
  * @param htmlContent HTML content to convert to PDF
- * @param conclusionText Optional conclusion text to add to the PDF
+ * @param conclusionStudent Optional conclusion text for the student section
+ * @param conclusionTeaching Optional conclusion text for the teaching staff section
+ * @param conclusionNonTeaching Optional conclusion text for the non-teaching staff section
  * @returns Promise with PDF blob data
  */
 export const generatePdf = async (
   htmlContent: string,
-  conclusionText?: string
+  conclusionStudent?: string,
+  conclusionTeaching?: string,
+  conclusionNonTeaching?: string
 ): Promise<Blob> => {
   try {
-    // Insert conclusion text if provided
-    if (conclusionText) {
+    // Insert conclusion texts if provided
+    if (conclusionStudent) {
       htmlContent = htmlContent.replace(
-        /<textarea[^>]*id="conclusion"[^>]*>.*?<\/textarea>/g,
-        `<textarea id="conclusion" name="conclusion" rows="4">${conclusionText}</textarea>`
+        /<textarea[^>]*id="conclusion-student"[^>]*>.*?<\/textarea>/g,
+        `<textarea id="conclusion-student" name="conclusion-student" rows="4">${conclusionStudent}</textarea>`
+      );
+    }
+    if (conclusionTeaching) {
+      htmlContent = htmlContent.replace(
+        /<textarea[^>]*id="conclusion-teaching"[^>]*>.*?<\/textarea>/g,
+        `<textarea id="conclusion-teaching" name="conclusion-teaching" rows="4">${conclusionTeaching}</textarea>`
+      );
+    }
+    if (conclusionNonTeaching) {
+      htmlContent = htmlContent.replace(
+        /<textarea[^>]*id="conclusion-nonteaching"[^>]*>.*?<\/textarea>/g,
+        `<textarea id="conclusion-nonteaching" name="conclusion-nonteaching" rows="4">${conclusionNonTeaching}</textarea>`
       );
     }
     
@@ -162,7 +178,10 @@ export const generatePdf = async (
       },
       body: JSON.stringify({
         html: htmlContent,
-        conclusionText
+        // Pass conclusions if needed by the backend, though currently it only uses the HTML
+        conclusionStudent, 
+        conclusionTeaching,
+        conclusionNonTeaching
       })
     });
 
