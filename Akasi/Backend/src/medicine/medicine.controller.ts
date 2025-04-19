@@ -68,7 +68,7 @@ export class MedicineController {
     );
   }
 
-  @Put('medicine/update-name')
+  @Put('update-name')
   async updateMedicineName(
     @Body() data: { oldName: string, newName: string, categoryId: number },
     @Request() req
