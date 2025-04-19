@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import * as inventoryService from '~/services/inventoryService';
 
 const props = defineProps({
@@ -16,8 +16,14 @@ const equipment = ref({
   name: '',
   count: 1,
   unit: '',
-  expirationDate: ''
+  expirationDate: '',
+  categoryId: 1 // Default category ID
 })
+
+// Add categories state
+const categories = ref([])
+const showAddCategoryModal = ref(false)
+const currentEditCategory = ref(null)
 
 // Confirmation modal state
 const showConfirmModal = ref(false)
@@ -27,7 +33,8 @@ const confirmationMessage = ref('')
 const formErrors = ref({
   name: '',
   count: '',
-  unit: ''
+  unit: '',
+  categoryId: ''
 })
 
 const isEditMode = computed(() => {
@@ -45,7 +52,8 @@ watch(() => props.editData, (data) => {
       name: data.name || '',
       count: data.count || 1,
       unit: data.unit || '',
-      expirationDate: data.expirationDate || ''
+      expirationDate: data.expirationDate || '',
+      categoryId: data.categoryId || data.equipCategory_id || 1
     };
   } else {
     resetForm();
@@ -57,15 +65,16 @@ const resetForm = () => {
     name: '',
     count: 1,
     unit: '',
-    expirationDate: ''
+    expirationDate: '',
+    categoryId: 1
   };
-  formErrors.value = { name: '', count: '', unit: '' };
+  formErrors.value = { name: '', count: '', unit: '', categoryId: '' };
 }
 
 // Validate form before submission
 const validateForm = () => {
   let isValid = true;
-  formErrors.value = { name: '', count: '', unit: '' };
+  formErrors.value = { name: '', count: '', unit: '', categoryId: '' };
 
   if (!equipment.value.name.trim()) {
     formErrors.value.name = 'Equipment name is required';
@@ -79,6 +88,11 @@ const validateForm = () => {
   
   if (!equipment.value.unit.trim()) {
     formErrors.value.unit = 'Unit is required';
+    isValid = false;
+  }
+  
+  if (!equipment.value.categoryId) {
+    formErrors.value.categoryId = 'Category is required';
     isValid = false;
   }
   
@@ -110,7 +124,8 @@ const submitForm = async () => {
           name: equipment.value.name,
           count: equipment.value.count,
           unit: equipment.value.unit,
-          expirationDate: equipment.value.expirationDate || null
+          expirationDate: equipment.value.expirationDate || null,
+          equipCategory_id: Number(equipment.value.categoryId)
         }
       );
     } else {
@@ -119,7 +134,8 @@ const submitForm = async () => {
         name: equipment.value.name,
         count: equipment.value.count,
         unit: equipment.value.unit,
-        expirationDate: equipment.value.expirationDate || null
+        expirationDate: equipment.value.expirationDate || null,
+        equipCategory_id: Number(equipment.value.categoryId)
       });
     }
     
@@ -147,6 +163,52 @@ const isExpired = (expirationDate) => {
   const today = new Date();
   return expDate < today;
 };
+
+// Add fetch categories method
+const fetchCategories = async () => {
+  try {
+    categories.value = await inventoryService.fetchEquipmentCategories();
+    // Ensure we have at least one category
+    if (categories.value.length === 0) {
+      // If no categories exist, create a default one
+      await createDefaultCategory();
+    }
+  } catch (error) {
+    console.error('Error fetching equipment categories:', error);
+    categories.value = [];
+  }
+}
+
+// Create default category if none exists
+const createDefaultCategory = async () => {
+  try {
+    const defaultCategory = await inventoryService.addEquipmentCategory({ name: 'General' });
+    categories.value = [defaultCategory];
+    equipment.value.categoryId = defaultCategory.equipCategory_id;
+  } catch (error) {
+    console.error('Error creating default category:', error);
+  }
+}
+
+// Open category modal
+const openCategoryModal = (category = null) => {
+  currentEditCategory.value = category;
+  showAddCategoryModal.value = true;
+}
+
+// Handle new category added
+const handleCategoryAdded = async (category) => {
+  await fetchCategories();
+  showAddCategoryModal.value = false;
+  // Select the newly added category
+  if (category && category.equipCategory_id) {
+    equipment.value.categoryId = category.equipCategory_id;
+  }
+}
+
+onMounted(() => {
+  fetchCategories();
+})
 </script>
 
 <template>
@@ -171,6 +233,30 @@ const isExpired = (expirationDate) => {
           <p v-if="isEditMode" class="mt-1 text-xs text-gray-500">
             Equipment name cannot be changed. Create a new item if needed.
           </p>
+        </div>
+        
+        <!-- Category Selection -->
+        <div class="mb-4">
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-sm font-medium">Category</label>
+            <button 
+              type="button" 
+              @click="openCategoryModal()"
+              class="px-2 py-1 text-xs text-white bg-green-500 rounded hover:bg-green-600"
+            >
+              Add New Category
+            </button>
+          </div>
+          <select 
+            v-model="equipment.categoryId"
+            class="w-full px-3 py-2 border rounded-lg"
+            required
+          >
+            <option v-for="category in categories" :key="category.equipCategory_id" :value="category.equipCategory_id">
+              {{ category.name }}
+            </option>
+          </select>
+          <p v-if="formErrors.categoryId" class="mt-1 text-sm text-red-500">{{ formErrors.categoryId }}</p>
         </div>
         
         <div class="mb-4">
@@ -233,5 +319,13 @@ const isExpired = (expirationDate) => {
     :message="confirmationMessage"
     @confirm="submitForm"
     @cancel="showConfirmModal = false"
+  />
+  
+  <!-- Category Modal -->
+  <EquipmentCategoryModal
+    :isOpen="showAddCategoryModal"
+    :editItem="currentEditCategory"
+    @closeModal="showAddCategoryModal = false"
+    @addCategory="handleCategoryAdded"
   />
 </template>

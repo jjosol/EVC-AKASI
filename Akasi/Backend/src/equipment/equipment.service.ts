@@ -27,7 +27,7 @@ export class EquipmentService {
       // Check if equipment with the same name already exists
       const existingEquipment = await this.prisma.equipment.findFirst({
         where: {
-          equipName: item.name
+          equipName: item.equipName || item.name  // Check both possible property names
         }
       });
 
@@ -37,18 +37,18 @@ export class EquipmentService {
 
       // Optional expiration date handling
       let expirationDate = null;
-      if (item.expirationDate) {
-        expirationDate = new Date(item.expirationDate);
+      if (item.expirationDate || item.expiration) {
+        expirationDate = new Date(item.expirationDate || item.expiration);
       }
 
       // Create new equipment
       const result = await this.prisma.equipment.create({
         data: {
-          equipName: item.name,
+          equipName: item.equipName || item.name,  // Use either property name
           count: Number(item.count),
           unit: item.unit,
           expiration: expirationDate,
-          equipCategory_id: item.categoryId || 1 // Use provided category or default to 1
+          equipCategory_id: item.categoryId || item.equipCategory_id || 1  // Check all possible property names
         }
       });
 
@@ -85,22 +85,22 @@ export class EquipmentService {
 
       // Optional expiration date handling
       let expirationDate = null;
-      if (data.expirationDate) {
-        expirationDate = new Date(data.expirationDate);
+      if (data.expirationDate || data.expiration) {
+        expirationDate = new Date(data.expirationDate || data.expiration);
       }
 
       // Calculate the change in count
       const countDifference = Number(data.count) - equipment.count;
 
-      // Update equipment
+      // Update equipment with proper property handling
       const updatedEquipment = await this.prisma.equipment.update({
         where: { equipment_id: id },
         data: {
-          equipName: data.name,
+          equipName: data.equipName || data.name,
           count: Number(data.count),
           unit: data.unit,
           expiration: expirationDate,
-          equipCategory_id: data.categoryId || equipment.equipCategory_id // Keep existing if not provided
+          equipCategory_id: data.categoryId || data.equipCategory_id || equipment.equipCategory_id
         }
       });
 
@@ -117,7 +117,7 @@ export class EquipmentService {
             cause: 'Manual update',
             addSubCount: countDifference,
             runningTotal: newTotal,
-            nurse_id: nurse_id || 1, // Ensure we have a valid nurse_id
+            nurse_id: nurse_id || 1,
             category_id: updatedEquipment.equipCategory_id
           }
         });
@@ -291,6 +291,76 @@ export class EquipmentService {
       };
     } catch (error) {
       throw new BadRequestException('Failed to fetch equipment edits');
+    }
+  }
+
+  async getAllCategories() {
+    try {
+      return await this.prisma.equipmentCategory.findMany();
+    } catch (error) {
+      throw new BadRequestException('Failed to fetch equipment categories');
+    }
+  }
+
+  async addCategory(categoryData: { name: string; }, nurse_id: any) {
+    try {
+      const newCategory = await this.prisma.equipmentCategory.create({
+        data: {
+          name: categoryData.name
+        }
+      });
+
+      return newCategory;
+    } catch (error) {
+      throw new BadRequestException('Failed to add equipment category');
+    }
+  }
+
+  async updateCategory(id: number, name: string, nurse_id: any) {
+    try {
+      // Get old category info before updating
+      const oldCategory = await this.prisma.equipmentCategory.findUnique({
+        where: { equipCategory_id: id }
+      });
+      
+      if (!oldCategory) {
+        throw new BadRequestException('Equipment category not found');
+      }
+
+      // Update category
+      const updatedCategory = await this.prisma.equipmentCategory.update({
+        where: { equipCategory_id: id },
+        data: { name }
+      });
+
+      return updatedCategory;
+    } catch (error) {
+      console.error('Category update error:', error);
+      throw new BadRequestException('Failed to update equipment category');
+    }
+  }
+
+  async deleteCategory(id: number, nurse_id: any) {
+    try {
+      // First check if there are any equipment items using this category
+      const equipmentCount = await this.prisma.equipment.count({
+        where: { equipCategory_id: id }
+      });
+
+      if (equipmentCount > 0) {
+        throw new BadRequestException('Cannot delete category: it has related equipment items');
+      }
+
+      // Then, delete the category itself
+      return await this.prisma.equipmentCategory.delete({
+        where: { equipCategory_id: id }
+      });
+    } catch (error) {
+      console.error('Error deleting equipment category:', error);
+      if (error.code === 'P2025') {
+        throw new BadRequestException('Equipment category not found');
+      } 
+      throw new BadRequestException(error.message || 'Failed to delete equipment category');
     }
   }
 }

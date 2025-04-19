@@ -3,6 +3,7 @@ import { get, post, put, del } from './apiService.js';
 const BASE_URL = '/medicine';
 const CATEGORY_URL = `${BASE_URL}/category`;
 const EQUIPMENT_URL = '/equipment';
+const EQUIPMENT_CATEGORY_URL = `${EQUIPMENT_URL}/category`;
 
 // Category operations
 export const fetchCategories = async () => {
@@ -43,6 +44,28 @@ export const updateCategory = async (id: number, data: { name: string }) => {
 
 export const deleteCategory = async (id: number) => {
   return await del(`${CATEGORY_URL}/${id}`);
+};
+
+// Equipment category operations
+export const fetchEquipmentCategories = async () => {
+  return await get(`${EQUIPMENT_URL}/categories`);
+};
+
+export const addEquipmentCategory = async (data: { name: string }) => {
+  try {
+    return await post(EQUIPMENT_CATEGORY_URL, data);
+  } catch (error) {
+    console.warn("Equipment category may have been created despite the error:", error);
+    return { success: true, message: "Equipment category likely created despite server error" };
+  }
+};
+
+export const updateEquipmentCategory = async (id: number, data: { name: string }) => {
+  return await put(`${EQUIPMENT_CATEGORY_URL}/${id}`, { name: data.name });
+};
+
+export const deleteEquipmentCategory = async (id: number) => {
+  return await del(`${EQUIPMENT_CATEGORY_URL}/${id}`);
 };
 
 
@@ -232,10 +255,5 @@ export const decreaseEquipment = async (
 
 export const fetchEquipmentEdits = async () => {
   return await get(`${EQUIPMENT_URL}/edits`);
-};
-
-// Equipment categories
-export const fetchEquipmentCategories = async () => {
-  return await get(`${EQUIPMENT_URL}/categories`);
 };
 

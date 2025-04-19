@@ -5,12 +5,18 @@ import * as inventoryService from '~/services/inventoryService';
 
 // Refs
 const equipment = ref([]);
+const categories = ref([]);
+const expandedCategories = ref(new Set());
 const searchQuery = ref('');
 const editingItem = ref(null);
 
 // Equipment modal refs
 const showEquipmentModal = ref(false);
 const currentEquipment = ref(null);
+
+// Category modal refs
+const showCategoryModal = ref(false);
+const currentCategory = ref(null);
 
 // Increase/Decrease modal refs
 const showAdjustModal = ref(false);
@@ -19,6 +25,17 @@ const adjustmentQuantity = ref(1);
 const adjustmentCause = ref('');
 const selectedEquipment = ref(null);
 
+const fetchEquipmentCategories = async () => {
+  try {
+    const data = await inventoryService.fetchEquipmentCategories();
+    categories.value = data || [];
+    console.log('Equipment categories loaded successfully:', data);
+  } catch (error) {
+    console.error('Error fetching equipment categories:', error);
+    categories.value = []; // Set to empty array on error
+  }
+};
+
 const fetchEquipment = async () => {
   try {
     const data = await inventoryService.fetchEquipmentItems();
@@ -26,15 +43,13 @@ const fetchEquipment = async () => {
     console.log('Equipment data loaded successfully:', data);
   } catch (error) {
     console.error('Error fetching equipment:', error);
-    equipment.value = []; // Set to empty array on error to avoid UI issues
-    
-    // You may want to show a user-friendly error message
-    // useToast().error('Could not load equipment data. Please try again later.');
+    equipment.value = []; // Set to empty array on error
   }
 };
 
 // Refresh equipment data
 const refreshEquipment = async () => {
+  await fetchEquipmentCategories();
   await fetchEquipment();
 };
 
@@ -54,34 +69,103 @@ const isExpired = (expirationDate) => {
   return expDate < today;
 };
 
-// Filter equipment based on search query
-const filteredEquipment = computed(() => {
-  if (!searchQuery.value) return equipment.value;
+// Group equipment by category
+const groupedByCategory = computed(() => {
+  const groups = {};
   
-  const query = searchQuery.value.toLowerCase();
-  return equipment.value.filter(item => 
-    item.equipName.toLowerCase().includes(query) || 
-    item.unit.toLowerCase().includes(query)
-  );
+  // Initialize with all categories (even empty ones)
+  categories.value.forEach(category => {
+    groups[category.equipCategory_id] = {
+      ...category,
+      items: []
+    };
+  });
+  
+  // Group items by category_id
+  equipment.value.forEach(item => {
+    const categoryId = item.equipCategory_id;
+    
+    // If category doesn't exist in our groups (should not happen, but just in case)
+    if (!groups[categoryId]) {
+      groups[categoryId] = {
+        equipCategory_id: categoryId,
+        name: item.category?.name || 'Uncategorized',
+        items: []
+      };
+    }
+    
+    groups[categoryId].items.push(item);
+  });
+  
+  return groups;
 });
 
+// Filter based on search query
+const filteredCategories = computed(() => {
+  if (!searchQuery.value) return groupedByCategory.value;
+  
+  const filtered = {};
+  const query = searchQuery.value.toLowerCase();
+  
+  Object.entries(groupedByCategory.value).forEach(([categoryId, category]) => {
+    const matchingItems = category.items.filter(item => 
+      item.equipName.toLowerCase().includes(query) || 
+      item.unit.toLowerCase().includes(query)
+    );
+    
+    if (matchingItems.length > 0 || 
+        category.name.toLowerCase().includes(query)) {
+      filtered[categoryId] = {
+        ...category,
+        items: matchingItems
+      };
+    }
+  });
+  
+  return filtered;
+});
+
+const toggleExpandCategory = (categoryId) => {
+  categoryId = Number(categoryId);
+  if (expandedCategories.value.has(categoryId)) {
+    expandedCategories.value.delete(categoryId);
+  } else {
+    expandedCategories.value.add(categoryId);
+  }
+};
+
 // Open equipment modal for adding new equipment
-const addEquipment = () => {
-  currentEquipment.value = null;
+const addEquipment = (categoryId) => {
+  currentEquipment.value = {
+    categoryId: categoryId
+  };
   showEquipmentModal.value = true;
 };
 
 // Open equipment modal for editing equipment
 const editEquipment = (item) => {
   currentEquipment.value = {
-    equip_id: item.equip_id,
+    equip_id: item.equipment_id,
     name: item.equipName,
     count: item.count,
     unit: item.unit,
-    expirationDate: item.expiration ? formatDate(item.expiration) : ''
+    expirationDate: item.expiration ? formatDate(item.expiration) : '',
+    categoryId: item.equipCategory_id
   };
   showEquipmentModal.value = true;
 };
+
+// Open category modal
+const openCategoryModal = (category = null) => {
+  currentCategory.value = category;
+  showCategoryModal.value = true;
+};
+
+// Handle category added/updated
+const handleCategoryAction = async () => {
+  await refreshEquipment();
+  showCategoryModal.value = false;
+}
 
 // Open adjustment modal
 const openAdjustModal = (item, type) => {
@@ -101,13 +185,15 @@ const handleAdjustment = async () => {
     };
     
     if (adjustmentType.value === 'increase') {
-      await inventoryService.increaseEquipment(selectedEquipment.value.equip_id, data);
+      await inventoryService.increaseEquipment(selectedEquipment.value.equipment_id, data);
     } else {
-      await inventoryService.decreaseEquipment(selectedEquipment.value.equip_id, data);
+      await inventoryService.decreaseEquipment(selectedEquipment.value.equipment_id, data);
     }
     
     showAdjustModal.value = false;
     await refreshEquipment();
+    // Notify parent component that a refresh is needed
+    emit('refreshNeeded');
   } catch (error) {
     console.error(`Error ${adjustmentType.value}ing equipment:`, error);
     alert(error.message || `Failed to ${adjustmentType.value} equipment`);
@@ -118,7 +204,7 @@ const handleAdjustment = async () => {
 const quickIncrementEquipment = async (item) => {
   try {
     await inventoryService.increaseEquipment(
-      item.equip_id,
+      item.equipment_id,
       { 
         quantity: 1,
         cause: `Quick increase`
@@ -144,7 +230,7 @@ const quickDecrementEquipment = async (item) => {
   
   try {
     await inventoryService.decreaseEquipment(
-      item.equip_id,
+      item.equipment_id,
       { 
         quantity: 1,
         cause: `Quick decrease`
@@ -197,7 +283,13 @@ const emit = defineEmits(['refreshNeeded']);
       </div>
       <div class="flex space-x-2">
         <button 
-          @click="addEquipment"
+          @click="openCategoryModal()"
+          class="px-4 py-2 text-white bg-green-500 rounded-lg hover:bg-green-600"
+        >
+          Add New Category
+        </button>
+        <button 
+          @click="addEquipment()"
           class="px-4 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600"
         >
           Add New Equipment
@@ -205,65 +297,119 @@ const emit = defineEmits(['refreshNeeded']);
       </div>
     </div>
     
-    <!-- Equipment List -->
-    <div class="overflow-hidden border rounded-lg">
-      <div class="grid grid-cols-12 gap-2 p-4 font-semibold text-gray-700 bg-gray-50">
-        <div class="col-span-4">Equipment Name</div>
-        <div class="col-span-2">Quantity</div>
-        <div class="col-span-2">Unit</div>
-        <div class="col-span-2">Expiration</div>
-        <div class="col-span-2 text-right">Actions</div>
-      </div>
-      
-      <div class="divide-y divide-gray-200">
-        <div v-for="item in filteredEquipment" :key="item.equip_id" 
-             class="grid items-center grid-cols-12 gap-2 p-4 hover:bg-gray-50"
-             :class="{'bg-red-50': isExpired(item.expiration)}">
-          <div class="col-span-4 font-medium">{{ item.equipName }}</div>
-          <div class="col-span-2 text-center">
-            {{ item.count }}
+    <!-- Categories and Equipment with Dropdown Design -->
+    <div class="space-y-4">
+      <div v-for="(category, categoryId) in filteredCategories" :key="categoryId" class="overflow-hidden border rounded-lg">
+        <!-- Category Header -->
+        <div 
+          class="flex items-center justify-between p-4 border-b cursor-pointer bg-gray-50"
+          @click="toggleExpandCategory(categoryId)"
+        >
+          <div class="flex items-center">
+            <Icon 
+              :icon="expandedCategories.has(Number(categoryId)) ? 'mdi:chevron-down' : 'mdi:chevron-right'" 
+              class="mr-2 text-gray-600" 
+              width="20"
+            />
+            <h3 class="font-semibold text-gray-800">{{ category.name }}</h3>
+            <span class="ml-2 px-2 py-0.5 text-xs bg-gray-200 rounded-full">
+              {{ category.items.length }} items
+            </span>
           </div>
-          <div class="col-span-2">{{ item.unit }}</div>
-          <div class="col-span-2" :class="{'text-red-600': isExpired(item.expiration)}">
-            {{ formatDate(item.expiration) }}
-            <span v-if="isExpired(item.expiration)" class="text-xs font-bold text-red-600">(EXPIRED)</span>
-          </div>
-          <div class="flex justify-end col-span-2 space-x-1">
+          
+          <div class="flex space-x-2">
             <button 
-              @click="quickIncrementEquipment(item)"
-              class="p-1 text-white bg-green-500 rounded hover:bg-green-600" 
-              title="Quick Add"
-            >
-              <Icon icon="mdi:plus" width="16" /> 
-            </button>
-            <button 
-              @click="quickDecrementEquipment(item)"
-              class="p-1 text-white bg-red-500 rounded hover:bg-red-600" 
-              title="Quick Remove"
-              :disabled="item.count <= 0"
-              :class="{'opacity-50 cursor-not-allowed': item.count <= 0}"
-            >
-              <Icon icon="mdi:minus" width="16" />
-            </button>
-            <button 
-              @click="editEquipment(item)"
+              @click.stop="addEquipment(categoryId)"
               class="p-1 text-white bg-blue-500 rounded hover:bg-blue-600" 
-              title="Edit Equipment"
+              title="Add Equipment to Category"
+            >
+              <Icon icon="mdi:tools" width="16" />
+            </button>
+            <button 
+              @click.stop="openCategoryModal(category)"
+              class="p-1 text-white bg-yellow-500 rounded hover:bg-yellow-600" 
+              title="Edit Category"
             >
               <Icon icon="mdi:pencil" width="16" />
             </button>
           </div>
         </div>
         
-        <!-- Empty state -->
-        <div v-if="filteredEquipment.length === 0" class="p-8 text-center text-gray-500">
-          <div class="mb-4">
-            <Icon icon="mdi:tools" class="w-12 h-12 mx-auto text-gray-400" />
+        <!-- Equipment List (visible when category is expanded) -->
+        <div v-if="expandedCategories.has(Number(categoryId))">
+          <div v-if="category.items.length === 0" class="p-4 text-center text-gray-500">
+            No equipment in this category
           </div>
-          <p v-if="searchQuery" class="mb-2">No equipment found matching "{{ searchQuery }}"</p>
-          <p v-else class="mb-2">No equipment found</p>
-          <p class="text-sm">Get started by adding equipment using the button above</p>
+          
+          <div v-else class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+              <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3">Equipment Name</th>
+                  <th class="px-4 py-3">Quantity</th>
+                  <th class="px-4 py-3">Unit</th>
+                  <th class="px-4 py-3">Expiration</th>
+                  <th class="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
+                <tr v-for="item in category.items" :key="item.equipment_id" 
+                    class="bg-white hover:bg-gray-50"
+                    :class="{'bg-red-50': isExpired(item.expiration)}">
+                  <td class="px-4 py-3 font-medium">{{ item.equipName }}</td>
+                  <td class="px-4 py-3 text-center">{{ item.count }}</td>
+                  <td class="px-4 py-3">{{ item.unit }}</td>
+                  <td class="px-4 py-3" :class="{'text-red-600': isExpired(item.expiration)}">
+                    {{ formatDate(item.expiration) }}
+                    <span v-if="isExpired(item.expiration)" class="text-xs font-bold text-red-600">(EXPIRED)</span>
+                  </td>
+                  <td class="flex justify-end px-4 py-3 space-x-1">
+                    <button 
+                      @click="quickIncrementEquipment(item)"
+                      class="p-1 text-white bg-green-500 rounded hover:bg-green-600" 
+                      title="Quick Add"
+                    >
+                      <Icon icon="mdi:plus" width="16" /> 
+                    </button>
+                    <button 
+                      @click="quickDecrementEquipment(item)"
+                      class="p-1 text-white bg-red-500 rounded hover:bg-red-600" 
+                      title="Quick Remove"
+                      :disabled="item.count <= 0"
+                      :class="{'opacity-50 cursor-not-allowed': item.count <= 0}"
+                    >
+                      <Icon icon="mdi:minus" width="16" />
+                    </button>
+                    <button 
+                      @click="editEquipment(item)"
+                      class="p-1 text-white bg-blue-500 rounded hover:bg-blue-600" 
+                      title="Edit Equipment"
+                    >
+                      <Icon icon="mdi:pencil" width="16" />
+                    </button>
+                    <button 
+                      @click="openAdjustModal(item, 'increase')"
+                      class="p-1 text-white bg-indigo-500 rounded hover:bg-indigo-600" 
+                      title="Adjust Quantity"
+                    >
+                      <Icon icon="mdi:tune" width="16" />
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
+      </div>
+
+      <!-- No Categories Message -->
+      <div v-if="Object.keys(filteredCategories).length === 0" class="p-8 text-center text-gray-500">
+        <div class="mb-4">
+          <Icon icon="mdi:tools" class="w-12 h-12 mx-auto text-gray-400" />
+        </div>
+        <p v-if="searchQuery" class="mb-2">No equipment found matching "{{ searchQuery }}"</p>
+        <p v-else class="mb-2">No equipment or categories found</p>
+        <p class="text-sm">Get started by adding a category or equipment using the buttons above</p>
       </div>
     </div>
     
@@ -274,6 +420,14 @@ const emit = defineEmits(['refreshNeeded']);
       @closeModal="closeEquipmentModal"
       @equipmentSaved="handleEquipmentSaved"
       @refreshEquipment="refreshEquipment"
+    />
+    
+    <!-- Category Modal -->
+    <EquipmentCategoryModal
+      :isOpen="showCategoryModal"
+      :editItem="currentCategory"
+      @closeModal="showCategoryModal = false"
+      @addCategory="handleCategoryAction"
     />
     
     <!-- Adjustment Modal -->

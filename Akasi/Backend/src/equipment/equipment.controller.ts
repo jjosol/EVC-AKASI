@@ -68,4 +68,31 @@ export class EquipmentController {
   async getEquipmentEdits() {
     return this.equipmentService.getEquipmentEdits();
   }
+
+  @Get('/categories')
+  async getAllCategories() {
+    return this.equipmentService.getAllCategories();
+  }
+
+  @Post('/category')
+  async addCategory(@Body() data: { name: string }, @Request() req) {
+    const nurse_id = req.user?.nurse_id;
+    return this.equipmentService.addCategory(data, nurse_id);
+  }
+
+  @Put('/category/:id')
+  async updateCategory(
+    @Param('id') id: string,
+    @Body() data: { name: string },
+    @Request() req
+  ) {
+    const nurse_id = req.user?.nurse_id;
+    return this.equipmentService.updateCategory(Number(id), data.name, nurse_id);
+  }
+
+  @Delete('/category/:id')
+  async deleteCategory(@Param('id') id: string, @Request() req) {
+    const nurse_id = req.user?.nurse_id;
+    return this.equipmentService.deleteCategory(Number(id), nurse_id);
+  }
 }
