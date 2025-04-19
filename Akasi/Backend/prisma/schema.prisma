@@ -260,7 +260,7 @@ model equipment {
   unit           String     @db.VarChar(225)
   expiration     DateTime?  @db.Date // Optional expiration date
   equipCategory_id Int      @default(1) // Add foreign key 
-  category       equipmentCategory @relation(fields: [equipCategory_id], references: [medCategory_id]) // Add relation
+  category       equipmentCategory @relation(fields: [equipCategory_id], references: [equipCategory_id]) // Add relation
   EditsEquipment EditsEquipment[]
 
   @@index([equipCategory_id]) // Add index for performance
@@ -268,7 +268,7 @@ model equipment {
 }
 
 model equipmentCategory {
-  medCategory_id Int            @id @default(autoincrement())
+  equipCategory_id Int            @id @default(autoincrement())
   name        String            @unique @db.VarChar(225)
   equipment   equipment[]      
   edits       EditsEquipment[]
@@ -286,7 +286,7 @@ model EditsEquipment {
   category_id  Int      // Add category ID to store the category
   nurse        nurse    @relation(fields: [nurse_id], references: [nurse_id])
   equipment    equipment @relation(fields: [equipment_id], references: [equipment_id])
-  category     equipmentCategory @relation(fields: [category_id], references: [medCategory_id])
+  category     equipmentCategory @relation(fields: [category_id], references: [equipCategory_id])
 
   @@index([equipment_id])
   @@index([nurse_id])

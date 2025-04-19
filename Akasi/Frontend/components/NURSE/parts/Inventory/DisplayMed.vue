@@ -63,7 +63,8 @@ const groupedByCategory = computed(() => {
   
   // Initialize with all categories (even empty ones)
   categories.value.forEach(category => {
-    groups[category.category_id] = {
+    // Use medCategory_id instead of category_id
+    groups[category.medCategory_id] = {
       ...category,
       items: {}
     };
@@ -71,12 +72,12 @@ const groupedByCategory = computed(() => {
   
   // Group items by category_id and then by name
   items.value.forEach(item => {
-    const categoryId = item.category_id;
+    const categoryId = item.medCategory_id; // Use medCategory_id instead
     
     // If category doesn't exist in our groups (should not happen, but just in case)
     if (!groups[categoryId]) {
       groups[categoryId] = {
-        category_id: categoryId,
+        medCategory_id: categoryId, // Use medCategory_id instead
         name: item.category?.name || 'Uncategorized',
         items: {}
       };

@@ -1,6 +1,6 @@
 <template>
   <NuxtLayout>
-    <DisplayInv 
+    <DisplayMed
       ref="displayInvRef"
       @openModal="openModal"
       @editModal="editModal"
@@ -23,7 +23,7 @@
       @fetchCategories="fetchCategories"
       @refreshInventory="refreshInventoryData"
     />
-    <CategoryModal
+    <CategoryMedModal
       :isOpen="isModalOpen && modalType === 'category'"
       :editItem="currentItem"
       @closeModal="closeModal"
@@ -114,7 +114,7 @@ const refreshInventoryData = async () => {
   if (historyRef.value) {
     console.log("Refreshing inventory history...")
     if (typeof historyRef.value.fetchInventoryEdits === 'function') {
-      await historyRef.value.fetchInventoryEdits()
+      await historyRef.value.fetchMedicineEdits() // Fixed function name
     }
     if (typeof historyRef.value.fetchEquipmentEdits === 'function') {
       await historyRef.value.fetchEquipmentEdits()
@@ -135,16 +135,11 @@ const handleAddCategory = async (category) => {
   await refreshInventoryData()
   closeModal()
 }
-// Add this to your <script setup> section
-const handleRefreshNeeded = () => {
-  // This triggers a refresh of inventory data
-  refreshAllData();
-};
 
-// Make sure to expose this method to child components
-defineExpose({
-  handleRefreshNeeded
-});
+// Handle refresh requests from child components
+const handleRefreshNeeded = () => {
+  refreshInventoryData()
+}
 
 onMounted(() => {
   fetchCategories()

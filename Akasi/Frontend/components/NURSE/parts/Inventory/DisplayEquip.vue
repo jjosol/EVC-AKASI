@@ -22,9 +22,14 @@ const selectedEquipment = ref(null);
 const fetchEquipment = async () => {
   try {
     const data = await inventoryService.fetchEquipmentItems();
-    equipment.value = data;
+    equipment.value = data || [];
+    console.log('Equipment data loaded successfully:', data);
   } catch (error) {
     console.error('Error fetching equipment:', error);
+    equipment.value = []; // Set to empty array on error to avoid UI issues
+    
+    // You may want to show a user-friendly error message
+    // useToast().error('Could not load equipment data. Please try again later.');
   }
 };
 
