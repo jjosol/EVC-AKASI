@@ -35,7 +35,7 @@ const resetForm = () => {
 watch(() => props.editItem, (newVal) => {
   if (newVal) {
     newCategory.value = {
-      category_id: newVal.category_id,
+      category_id: newVal.category_id || newVal.medCategory_id, // Accept either ID property
       name: newVal.name
     }
   } else {
@@ -60,7 +60,7 @@ const prepareSubmit = () => {
   }
 
   // For editing existing category, submit directly without confirmation
-  if (props.editItem?.category_id) {
+  if (props.editItem?.category_id || props.editItem?.medCategory_id) {
     submitForm();
     return;
   }
@@ -73,10 +73,13 @@ const prepareSubmit = () => {
 const submitForm = async () => {
   try {
     let result;
-    if (props.editItem?.category_id) {
+    // Check for category ID in either property
+    const categoryId = props.editItem?.medCategory_id || props.editItem?.category_id;
+    
+    if (categoryId) {
       // Update existing category
       result = await inventoryService.updateCategory(
-        props.editItem.category_id, 
+        categoryId, 
         { name: newCategory.value.name }
       );
     } else {
@@ -93,7 +96,7 @@ const submitForm = async () => {
     showConfirmModal.value = false;
   } catch (error) {
     console.error('Error submitting category:', error);
-    formError.value = 'Failed to save category';
+    formError.value = error.message || 'Failed to save category';
   }
 }
 </script>

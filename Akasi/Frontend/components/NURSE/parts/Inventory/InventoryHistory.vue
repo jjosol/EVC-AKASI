@@ -10,10 +10,10 @@ const searchQuery = ref('');
 const filterType = ref('all');
 const activeTab = ref('medicine'); // 'medicine' or 'equipment'
 
-// Fetch data
-const fetchInventoryEdits = async () => {
+// Add alias for the originally named function
+const fetchMedicineEdits = async () => {
   try {
-    const response = await inventoryService.fetchInventoryEdits();
+    const response = await inventoryService.fetchMedicineEdits(); 
     if (response && response.edits) {
       inventoryEdits.value = response.edits;
     }
@@ -21,6 +21,9 @@ const fetchInventoryEdits = async () => {
     console.error('Error fetching inventory edits:', error);
   }
 };
+
+// Keep original function as wrapper for backward compatibility
+const fetchInventoryEdits = fetchMedicineEdits;
 
 // Fetch equipment edits
 const fetchEquipmentEdits = async () => {
@@ -149,8 +152,8 @@ onMounted(() => {
   fetchEquipmentEdits();
 });
 
-// Expose methods for parent component
-defineExpose({ fetchInventoryEdits, fetchEquipmentEdits });
+// Expose both function names
+defineExpose({ fetchInventoryEdits, fetchMedicineEdits, fetchEquipmentEdits });
 </script>
 
 <template>

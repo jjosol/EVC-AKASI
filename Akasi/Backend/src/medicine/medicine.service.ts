@@ -51,8 +51,8 @@ export class MedicineService {
       const otc = item.otc !== undefined ? item.otc : true; // Default to true if not provided
 
       // Validate expiration date isn't in the past
-      if (item.expirationDate) {
-        const expirationDate = new Date(item.expirationDate);
+      if (item.expirationDate || item.expiration) {
+        const expirationDate = new Date(item.expirationDate || item.expiration);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         if (expirationDate < today) {
@@ -62,12 +62,27 @@ export class MedicineService {
 
       // Log the incoming OTC value for debugging
       console.log('Received OTC value:', item.isOTC, typeof item.isOTC);
+      
+      // Log the incoming item data for debugging
+      console.log('Received item data:', item);
+
+      // Extract medication name - be flexible with property names
+      const medName = item.medName || item.name;
+      
+      // Handle expiration date carefully - check both possible field names
+      const expirationDate = item.expiration ? 
+        new Date(item.expiration) : 
+        (item.expirationDate ? new Date(item.expirationDate) : null);
+      
+      if (!medName) {
+        throw new BadRequestException('Medicine name is required');
+      }
 
       // Check if the medicine already exists
       const existingMedicine = await this.prisma.medicine.findFirst({
         where: {
-          medName: item.name,
-          expiration: item.expirationDate ? new Date(item.expirationDate) : null,
+          medName: medName,
+          ...(expirationDate && { expiration: expirationDate })
         },
       });
 
@@ -91,10 +106,10 @@ export class MedicineService {
       // Add a new batch under the same medicine name with OTC flag
       const result = await this.prisma.medicine.create({
         data: {
-          medName: item.name,
-          expiration: item.expirationDate ? new Date(item.expirationDate) : null,
+          medName: item.medName || item.name, // Use either medName or name property
+          expiration: expirationDate, // Use the properly processed expiration date
           count: Number(item.count),
-          medCategory_id: Number(item.category_id),
+          medCategory_id: Number(item.medCategory_id || item.category_id), // Handle both field names
           otc: otcValue,  // Use the properly converted boolean value
         },
         include: {
@@ -111,7 +126,7 @@ export class MedicineService {
           cause: 'Initial inventory',
           addSubCount: Number(item.count),
           runningTotal: Number(item.count),
-          category_id: Number(item.category_id),
+          category_id: Number(item.medCategory_id || item.category_id), // Handle both field names
           nurse_id: nurse_id || null,
         }
       });
@@ -126,8 +141,8 @@ export class MedicineService {
   async updateItem(med_id: number, medName: string, data: any, nurse_id: any) {
     try {
       // Validate expiration date isn't in the past
-      if (data.expirationDate) {
-        const expirationDate = new Date(data.expirationDate);
+      if (data.expirationDate || data.expiration) {
+        const expirationDate = new Date(data.expirationDate || data.expiration);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         if (expirationDate < today) {
@@ -145,14 +160,19 @@ export class MedicineService {
       
       console.log('Processing OTC value:', otcValue, typeof otcValue);
 
+      // Process expiration date - check both possible field names
+      const expirationDate = data.expiration ? 
+        new Date(data.expiration) : 
+        (data.expirationDate ? new Date(data.expirationDate) : null);
+
       // If name is different, create new entry and delete old one
       if (medName !== data.name) {
         const newItem = await this.prisma.medicine.create({
           data: {
             medName: data.name,
-            expiration: data.expirationDate ? new Date(data.expirationDate) : null,
+            expiration: expirationDate, // Use consistently processed date
             count: Number(data.count),
-            medCategory_id: Number(data.category_id),
+            medCategory_id: Number(data.medCategory_id || data.category_id),
             otc: otcValue, 
           },
           include: {
@@ -180,9 +200,9 @@ export class MedicineService {
           }
         },
         data: {
-          expiration: data.expirationDate ? new Date(data.expirationDate) : null,
+          expiration: expirationDate, // Use consistently processed date
           count: Number(data.count),
-          medCategory_id: Number(data.category_id),
+          medCategory_id: Number(data.medCategory_id || data.category_id),
           otc: otcValue,  // Use the properly converted boolean value
         },
         include: {

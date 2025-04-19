@@ -194,7 +194,7 @@ const formatDate = inventoryService.formatDate;
               required
             >
               <option value="">Select Category</option>
-              <option v-for="category in props.categories" :key="category.category_id" :value="category.category_id">
+              <option v-for="category in props.categories" :key="category.medCategory_id" :value="category.medCategory_id">
                 {{ category.name }}
               </option>
             </select>

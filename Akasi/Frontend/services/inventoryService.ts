@@ -51,31 +51,36 @@ export const fetchMedicineItems = async () => {
   return await get(BASE_URL);
 };
 
+// Add an alias for fetchMedicineItems to make it compatible with the component
+export const fetchInventoryItems = async () => {
+  return await get(BASE_URL);
+};
+
 export const addMedicineItem = async (data: {
   name: string;
   expirationDate: string;
   count: number;
-  medCategory_id: number;
+  medCategory_id: number;  // Changed from category_id to medCategory_id
   isOTC?: boolean;
 }) => {
-  // Map isOTC to otc before sending to backend
+  // Ensure we're sending the proper property names that the backend expects
   return await post(BASE_URL, {
-    medName: data.name,
+    medName: data.name, // Map frontend 'name' to backend 'medName'
     expiration: data.expirationDate,
-    count: data.count,
-    medCategory_id: data.medCategory_id,
-    otc: data.isOTC // Make sure this property matches your backend expectation
+    count: Number(data.count),
+    medCategory_id: Number(data.medCategory_id),
+    otc: data.isOTC !== undefined ? data.isOTC : true // Make sure OTC is defined with default
   });
 };
 
 export const updateMedicineItem = async (
   id: number, 
-  name: string, 
+   name: string, 
   data: {
     name: string;
     expirationDate: string;
     count: number;
-    medCategory_id: number;
+    medCategory_id: number;  // Changed from category_id to medCategory_id
     isOTC?: boolean;
   }
 ) => {
@@ -83,7 +88,7 @@ export const updateMedicineItem = async (
     medName: data.name,
     expiration: data.expirationDate,
     count: data.count,
-    medCategory_id: data.medCategory_id,
+    medCategory_id: data.medCategory_id,  // Changed from category_id to medCategory_id
     otc: data.isOTC // Make sure this property matches your backend expectation
   });
 };
