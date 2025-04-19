@@ -17,11 +17,11 @@
     
     definePageMeta({
         middleware: 'auth',
-        requiredRole: ['admin', 'client'],
+        requiredRole: ['nurse', 'client'],
         layout: 'main',
     });
     
-    const { isAdmin, isClient, userRole } = useAuth();
+    const { isNurse, isClient, userRole } = useAuth();
     const { profile, fetchProfile } = useProfile();
 
     // Add computed properties to determine user category
@@ -47,7 +47,7 @@
         }
         
         console.log('User Role:', userRole.value);
-        console.log('Is Admin:', isAdmin.value);
+        console.log('Is Nurse:', isNurse.value);
         console.log('Is Client:', isClient.value);
         console.log('User Category:', profile.value?.category);
         console.log('Is Student:', isStudent.value);
