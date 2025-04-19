@@ -387,7 +387,7 @@
                 
                 <table class="commonillnesses">
                     <tr>
-                        <td colspan="3">Students = (total student count)</td>
+                        <td colspan="3">Students = {{commonIllnesses.counts.students.total}}</td>
                     </tr>
                     <tr>
                         <th>Gender</th>
@@ -395,35 +395,17 @@
                         <th>Intervention</th>
                     </tr>
                     <tr>
-                        <td>Male = (male students count)</td>
-                        <td></td>
-                        <td></td>
-                    </tr>
-                    <tr>
-                        <td>Female = (female students count)</td>
-                        <td></td>
+                        <td>Male = {{commonIllnesses.counts.students.male}}</td>
+                        <td>{{commonIllnesses.diagnoses.students.male}}</td>
                         <td></td>
                     </tr>
                     <tr>
-                        <td colspan="3">Faculty = (total faculty count)</td>
-                    </tr>
-                    <tr>
-                        <th>Gender</th>
-                        <th>Illnesses/Injuries</th>
-                        <th>Intervention</th>
-                    </tr>
-                    <tr>
-                        <td>Male = (male faculty count)</td>
-                        <td></td>
+                        <td>Female = {{commonIllnesses.counts.students.female}}</td>
+                        <td>{{commonIllnesses.diagnoses.students.female}}</td>
                         <td></td>
                     </tr>
                     <tr>
-                        <td>Female = (female faculty count)</td>
-                        <td></td>
-                        <td></td>
-                    </tr>
-                    <tr>
-                        <td colspan="3">Staff = (total staff count)</td>
+                        <td colspan="3">Faculty & Staff = {{commonIllnesses.counts.facultyStaff.total}}</td>
                     </tr>
                     <tr>
                         <th>Gender</th>
@@ -431,13 +413,13 @@
                         <th>Intervention</th>
                     </tr>
                     <tr>
-                        <td>Male = (male staff count)</td>
-                        <td></td>
+                        <td>Male = {{commonIllnesses.counts.facultyStaff.male}}</td>
+                        <td>{{commonIllnesses.diagnoses.facultyStaff.male}}</td>
                         <td></td>
                     </tr>
                     <tr>
-                        <td>Female = (female staff count)</td>
-                        <td></td>
+                        <td>Female = {{commonIllnesses.counts.facultyStaff.female}}</td>
+                        <td>{{commonIllnesses.diagnoses.facultyStaff.female}}</td>
                         <td></td>
                     </tr>
                 </table>

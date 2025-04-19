@@ -7,4 +7,4 @@ import { PrismaService } from '../prisma.service';
   controllers: [GetIllnessController],
   providers: [GetIllnessService, PrismaService]
 })
-export class GetPatientModule { }
+export class GetIllnessModule { }

@@ -137,7 +137,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { fetchIllnessSummary, fetchConsultationMonitoring, generatePdf, formatReportDate } from '../../../../services/reportService'
+import { fetchIllnessSummary, fetchConsultationMonitoring, fetchCommonIllnessesData, generatePdf, formatReportDate } from '../../../../services/reportService'
 
 // Import HTML template - this will be loaded as a string
 const reportHtmlTemplate = ref('')
@@ -321,6 +321,99 @@ const fetchConsultationMonitoringData = async (startMonthName, endMonthName, yea
   }
 };
 
+const previewReport = async () => {
+  if (selectedYear.value === "" || (selectedPeriod.value === 'monthly' && startMonth.value === "")) {
+    alert("Please select required fields");
+    return;
+  }
+  
+  // Make sure the HTML template is loaded
+  if (!reportHtmlTemplate.value) {
+    alert("Report template is not loaded. Please refresh and try again.");
+    return;
+  }
+  
+  const isYearly = selectedPeriod.value === 'yearly';
+  
+  // For yearly report, use July-June period
+  let startMonthName, endMonthName, dateRange;
+  
+  if (isYearly) {
+    startMonthName = "July";
+    endMonthName = "June";
+    dateRange = `School Year ${selectedYear.value}`;
+  } else {
+    startMonthName = months.value[startMonth.value];
+    endMonthName = endMonth.value === "null" || endMonth.value === "" 
+      ? startMonthName 
+      : months.value[endMonth.value];
+      
+    // Format date range for the report heading
+    if (endMonth.value === "null" || endMonth.value === "") {
+      dateRange = `${startMonthName}, S.Y. ${selectedYear.value}`;
+    } else {
+      dateRange = `${startMonthName} - ${endMonthName}, S.Y. ${selectedYear.value}`;
+    }
+  }
+  
+  const year = selectedYear.value;
+
+  // Fetch data from the API
+  const data = await fetchReportData(startMonthName, endMonthName, year, isYearly);
+  
+  if (!data) {
+    alert("Failed to fetch report data. Please try again.");
+    return;
+  }
+
+  // Generate the selectedMonths array (for monthly reports only)
+  const selectedMonths = [];
+  if (!isYearly) {
+    const startIndex = parseInt(startMonth.value);
+    const endIndex = endMonth.value === "null" || endMonth.value === "" ? startIndex : parseInt(endMonth.value);
+    for (let i = startIndex; i <= endIndex; i++) {
+      selectedMonths.push(months.value[i]);
+    }
+  } else {
+    // For yearly reports, we'll use all months but the data processing will be different
+    for (let i = 0; i < months.value.length; i++) {
+      selectedMonths.push(months.value[i]);
+    }
+  }
+
+  // Fetch the monitoring data
+  const monitoringData = await fetchConsultationMonitoringData(startMonthName, endMonthName, year, isYearly);
+  
+  // Fetch common illnesses data
+  const commonIllnessesData = await fetchCommonIllnessesData(startMonthName, endMonthName, year, isYearly);
+  
+  // Process the HTML template: Replace placeholders with actual values
+  let finalHtml = reportHtmlTemplate.value
+    .replace(/{{dateRange}}/g, dateRange)
+    .replace(/{{startMonth}}/g, startMonthName)
+    .replace(/{{selectedYear}}/g, year);
+
+  // Process tables with correct column counts and data (now async)
+  finalHtml = await processTemplate(finalHtml, selectedMonths, data, isYearly, monitoringData, commonIllnessesData);
+
+  try {
+    // Add preview-mode class to the HTML for preview
+    const previewHtml = finalHtml.replace('<body>', '<body class="preview-mode">');
+    
+    // Create a blob from the HTML content
+    const blob = new Blob([previewHtml], { type: 'text/html' });
+    
+    // Create a URL from the blob
+    pdfPreviewUrl.value = URL.createObjectURL(blob);
+
+    // Show the modal
+    showModal.value = true;
+  } catch (error) {
+    console.error("Error generating preview:", error);
+    alert("Failed to generate preview. Please try again later.");
+  }
+};
+
 const generateReport = async () => {
   // Validate selections before generating
   if (selectedYear.value === "" || (selectedPeriod.value === 'monthly' && startMonth.value === "")) {
@@ -382,6 +475,12 @@ const generateReport = async () => {
     }
   }
 
+  // Fetch the monitoring data
+  const monitoringData = await fetchConsultationMonitoringData(startMonthName, endMonthName, year, isYearly);
+  
+  // Fetch common illnesses data
+  const commonIllnessesData = await fetchCommonIllnessesData(startMonthName, endMonthName, year, isYearly);
+
   // Process the HTML template: Replace placeholders with actual values
   let finalHtml = reportHtmlTemplate.value
     .replace(/{{dateRange}}/g, dateRange)
@@ -389,7 +488,7 @@ const generateReport = async () => {
     .replace(/{{selectedYear}}/g, year);
 
   // Process tables with correct column counts and data (now async)
-  finalHtml = await processTemplate(finalHtml, selectedMonths, data, isYearly);
+  finalHtml = await processTemplate(finalHtml, selectedMonths, data, isYearly, monitoringData, commonIllnessesData);
 
   try {
     // Generate PDF with the final HTML
@@ -400,7 +499,7 @@ const generateReport = async () => {
   }
 };
 
-const processTemplate = async (html, selectedMonths, data, isYearly = false) => {
+const processTemplate = async (html, selectedMonths, data, isYearly = false, monitoringData = [], commonIllnessesData = {}) => {
   let processedHtml = html;
   
   // Extract data from API response
@@ -409,6 +508,7 @@ const processTemplate = async (html, selectedMonths, data, isYearly = false) => 
   console.log("API Response Data:", data);
   console.log("Months data:", months);
   console.log("Totals data:", totals);
+  console.log("Common Illnesses Data:", commonIllnessesData);
   
   // Create rows based on whether this is a yearly or monthly report
   let studentRows, teachingRows, nonTeachingRows;
@@ -574,18 +674,15 @@ const processTemplate = async (html, selectedMonths, data, isYearly = false) => 
     endMonthName = months.length > 1 ? months[months.length - 1].month : startMonthName;
   }
   
-  // Fetch the consultation monitoring data
-  const monitoringData = await fetchConsultationMonitoringData(startMonthName, endMonthName, year, isYearly);
-  
   // Replace the consultation monitoring rows in the template
   if (monitoringData && monitoringData.length > 0) {
     // Create all the rows for monitoring data
     const monitoringRows = monitoringData.map(record => `
       <tr>
-        <td>${record.clientName || 'N/A'}</td>
+        <td>${record.patientName || 'N/A'}</td>
         <td>${record.gradeSection || 'N/A'}</td>
         <td>${record.consultationDate || 'N/A'}</td>
-        <td>${record.clientType || 'N/A'}</td>
+        <td>${record.patientType || 'N/A'}</td>
         <td>${record.remarks || 'N/A'}</td>
       </tr>
     `).join('');
@@ -603,97 +700,135 @@ const processTemplate = async (html, selectedMonths, data, isYearly = false) => 
       /{{#each consultationRecords}}[\s\S]*?{{\/each}}/g,
       '<tr><td colspan="5" style="text-align: center;">No consultation records found for the selected period.</td></tr>'
     );
-    console.log("No consultation monitoring data found or empty array returned");
+  }
+
+  // DIRECT REPLACEMENT FOR COMMON ILLNESSES SECTION
+  // This approach directly finds and replaces the table cells that have template variables
+  try {
+    // Set default values
+    const studentsTotal = commonIllnessesData?.counts?.students?.total || 0;
+    const studentsMale = commonIllnessesData?.counts?.students?.male || 0;
+    const studentsFemale = commonIllnessesData?.counts?.students?.female || 0;
+    const facultyStaffTotal = commonIllnessesData?.counts?.facultyStaff?.total || 0;
+    const facultyStaffMale = commonIllnessesData?.counts?.facultyStaff?.male || 0;
+    const facultyStaffFemale = commonIllnessesData?.counts?.facultyStaff?.female || 0;
+
+    const studentsMaleDiagnoses = commonIllnessesData?.diagnoses?.students?.male || "No data";
+    const studentsFemaleDiagnoses = commonIllnessesData?.diagnoses?.students?.female || "No data";
+    const facultyStaffMaleDiagnoses = commonIllnessesData?.diagnoses?.facultyStaff?.male || "No data";
+    const facultyStaffFemaleDiagnoses = commonIllnessesData?.diagnoses?.facultyStaff?.female || "No data";
+
+    // Find and replace the common illnesses table contents using regex patterns that match the exact cell structure
+    
+    // 1. Replace "Students = {{commonIllnesses.counts.students.total}}" pattern
+    processedHtml = processedHtml.replace(
+      /<td colspan="3">\s*Students\s*=\s*{{commonIllnesses\.counts\.students\.total}}\s*<\/td>/g,
+      `<td colspan="3">Students = ${studentsTotal}</td>`
+    );
+    
+    // 2. Replace "Male = {{commonIllnesses.counts.students.male}}" pattern
+    processedHtml = processedHtml.replace(
+      /<td>\s*Male\s*=\s*{{commonIllnesses\.counts\.students\.male}}\s*<\/td>/g,
+      `<td>Male = ${studentsMale}</td>`
+    );
+    
+    // 3. Replace "Female = {{commonIllnesses.counts.students.female}}" pattern
+    processedHtml = processedHtml.replace(
+      /<td>\s*Female\s*=\s*{{commonIllnesses\.counts\.students\.female}}\s*<\/td>/g,
+      `<td>Female = ${studentsFemale}</td>`
+    );
+    
+    // 4. Replace "Faculty & Staff = {{commonIllnesses.counts.facultyStaff.total}}" pattern
+    processedHtml = processedHtml.replace(
+      /<td colspan="3">\s*Faculty\s*&\s*Staff\s*=\s*{{commonIllnesses\.counts\.facultyStaff\.total}}\s*<\/td>/g,
+      `<td colspan="3">Faculty & Staff = ${facultyStaffTotal}</td>`
+    );
+    
+    // 5. Replace "Male = {{commonIllnesses.counts.facultyStaff.male}}" pattern
+    processedHtml = processedHtml.replace(
+      /<td>\s*Male\s*=\s*{{commonIllnesses\.counts\.facultyStaff\.male}}\s*<\/td>/g,
+      `<td>Male = ${facultyStaffMale}</td>`
+    );
+    
+    // 6. Replace "Female = {{commonIllnesses.counts.facultyStaff.female}}" pattern
+    processedHtml = processedHtml.replace(
+      /<td>\s*Female\s*=\s*{{commonIllnesses\.counts\.facultyStaff\.female}}\s*<\/td>/g,
+      `<td>Female = ${facultyStaffFemale}</td>`
+    );
+    
+    // 7. Replace the illnesses/diagnoses content - students male
+    processedHtml = processedHtml.replace(
+      /<td>\s*{{commonIllnesses\.diagnoses\.students\.male}}\s*<\/td>/g,
+      `<td>${studentsMaleDiagnoses}</td>`
+    );
+    processedHtml = processedHtml.replace(
+      /<td>\s*{{{commonIllnesses\.diagnoses\.students\.male}}}\s*<\/td>/g,
+      `<td>${studentsMaleDiagnoses}</td>`
+    );
+    
+    // 8. Replace the illnesses/diagnoses content - students female
+    processedHtml = processedHtml.replace(
+      /<td>\s*{{commonIllnesses\.diagnoses\.students\.female}}\s*<\/td>/g,
+      `<td>${studentsFemaleDiagnoses}</td>`
+    );
+    processedHtml = processedHtml.replace(
+      /<td>\s*{{{commonIllnesses\.diagnoses\.students\.female}}}\s*<\/td>/g,
+      `<td>${studentsFemaleDiagnoses}</td>`
+    );
+    
+    // 9. Replace the illnesses/diagnoses content - faculty/staff male
+    processedHtml = processedHtml.replace(
+      /<td>\s*{{commonIllnesses\.diagnoses\.facultyStaff\.male}}\s*<\/td>/g,
+      `<td>${facultyStaffMaleDiagnoses}</td>`
+    );
+    processedHtml = processedHtml.replace(
+      /<td>\s*{{{commonIllnesses\.diagnoses\.facultyStaff\.male}}}\s*<\/td>/g,
+      `<td>${facultyStaffMaleDiagnoses}</td>`
+    );
+    
+    // 10. Replace the illnesses/diagnoses content - faculty/staff female
+    processedHtml = processedHtml.replace(
+      /<td>\s*{{commonIllnesses\.diagnoses\.facultyStaff\.female}}\s*<\/td>/g,
+      `<td>${facultyStaffFemaleDiagnoses}</td>`
+    );
+    processedHtml = processedHtml.replace(
+      /<td>\s*{{{commonIllnesses\.diagnoses\.facultyStaff\.female}}}\s*<\/td>/g,
+      `<td>${facultyStaffFemaleDiagnoses}</td>`
+    );
+
+    // Find and replace diagnoses with triple braces in case any were missed
+    processedHtml = processedHtml.replace(
+      /{{{commonIllnesses\.diagnoses\.students\.male}}}/g,
+      studentsMaleDiagnoses
+    );
+    processedHtml = processedHtml.replace(
+      /{{{commonIllnesses\.diagnoses\.students\.female}}}/g,
+      studentsFemaleDiagnoses
+    );
+    processedHtml = processedHtml.replace(
+      /{{{commonIllnesses\.diagnoses\.facultyStaff\.male}}}/g,
+      facultyStaffMaleDiagnoses
+    );
+    processedHtml = processedHtml.replace(
+      /{{{commonIllnesses\.diagnoses\.facultyStaff\.female}}}/g,
+      facultyStaffFemaleDiagnoses
+    );
+
+    console.log("Successfully processed common illnesses data directly");
+    
+    // Handle any remaining template variables that may have been missed
+    // This direct approach replaces ALL remaining templates in the common illnesses section
+    processedHtml = processedHtml.replace(/{{commonIllnesses\.[^\}]+}}/g, "No data");
+    processedHtml = processedHtml.replace(/{{{commonIllnesses\.[^\}]+}}}/g, "No data");
+  }
+  catch (error) {
+    console.error("Error during direct replacement of common illnesses data:", error);
+    // Handle any remaining template variables as a fallback
+    processedHtml = processedHtml.replace(/{{commonIllnesses\.[^\}]+}}/g, "No data");
+    processedHtml = processedHtml.replace(/{{{commonIllnesses\.[^\}]+}}}/g, "No data");
   }
   
   return processedHtml;
-};
-
-const previewReport = async () => {
-  if (selectedYear.value === "" || (selectedPeriod.value === 'monthly' && startMonth.value === "")) {
-    alert("Please select required fields");
-    return;
-  }
-  
-  // Make sure the HTML template is loaded
-  if (!reportHtmlTemplate.value) {
-    alert("Report template is not loaded. Please refresh and try again.");
-    return;
-  }
-  
-  const isYearly = selectedPeriod.value === 'yearly';
-  
-  // For yearly report, use July-June period
-  let startMonthName, endMonthName, dateRange;
-  
-  if (isYearly) {
-    startMonthName = "July";
-    endMonthName = "June";
-    dateRange = `School Year ${selectedYear.value}`;
-  } else {
-    startMonthName = months.value[startMonth.value];
-    endMonthName = endMonth.value === "null" || endMonth.value === "" 
-      ? startMonthName 
-      : months.value[endMonth.value];
-      
-    // Format date range for the report heading
-    if (endMonth.value === "null" || endMonth.value === "") {
-      dateRange = `${startMonthName}, S.Y. ${selectedYear.value}`;
-    } else {
-      dateRange = `${startMonthName} - ${endMonthName}, S.Y. ${selectedYear.value}`;
-    }
-  }
-  
-  const year = selectedYear.value;
-
-  // Fetch data from the API
-  const data = await fetchReportData(startMonthName, endMonthName, year, isYearly);
-  
-  if (!data) {
-    alert("Failed to fetch report data. Please try again.");
-    return;
-  }
-
-  // Generate the selectedMonths array (for monthly reports only)
-  const selectedMonths = [];
-  if (!isYearly) {
-    const startIndex = parseInt(startMonth.value);
-    const endIndex = endMonth.value === "null" || endMonth.value === "" ? startIndex : parseInt(endMonth.value);
-    for (let i = startIndex; i <= endIndex; i++) {
-      selectedMonths.push(months.value[i]);
-    }
-  } else {
-    // For yearly reports, we'll use all months but the data processing will be different
-    for (let i = 0; i < months.value.length; i++) {
-      selectedMonths.push(months.value[i]);
-    }
-  }
-
-  // Process the HTML template: Replace placeholders with actual values
-  let finalHtml = reportHtmlTemplate.value
-    .replace(/{{dateRange}}/g, dateRange)
-    .replace(/{{startMonth}}/g, startMonthName)
-    .replace(/{{selectedYear}}/g, year);
-
-  // Process tables with correct column counts and data (now async)
-  finalHtml = await processTemplate(finalHtml, selectedMonths, data, isYearly);
-
-  try {
-    // Add preview-mode class to the HTML for preview
-    const previewHtml = finalHtml.replace('<body>', '<body class="preview-mode">');
-    
-    // Create a blob from the HTML content
-    const blob = new Blob([previewHtml], { type: 'text/html' });
-    
-    // Create a URL from the blob
-    pdfPreviewUrl.value = URL.createObjectURL(blob);
-
-    // Show the modal
-    showModal.value = true;
-  } catch (error) {
-    console.error("Error generating preview:", error);
-    alert("Failed to generate preview. Please try again later.");
-  }
 };
 
 const closeModal = () => {
