@@ -150,7 +150,8 @@ const editEquipment = (item) => {
     count: item.count,
     unit: item.unit,
     expirationDate: item.expiration ? formatDate(item.expiration) : '',
-    categoryId: item.equipCategory_id
+    categoryId: item.equipCategory_id,
+    nameEditOnly: true // Add this flag to indicate we only want to edit the name
   };
   showEquipmentModal.value = true;
 };

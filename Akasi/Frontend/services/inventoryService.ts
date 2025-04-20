@@ -257,3 +257,13 @@ export const fetchEquipmentEdits = async () => {
   return await get(`${EQUIPMENT_URL}/edits`);
 };
 
+// Add a specialized function for updating only the equipment name
+export const updateEquipmentNameOnly = async (
+  id: number, 
+  newName: string
+) => {
+  return await put(`${EQUIPMENT_URL}/update-name/${id}`, {
+    name: newName
+  });
+};
+

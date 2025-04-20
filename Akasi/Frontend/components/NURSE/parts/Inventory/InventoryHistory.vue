@@ -61,9 +61,6 @@ const filteredInventoryEdits = computed(() => {
       case 'reduction':
         filtered = filtered.filter(edit => edit.addSubCount < 0);
         break;
-      case 'name-change':
-        filtered = filtered.filter(edit => isNameChangeEdit(edit));
-        break;
       case 'category-change':
         filtered = filtered.filter(edit => isCategoryEdit(edit));
         break;
@@ -96,8 +93,7 @@ const filteredEquipmentEdits = computed(() => {
       case 'reduction':
         filtered = filtered.filter(edit => edit.addSubCount < 0);
         break;
-      // Equipment doesn't have these categories
-      case 'name-change':
+      // Equipment only has category-change option
       case 'category-change':
         filtered = [];
         break;
@@ -194,7 +190,6 @@ defineExpose({ fetchInventoryEdits, fetchMedicineEdits, fetchEquipmentEdits });
         <option value="all">All Changes</option>
         <option value="addition">Additions</option>
         <option value="reduction">Reductions</option>
-        <option v-if="activeTab === 'medicine'" value="name-change">Name Changes</option>
         <option v-if="activeTab === 'medicine'" value="category-change">Category Changes</option>
       </select>
     </div>

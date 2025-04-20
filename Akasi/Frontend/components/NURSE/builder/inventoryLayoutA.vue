@@ -56,7 +56,9 @@ const openModal = (data = {}) => {
       name: data.medicineName,
       medicineName: data.medicineName,
       isNewBatch: true,
-      categoryId: data.categoryId
+      categoryId: data.categoryId,
+      med_id: data.med_id,
+      isOTC: data.isOTC
     }
   } else if (data.isNewMedicine) {
     currentItem.value = { 

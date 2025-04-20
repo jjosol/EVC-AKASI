@@ -451,6 +451,8 @@ export class MedicineService {
             medName: newName
           }
         });
+
+        // We no longer log the name change as a separate edit entry
       });
 
       return { 
@@ -565,6 +567,8 @@ export class MedicineService {
 
   async getOtcStatus(med_id: number, medName: string) {
     try {
+      console.log(`Getting OTC status for medicine_id: ${med_id}, medName: ${medName}`);
+      
       const medicine = await this.prisma.medicine.findFirst({
         where: {
           medicine_id: med_id,
@@ -576,11 +580,14 @@ export class MedicineService {
       });
       
       if (!medicine) {
+        console.log(`Medicine with ID ${med_id} and name ${medName} not found`);
         throw new NotFoundException(`Medicine with ID ${med_id} and name ${medName} not found`);
       }
       
+      console.log(`Found medicine, OTC status: ${medicine.otc}, type: ${typeof medicine.otc}`);
       return { otc: medicine.otc };
     } catch (error) {
+      console.error(`Error getting OTC status: ${error.message}`);
       throw new InternalServerErrorException(`Failed to get OTC status: ${error.message}`);
     }
   }

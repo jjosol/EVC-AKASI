@@ -47,7 +47,7 @@ const isOTCLocked = computed(() => {
 })
 
 // Watch for prefill data changes
-watch(() => props.prefillData, (data) => {
+watch(() => props.prefillData, async (data) => {
   if (data && Object.keys(data).length > 0) {
     // Pre-fill form with provided data
     if (data.medicineName) {
@@ -60,9 +60,36 @@ watch(() => props.prefillData, (data) => {
       newItem.value.category_id = Number(data.categoryId);
     }
     
-    // Pre-fill OTC status if available
-    if (data.isOTC !== undefined) {
-      newItem.value.isOTC = data.isOTC;
+    // Handle OTC status for new batches
+    if (data.isNewBatch) {
+      // If isOTC is explicitly provided, use it directly
+      if (data.isOTC !== undefined) {
+        newItem.value.isOTC = data.isOTC === true;
+      }
+      // Only call API if isOTC wasn't provided
+      else if (data.med_id) {
+        try {
+          const otcStatus = await inventoryService.getOtcStatus(data.med_id, data.medicineName || data.name);
+          newItem.value.isOTC = otcStatus.otc === true;
+        } catch (error) {
+          console.error('Error fetching OTC status:', error);
+          newItem.value.isOTC = false;
+        }
+      }
+    } 
+    // For other cases (non-new batches)
+    else if (data.med_id) {
+      try {
+        const otcStatus = await inventoryService.getOtcStatus(data.med_id, data.medicineName || data.name);
+        newItem.value.isOTC = otcStatus.otc === true;
+      } catch (error) {
+        console.error('Error fetching OTC status:', error);
+        newItem.value.isOTC = false;
+      }
+    } 
+    // For completely new medicines
+    else if (data.isOTC !== undefined) {
+      newItem.value.isOTC = data.isOTC === true;
     }
     
     // Set today's date as default for new batches
@@ -234,20 +261,25 @@ const formatDate = inventoryService.formatDate;
                   class="sr-only peer"
                 />
                 <div 
-                  class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer 
-                        peer-checked:after:translate-x-full peer-checked:after:border-white 
-                        after:content-[''] after:absolute after:top-[2px] after:left-[2px] 
-                        after:bg-white after:border-gray-300 after:border after:rounded-full 
-                        after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"
-                  :class="{'opacity-50': isOTCLocked}"
-                ></div>
-                <span class="ml-3 text-sm font-medium">
-                  {{ newItem.isOTC ? 'Yes' : 'No' }}
+                  class="w-11 h-6 rounded-full peer transition-colors duration-200 ease-in-out"
+                  :class="{
+                    'bg-purple-600': newItem.isOTC,
+                    'bg-gray-200': !newItem.isOTC,
+                    'opacity-50': isOTCLocked
+                  }"
+                >
+                  <div 
+                    class="absolute top-[2px] left-[2px] bg-white border border-gray-300 rounded-full h-5 w-5 transition-transform duration-200 ease-in-out"
+                    :class="{'translate-x-5': newItem.isOTC}"
+                  ></div>
+                </div>
+                <span class="ml-3 text-sm font-medium" :class="{'text-green-600': newItem.isOTC, 'text-red-600': !newItem.isOTC}">
+                  {{ newItem.isOTC ? 'OTC' : 'RX' }}
                 </span>
               </label>
             </div>
             <span v-if="isOTCLocked" class="mt-1 text-xs text-gray-500">
-              OTC status is locked when adding a new batch
+              OTC status is locked when adding a new batch to maintain consistency
             </span>
           </div>
           

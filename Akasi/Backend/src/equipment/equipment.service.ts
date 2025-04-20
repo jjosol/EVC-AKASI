@@ -363,4 +363,29 @@ export class EquipmentService {
       throw new BadRequestException(error.message || 'Failed to delete equipment category');
     }
   }
+
+  async updateEquipmentName(id: number, newName: string, nurse_id?: number) {
+    try {
+      // Get the equipment item to access its current name for logging
+      const equipment = await this.prisma.equipment.findUnique({
+        where: { equipment_id: id }
+      });
+
+      if (!equipment) {
+        throw new BadRequestException('Equipment not found');
+      }
+
+      // Update the equipment name without logging the change
+      const updatedEquipment = await this.prisma.equipment.update({
+        where: { equipment_id: id },
+        data: { equipName: newName }
+      });
+
+      // No longer log name changes to edit history
+      
+      return updatedEquipment;
+    } catch (error) {
+      throw new BadRequestException(error.message || 'Failed to update equipment name');
+    }
+  }
 }

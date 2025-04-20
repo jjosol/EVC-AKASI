@@ -95,4 +95,14 @@ export class EquipmentController {
     const nurse_id = req.user?.nurse_id;
     return this.equipmentService.deleteCategory(Number(id), nurse_id);
   }
+
+  @Put('/update-name/:id')
+  async updateEquipmentName(
+    @Param('id') id: string,
+    @Body() data: { name: string },
+    @Request() req
+  ) {
+    const nurse_id = req.user?.nurse_id;
+    return this.equipmentService.updateEquipmentName(Number(id), data.name, nurse_id);
+  }
 }

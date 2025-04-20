@@ -12,7 +12,7 @@ const emit = defineEmits(['closeModal', 'addCategory'])
 const { profile } = useProfile(); // Get the current nurse profile
 
 const newCategory = ref({
-  medCategory_id: null,  // Always use medCategory_id
+  medCategory_id: null,  // Changed from category_id to medCategory_id
   name: ''
 })
 
@@ -26,7 +26,7 @@ const modalTitle = computed(() => {
 
 const resetForm = () => {
   newCategory.value = {
-    medCategory_id: null,
+    medCategory_id: props.editItem?.medCategory_id || null, // Only use medCategory_id
     name: ''
   }
   formError.value = ''
@@ -34,9 +34,8 @@ const resetForm = () => {
 
 watch(() => props.editItem, (newVal) => {
   if (newVal) {
-    // Make sure we consistently use medCategory_id
     newCategory.value = {
-      medCategory_id: newVal.medCategory_id,
+      medCategory_id: newVal.medCategory_id, // Only use medCategory_id
       name: newVal.name
     }
   } else {
@@ -61,7 +60,7 @@ const prepareSubmit = () => {
   }
 
   // For editing existing category, submit directly without confirmation
-  if (props.editItem) {
+  if (props.editItem?.medCategory_id || props.editItem?.category_id) {
     submitForm();
     return;
   }
@@ -74,14 +73,14 @@ const prepareSubmit = () => {
 const submitForm = async () => {
   try {
     let result;
+    // Determine if we're editing or creating
+    const categoryId = props.editItem?.medCategory_id || props.editItem?.category_id;
     
-    if (props.editItem) {
-      // Get the ID, ensuring we use the correct property
-      const categoryId = props.editItem.medCategory_id;
+    if (categoryId) {
+      // Log for debugging
+      console.log('Updating category with ID:', categoryId, typeof categoryId);
       
-      console.log('Updating category with ID:', categoryId);
-      
-      // Ensure the ID is a number
+      // Ensure the category_id is a number before sending to API
       const numericCategoryId = Number(categoryId);
       if (isNaN(numericCategoryId)) {
         throw new Error('Invalid category ID: must be a number');
