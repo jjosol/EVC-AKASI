@@ -78,7 +78,7 @@ onMounted(() => {
             
             <!-- Role or category -->
             <span class="text-xs" :class="isActive(profileLink.path).value ? 'text-[#4c2f71]/80' : 'text-white/80'">
-              {{ profile?.type === 'admin' ? 'Admin' : profile?.category || 'User' }}
+              {{ profile?.type === 'nurse' ? 'Nurse' : profile?.category || 'User' }}
             </span>
           </div>
         </div>

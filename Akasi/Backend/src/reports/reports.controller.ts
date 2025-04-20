@@ -14,8 +14,6 @@ export class ReportsController {
     if (!startMonth || !year) {
       return { error: 'Start month and year are required' };
     }
-
-
     
     // If endMonth is not provided, use startMonth
     const actualEndMonth = endMonth || startMonth;
@@ -44,5 +42,39 @@ export class ReportsController {
     @Query('year') year: string = new Date().getFullYear().toString()
   ) {
     return this.reportsService.getConsultationMonitoring(startMonth, endMonth, year);
+  }
+
+  @Get('common-illnesses')
+  async getCommonIllnesses(
+    @Query('startMonth') startMonth: string,
+    @Query('endMonth') endMonth: string,
+    @Query('startYear') startYear: string,
+    @Query('endYear') endYear: string,
+  ) {
+    if (!startMonth || !startYear) {
+      return { error: 'Start month and start year are required' };
+    }
+    
+    // If endMonth is not provided, use startMonth
+    const actualEndMonth = endMonth || startMonth;
+    // If endYear is not provided, use startYear
+    const actualEndYear = endYear || startYear;
+    
+    console.log(`Getting common illnesses: ${startMonth}-${actualEndMonth}, ${startYear}-${actualEndYear}`);
+    
+    try {
+      const result = await this.reportsService.getCommonIllnessesData(startMonth, actualEndMonth, startYear, actualEndYear);
+      return {
+        success: true,
+        data: result
+      };
+    } catch (error) {
+      console.error('Error fetching common illnesses data:', error);
+      return { 
+        success: false,
+        error: 'Failed to fetch common illnesses data', 
+        details: error.message
+      };
+    }
   }
 }

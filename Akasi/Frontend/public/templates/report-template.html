@@ -13,7 +13,7 @@
         
         @page {
             size: A4;
-            margin: 3cm 0;
+            margin: 0;
         }
         
         html, body {
@@ -23,7 +23,6 @@
             background: white;
             color: #333;
             line-height: 1.4;
-            padding: 20px 0;
         }
 
         body {
@@ -65,7 +64,6 @@
             page-break-after: always;
         }
         
-        /* Content area with proper margins and overflow handling */
         .content {
             width: 180mm;
             margin: 0 auto;
@@ -73,9 +71,8 @@
             position: relative;
             z-index: 1;
             transform: translateY(3.5cm);
-            min-height: calc(100vh - 6.5cm);
             display: block;
-            min-height: calc(100vh - 6cm); /* Subtract header + footer height */
+            min-height: calc(100vh - 6cm);
             overflow: visible;
             page-break-inside: avoid;
         }
@@ -83,7 +80,7 @@
         /* Typography - using pt units for print */
         h2 {
             font-size: 14pt;
-            margin-bottom: 8pt;
+            margin-bottom: 4pt;
             text-align: center;
             color: #003366;
         }
@@ -113,11 +110,11 @@
         
         th, td {
             border: 1px solid #ccc;
-            padding: 5pt 6pt;
+            padding: 2pt 6pt;
             text-align: center;
             font-size: 9pt;
-            word-wrap: break-word; /* Handle text overflow */
-            overflow: hidden; /* Prevent content overflow */
+            word-wrap: break-word;
+            overflow: hidden;
         }
         
         th {
@@ -146,14 +143,20 @@
             font-weight: bold;
         }
         
-        .section, .conclusion {
-            margin-bottom: 15pt;
-            page-break-inside: avoid; /* Critical: prevent section break */
+        .sectionfirst {
+            margin: 0;
+            page-break-inside: avoid;
+        }
+
+        .section{
+            margin: 4cm 0 0 0;
+            page-break-inside: avoid;
         }
 
         .conclusion {
             width: 100%;
-            margin-bottom: 20pt;
+            margin-top: 1cm;
+            page-break-inside: avoid;
         }
 
         .conclusion-form {
@@ -228,10 +231,10 @@
                 min-height: 0; /* Remove minimum height constraint in print */
             }
             
-            /* After page break, ensure spacing from header */
+            /* After page break, ensure spacing from header
             .pagebreak + .content {
                 padding-top: 1.5cm;
-            }
+            } */
 
             /* Ensure header and footer appear on every page */
             .header, .footer {
@@ -257,23 +260,16 @@
     </style>
 </head>
 <body>
-    <!-- Fixed header that appears on every page -->
-    <div class="header">
-        <img src="http://localhost:3000/images/header.png" alt="PSHS-EVC Health Services Header">
-    </div>
-    
-    <!-- Fixed footer that appears on every page -->
-    <div class="footer">
-        <img src="http://localhost:3000/images/footer.png" alt="PSHS-EVC Health Services Footer">
-    </div>
+    <div class="header"><img src="http://localhost:3000/images/header.png" alt="PSHS-EVC Health Services Header"></div>
+    <div class="footer"><img src="http://localhost:3000/images/footer.png" alt="PSHS-EVC Health Services Footer"></div>
 
     <div class="page-container">
             <!--summary of illnesses-->
             <div class="content">
                 <h2>SUMMARY OF PERCENTAGE OF THE PSHS-EVC COMMUNITY THAT ACQUIRED ILLNESSES and INJURIES</h2>
                 <h2>{{dateRange}}</h2>
-
-                <div class="section">
+                <br><br>
+                <div class="sectionfirst">
                     <h3>Students</h3>
                     <table>
                         <tr>
@@ -308,79 +304,133 @@
                         </tr>
                     </table>
                 </div>
-
-                    <br><br>
-                    <div class="section">
-                        <h3>Teaching Staff</h3>
-                        <table>
-                            <tr>
-                                <th>Month</th>
-                                <th>Male</th>
-                                <th>Female</th>
-                                <th>Grand Total</th>
-                            </tr>
-                            {{#each selectedMonths}}
-                            <tr>
-                                <td>{{this}}</td>
-                                <td></td>
-                                <td></td>
-                                <td></td>
-                            </tr>
-                            {{/each}}
-                            <tr>
-                                <td>Total</td>
-                                <td class="blue"></td>
-                                <td class="blue"></td>
-                                <td class="highlight"></td>
-                            </tr>
-                        </table>
-                    </div>
-                    
-                    <br><br>
-                    <div class="section">
-                        <h3>Non-Teaching Staff</h3>
-                        <table>
-                            <tr>
-                                <th>Month</th>
-                                <th>Male</th>
-                                <th>Female</th>
-                                <th>Grand Total</th>
-                            </tr>
-                            {{#each selectedMonths}}
-                            <tr>
-                                <td>{{this}}</td>
-                                <td></td>
-                                <td></td>
-                                <td></td>
-                            </tr>
-                            {{/each}}
-                            <tr>
-                                <td>Total</td>
-                                <td class="blue"></td>
-                                <td class="blue"></td>
-                                <td class="highlight"></td>
-                            </tr>
-                        </table>
-                    </div>
-                    
-                    <div class="conclusion">
-                        <form class="conclusion-form">
-                            <label for="conclusion">Conclusion:</label><br>
-                            <textarea id="conclusion" name="conclusion" rows="4"></textarea>
-                        </form>
-                    </div>
+                <div class="conclusion">
+                    <form class="conclusion-form">
+                        <label for="conclusion-student">Conclusion:</label><br>
+                        <textarea id="conclusion-student" name="conclusion-student" rows="4"></textarea>
+                    </form>
+                </div>
+                <div class="pagebreak"></div>
+                <div class="section">
+                    <h3>Teaching Staff</h3>
+                    <table>
+                        <tr>
+                            <th>Month</th>
+                            <th>Male</th>
+                            <th>Female</th>
+                            <th>Grand Total</th>
+                        </tr>
+                        {{#each selectedMonths}}
+                        <tr>
+                            <td>{{this}}</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        {{/each}}
+                        <tr>
+                            <td>Total</td>
+                            <td class="blue"></td>
+                            <td class="blue"></td>
+                            <td class="highlight"></td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="conclusion">
+                    <form class="conclusion-form">
+                        <label for="conclusion-teaching">Conclusion:</label><br>
+                        <textarea id="conclusion-teaching" name="conclusion-teaching" rows="4"></textarea>
+                    </form>
+                </div>
+                <div class="pagebreak"></div>
+                <div class="section">
+                    <h3>Non-Teaching Staff</h3>
+                    <table>
+                        <tr>
+                            <th>Month</th>
+                            <th>Male</th>
+                            <th>Female</th>
+                            <th>Grand Total</th>
+                        </tr>
+                        {{#each selectedMonths}}
+                        <tr>
+                            <td>{{this}}</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        {{/each}}
+                        <tr>
+                            <td>Total</td>
+                            <td class="blue"></td>
+                            <td class="blue"></td>
+                            <td class="highlight"></td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="conclusion">
+                    <form class="conclusion-form">
+                        <label for="conclusion-nonteaching">Conclusion:</label><br>
+                        <textarea id="conclusion-nonteaching" name="conclusion-nonteaching" rows="4"></textarea>
+                    </form>
+                </div>
+                <br><br>
             </div>
             
             <!--PAGE BREAKKK-->
             <div class="pagebreak"></div>
 
             <!--list of common illnesses-->
+            <div class="content">
+                <h2>LIST OF COMMON ILLNESSES/INJURIES</h2>
+                <h2>{{dateRange}}</h2>
+                
+                <table class="commonillnesses">
+                    <tr>
+                        <td colspan="3">Students = {{commonIllnesses.counts.students.total}}</td>
+                    </tr>
+                    <tr>
+                        <th>Gender</th>
+                        <th>Illnesses/Injuries</th>
+                        <th>Intervention</th>
+                    </tr>
+                    <tr>
+                        <td>Male = {{commonIllnesses.counts.students.male}}</td>
+                        <td>{{commonIllnesses.diagnoses.students.male}}</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>Female = {{commonIllnesses.counts.students.female}}</td>
+                        <td>{{commonIllnesses.diagnoses.students.female}}</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td colspan="3">Faculty & Staff = {{commonIllnesses.counts.facultyStaff.total}}</td>
+                    </tr>
+                    <tr>
+                        <th>Gender</th>
+                        <th>Illnesses/Injuries</th>
+                        <th>Intervention</th>
+                    </tr>
+                    <tr>
+                        <td>Male = {{commonIllnesses.counts.facultyStaff.male}}</td>
+                        <td>{{commonIllnesses.diagnoses.facultyStaff.male}}</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>Female = {{commonIllnesses.counts.facultyStaff.female}}</td>
+                        <td>{{commonIllnesses.diagnoses.facultyStaff.female}}</td>
+                        <td></td>
+                    </tr>
+                </table>
+            </div>
             
             <!--PAGE BREAKKK-->
+            <div class="pagebreak"></div>
 
             <!--monitoring-->
             <div class="content">
-                <h2>CONSULTATION MONITORING TOOL<br>{{dateRange}}</h2>
+                <h2>CONSULTATION/APPOINTMENT MONITORING TOOL<br>{{dateRange}}</h2>
                 
                 <table>
                     <thead>

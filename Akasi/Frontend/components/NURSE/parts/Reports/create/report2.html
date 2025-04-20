@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teaching Staff Report</title>
+    <title>List of Common Illnesses/Injuries</title>
     <style>
         * {
             margin: 0;
@@ -26,12 +26,16 @@
             font-size: 14px;
             margin-bottom: 15px;
             color: #003366;
+            text-align: center;
+            font-weight: bold;
         }
         
-        h3 {
+        .date {
+            text-align: center;
+            margin-bottom: 30px;
             font-size: 12px;
-            margin: 20px 0 10px 0;
             color: #003366;
+            font-weight: bold;
         }
         
         table {
@@ -62,32 +66,14 @@
             background-color: #f0f7ff;
         }
         
-        tr:last-child {
-            font-weight: bold;
+        .category-row {
             background-color: #eef4fa;
+            font-weight: bold;
+            color: #003366;
         }
         
         .blue {
             color: #0066cc;
-        }
-        
-        .highlight {
-            color: #cc0000;
-            font-weight: bold;
-        }
-        
-        p {
-            margin-bottom: 20px;
-            text-align: justify;
-            font-size: 11px;
-        }
-        
-        .section {
-            margin-bottom: 30px;
-        }
-        
-        .conclusion {
-            margin-bottom: 30px;
         }
         
         @page {
@@ -100,15 +86,7 @@
                 padding: 2cm;
             }
             
-            h3 {
-                page-break-after: avoid;
-            }
-            
             table {
-                page-break-inside: avoid;
-            }
-            
-            .section, .conclusion {
                 page-break-inside: avoid;
             }
         }
@@ -116,138 +94,47 @@
 </head>
 <body>
     <div class="content">
-        <div class="section">
-            <h2>Teaching Staff</h2>
-            <table>
-                <tr>
-                    <th>Month</th>
-                    <th>Male</th>
-                    <th>Female</th>
-                    <th>Grand Total</th>
-                </tr>
-                <tr>
-                    <td>July</td>
-                    <td>0</td>
-                    <td>0</td>
-                    <td>0</td>
-                </tr>
-                <tr>
-                    <td>August</td>
-                    <td>1</td>
-                    <td>1</td>
-                    <td>2</td>
-                </tr>
-                <tr>
-                    <td>September</td>
-                    <td>1</td>
-                    <td>1</td>
-                    <td>2</td>
-                </tr>
-                <tr>
-                    <td>October</td>
-                    <td>3</td>
-                    <td>0</td>
-                    <td>3</td>
-                </tr>
-                <tr>
-                    <td>November</td>
-                    <td>7</td>
-                    <td>0</td>
-                    <td>7</td>
-                </tr>
-                <tr>
-                    <td>December</td>
-                    <td>3</td>
-                    <td>2</td>
-                    <td>5</td>
-                </tr>
-                <tr>
-                    <td>Total</td>
-                    <td class="blue">14</td>
-                    <td class="blue">3</td>
-                    <td class="highlight">17</td>
-                </tr>
-            </table>
-        </div>
+        <h2>LIST OF COMMON ILLNESSES/INJURIES</h2>
+        <div class="date">JULY 2022</div>
         
-        <div class="section">
-            <h2>Fatality Rate – Teaching Staff</h2>
-            <table>
-                <tr>
-                    <th>Month</th>
-                    <th>Male</th>
-                    <th>Female</th>
-                    <th>Grand Total</th>
-                </tr>
-                <tr>
-                    <td>July</td>
-                    <td>0</td>
-                    <td>0</td>
-                    <td>0</td>
-                </tr>
-                <tr>
-                    <td>August</td>
-                    <td>1</td>
-                    <td>1</td>
-                    <td>2</td>
-                </tr>
-                <tr>
-                    <td>September</td>
-                    <td>1</td>
-                    <td>1</td>
-                    <td>2</td>
-                </tr>
-                <tr>
-                    <td>October</td>
-                    <td>3</td>
-                    <td>0</td>
-                    <td>3</td>
-                </tr>
-                <tr>
-                    <td>November</td>
-                    <td>7</td>
-                    <td>0</td>
-                    <td>7</td>
-                </tr>
-                <tr>
-                    <td>December</td>
-                    <td>3</td>
-                    <td>2</td>
-                    <td>5</td>
-                </tr>
-                <tr>
-                    <td>Total</td>
-                    <td class="blue">14</td>
-                    <td class="blue">3</td>
-                    <td class="highlight">17</td>
-                </tr>
-            </table>
-        </div>
-          
-        <div class="conclusion">
-            <p>Conclusion: The quick brown fox jumps over the lazy dog.</p>
-        </div>
+        <table>
+            <tr class="category-row">
+                <td colspan="3">Students – Extern = 8</td>
+            </tr>
+            <tr>
+                <th>Gender</th>
+                <th>Illnesses/Injuries</th>
+                <th>Intervention</th>
+            </tr>
+            <tr>
+                <td>Male = 1</td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Female = 1</td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr class="category-row">
+                <td colspan="3">Students – Dormer = 8</td>
+            </tr>
+            <tr>
+                <th>Gender</th>
+                <th>Illnesses/Injuries</th>
+                <th>Intervention</th>
+            </tr>
+            <tr>
+                <td>Male = 1</td>
+                <td>Male = 1</td>
+                <td>Male = 1</td>
+            </tr>
+            <tr>
+                <td>Female = 1</td>
+                <td>Female = 1</td>
+                <td>Female = 1</td>
+            </tr>
+        </table>
     </div>
-    
-    <script>
-        window.onload = function() {
-            // Calculate Grand Total values
-            const tables = document.querySelectorAll('table');
-            tables.forEach(table => {
-                const rows = table.querySelectorAll('tr');
-                
-                // Skip header row
-                for (let i = 1; i < rows.length; i++) {
-                    const cells = rows[i].querySelectorAll('td');
-                    if (cells.length >= 4) {
-                        // Calculate Grand Total (Male + Female)
-                        const male = parseInt(cells[1].textContent) || 0;
-                        const female = parseInt(cells[2].textContent) || 0;
-                        cells[3].textContent = male + female;
-                    }
-                }
-            });
-        }
-    </script>
 </body>
 </html>

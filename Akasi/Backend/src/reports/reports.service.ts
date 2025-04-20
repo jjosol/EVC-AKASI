@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { GetIllnessService } from '../get-illness/get-illness.service';
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly getIllnessService: GetIllnessService
+  ) {}
 
   async getIllnessSummary(startMonth: string, endMonth: string, startYear: string, endYear: string = startYear) {
     // Convert month names to month numbers
@@ -421,6 +425,69 @@ export class ReportsService {
         remarks: record.remarks
       };
     });
+  }
+
+  async getCommonIllnessesData(startMonth: string, endMonth: string, startYear: string, endYear: string = startYear) {
+    // Convert month names to month numbers
+    const monthNameToNumber = {
+      'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+      'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
+    };
+
+    const startMonthNum = monthNameToNumber[startMonth] || parseInt(startMonth);
+    const endMonthNum = monthNameToNumber[endMonth] || parseInt(endMonth);
+    const startYearNum = parseInt(startYear);
+    let endYearNum = parseInt(endYear);
+
+    // ACADEMIC YEAR LOGIC: July-June is one academic year
+    // For ANY combination where start month > end month, we're crossing years
+    if (startMonthNum > endMonthNum && startYearNum === endYearNum) {
+      // If we're crossing years but the same year was provided for both, increment end year
+      endYearNum = startYearNum + 1;
+    }
+
+    // Create date range for query
+    const startDate = new Date(Date.UTC(startYearNum, startMonthNum - 1, 1, 0, 0, 0));
+    const endDate = new Date(Date.UTC(endYearNum, endMonthNum, 0, 23, 59, 59)); // Last day of end month
+
+    // Get common illness data from GetIllnessService
+    const illnessData = await this.getIllnessService.getIllnessDataByDateRange(startDate, endDate);
+
+    // Format the data for the report
+    return {
+      counts: {
+        students: {
+          total: illnessData.students.totalCount,
+          male: illnessData.students.maleCount,
+          female: illnessData.students.femaleCount
+        },
+        facultyStaff: {
+          total: illnessData.facultyStaff.totalCount,
+          male: illnessData.facultyStaff.maleCount,
+          female: illnessData.facultyStaff.femaleCount
+        }
+      },
+      diagnoses: {
+        students: {
+          male: this.formatDiagnosesWithInterventions(illnessData.students.maleDiagnoses),
+          female: this.formatDiagnosesWithInterventions(illnessData.students.femaleDiagnoses)
+        },
+        facultyStaff: {
+          male: this.formatDiagnosesWithInterventions(illnessData.facultyStaff.maleDiagnoses),
+          female: this.formatDiagnosesWithInterventions(illnessData.facultyStaff.femaleDiagnoses)
+        }
+      }
+    };
+  }
+  
+  private formatDiagnosesWithInterventions(diagnoses) {
+    if (!diagnoses || diagnoses.length === 0) {
+      return "No data";
+    }
+    
+    return diagnoses.map(diag => 
+      `${diag.name} - ${diag.interventions}`
+    ).join('<br>');
   }
 
   private calculateTotals(months) {
