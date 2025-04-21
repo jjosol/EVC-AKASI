@@ -349,7 +349,19 @@ export const getBookedTimeSlots = async (date: Date) => {
  * @returns {Promise<any>} Updated appointment data
  */
 export const updateAppointmentStatus = async (appointmentId: number, status: string, notes?: string) => {
-  return put(`${APPOINTMENT_URL}/${appointmentId}/status`, { status, notes });
+  try {
+    // Validate status value
+    if (!['pending', 'approved', 'rejected'].includes(status)) {
+      throw new Error('Invalid status value. Status must be pending, approved, or rejected.');
+    }
+    
+    const result = await put(`${APPOINTMENT_URL}/${appointmentId}/status`, { status, notes });
+    
+    return result;
+  } catch (error) {
+    console.error(`Error updating appointment status:`, error);
+    throw error;
+  }
 };
 
 /**
@@ -359,9 +371,14 @@ export const updateAppointmentStatus = async (appointmentId: number, status: str
  * @param {number} minute - Minute to check
  * @returns {Promise<boolean>} True if the slot is available
  */
+interface TimeSlot {
+  hour: number;
+  minute: number;
+}
+
 export const isTimeSlotAvailable = async (date: Date, hour: number, minute: number) => {
   const bookedSlots = await getBookedTimeSlots(date);
-  return !bookedSlots.some(slot => slot.hour === hour && slot.minute === minute);
+  return !bookedSlots.some((slot: TimeSlot) => slot.hour === hour && slot.minute === minute);
 };
 
 /**
