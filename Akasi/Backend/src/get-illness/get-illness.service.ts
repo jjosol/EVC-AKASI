@@ -30,6 +30,31 @@ export class GetIllnessService {
     };
   }
   
+  async findAllFaculty() {
+    // Get total count of faculty
+    const faculty = await this.prisma.patient.findMany({
+      where: { type: 'faculty' }
+    });
+    
+    // Get counts by gender
+    const maleFaculty = faculty.filter(f => f.gender === 'Male');
+    const femaleFaculty = faculty.filter(f => f.gender === 'Female');
+    
+    // Get common diagnoses for male faculty
+    const maleFacultyDiagnoses = await this.getCommonDiagnosesByTypeAndGender('faculty', 'Male');
+    
+    // Get common diagnoses for female faculty
+    const femaleFacultyDiagnoses = await this.getCommonDiagnosesByTypeAndGender('faculty', 'Female');
+    
+    return {
+      totalCount: faculty.length,
+      maleCount: maleFaculty.length,
+      femaleCount: femaleFaculty.length,
+      maleDiagnoses: maleFacultyDiagnoses,
+      femaleDiagnoses: femaleFacultyDiagnoses
+    };
+  }
+  
   async findAllStaff() {
     // Combined faculty and staff data
     // Get total count of faculty and staff

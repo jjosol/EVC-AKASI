@@ -110,7 +110,7 @@ watch([showPendingOnly, searchQuery], () => {
 // Add this to your existing watch statements
 watch(activeTab, (newTab) => {
   if (newTab === 'consultationRecords' && selectedStudent.value) {
-    fetchStudentConsultations(selectedStudent.value.client_id);
+    fetchStudentConsultations(selectedStudent.value.patient_id);
   }
 });
 
@@ -126,7 +126,7 @@ const openStudentModal = (student) => {
   
   // If the current tab is consultationRecords, fetch consultations
   if (activeTab.value === 'consultationRecords') {
-    fetchStudentConsultations(student.client_id);
+    fetchStudentConsultations(student.patient_id);
   }
 };
 
@@ -138,8 +138,8 @@ const fetchStudents = async () => {
   
   try {
     const possiblePaths = [
-      '/api/get-clients/students',
-      'http://localhost:3001/get-clients/students'
+      '/api/get-patient/students',
+      'http://localhost:3001/get-patient/students'
     ];
     
     let errorMessages = [];
@@ -166,11 +166,11 @@ const fetchStudents = async () => {
               
               if (pendingResponse.ok) {
                 const pendingResult = await pendingResponse.json();
-                const pendingStudentIds = new Set(pendingResult.data.map(s => s.client_id));
+                const pendingStudentIds = new Set(pendingResult.data.map(s => s.patient_id));
                 
                 // Mark students with pending files
                 result.data.forEach(student => {
-                  student.hasPendingFiles = pendingStudentIds.has(student.client_id);
+                  student.hasPendingFiles = pendingStudentIds.has(student.patient_id);
                 });
               }
             }
@@ -226,7 +226,7 @@ const fetchStudentFiles = async () => {
   
   loadingFiles.value = true;
   studentFiles.value = [];
-  const clientId = selectedStudent.value.client_id;
+  const patientId = selectedStudent.value.patient_id;
   const gradeNumber = parseInt(selectedGrade.value.replace('Grade ', ''));
   
   try {
@@ -238,7 +238,7 @@ const fetchStudentFiles = async () => {
     }
 
     // Make sure to include the token with the Bearer prefix
-    const response = await fetch(`${apiBaseUrl}/fetch-client-files-admin?client_id=${clientId}&grade=${gradeNumber}`, {
+    const response = await fetch(`${apiBaseUrl}/fetch-patient-files-admin?patient_id=${patientId}&grade=${gradeNumber}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -257,7 +257,7 @@ const fetchStudentFiles = async () => {
     
     if (result && result.success) {
       // Fetch file statuses from the file_status table
-      const statusResponse = await fetch(`${apiBaseUrl}/fetch-file-statuses?client_id=${clientId}`, {
+      const statusResponse = await fetch(`${apiBaseUrl}/fetch-file-statuses?patient_id=${patientId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -280,7 +280,7 @@ const fetchStudentFiles = async () => {
         };
       });
       
-      console.log(`Successfully fetched ${studentFiles.value.length} files for client ${clientId}, grade ${gradeNumber}`);
+      console.log(`Successfully fetched ${studentFiles.value.length} files for patient ${patientId}, grade ${gradeNumber}`);
     } else {
       throw new Error('Invalid response format');
     }
@@ -377,7 +377,7 @@ const viewFile = async (file) => {
     }
     
     // Fetch the file data from the API
-    const response = await fetch(`${apiBaseUrl}/fetch-client-files-admin/file/${file.type}/${file.id}`, {
+    const response = await fetch(`${apiBaseUrl}/fetch-patient-files-admin/file/${file.type}/${file.id}`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -461,7 +461,7 @@ const closeFileViewerModal = () => {
 const openReviewModal = (file) => {
   selectedReviewFile.value = {
     ...file,
-    clientName: selectedStudent?.value?.name || 'Unknown',
+    patientName: selectedStudent?.value?.name || 'Unknown',
     category: 'student'
   };
   showReviewModal.value = true;
@@ -493,7 +493,7 @@ const submitReview = async () => {
     const fileData = {
       fileId: selectedReviewFile.value.id,
       fileType: selectedReviewFile.value.type,
-      clientId: selectedStudent.value.client_id,
+      patientId: selectedStudent.value.patient_id,
       status: updateStatus.value,
       notes: updateNotes.value || null
     };
@@ -620,7 +620,7 @@ watch(selectedGrade, (newGrade) => {
 <template>
   <NavBar/>
   <div class="students-container">
-    <ClientOnly>
+    <PatientOnly>
       <!-- Filter Controls -->
       <div class="mb-6 p-4 bg-white rounded-lg shadow">
         <div class="flex flex-col sm:flex-row gap-3 items-center">
@@ -645,7 +645,7 @@ watch(selectedGrade, (newGrade) => {
         </div>
       </div>
       
-      <!-- Wrap dynamic content in ClientOnly to prevent hydration mismatches -->
+      <!-- Wrap dynamic content in PatientOnly to prevent hydration mismatches -->
       <div v-if="loading" class="flex justify-center py-8">
         <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
@@ -663,7 +663,7 @@ watch(selectedGrade, (newGrade) => {
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div 
             v-for="student in filteredStudents" 
-            :key="student.client_id"
+            :key="student.patient_id"
             class="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow cursor-pointer"
             @click="openStudentModal(student)"
           >
@@ -694,7 +694,7 @@ watch(selectedGrade, (newGrade) => {
         <h3 class="font-semibold">Debugging Information:</h3>
         <p>{{ debugInfo }}</p>
       </div>
-    </ClientOnly>
+    </PatientOnly>
   </div>
 
   <!-- Student Detail Modal -->
@@ -911,7 +911,7 @@ watch(selectedGrade, (newGrade) => {
                   <div v-else-if="consultationsError" class="p-4 bg-red-50 text-red-700 rounded-md">
                     <p>{{ consultationsError }}</p>
                     <button 
-                      @click="fetchStudentConsultations(selectedStudent?.client_id)" 
+                      @click="fetchStudentConsultations(selectedStudent?.patient_id)" 
                       class="mt-2 text-sm underline hover:text-red-800"
                     >
                       Try again
@@ -1177,7 +1177,7 @@ watch(selectedGrade, (newGrade) => {
         
         <div class="mb-4">
           <p class="text-sm text-gray-600">Student</p>
-          <p class="font-medium">{{ selectedReviewFile.clientName || 'Unknown' }}</p>
+          <p class="font-medium">{{ selectedReviewFile.patientName || 'Unknown' }}</p>
           <p v-if="selectedStudent" class="text-sm text-gray-500">
             Grade {{ selectedStudent.grade }} - {{ selectedStudent.section }}
           </p>

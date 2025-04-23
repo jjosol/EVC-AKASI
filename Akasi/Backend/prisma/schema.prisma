@@ -13,7 +13,7 @@ model doctor {
   password  String @db.VarChar(225)
   gmail     String @db.VarChar(225)
   name      String @db.VarChar(225)
-  
+
   consultation_records consultation_records[]
   medAdministration    medAdministration[]
 
@@ -30,30 +30,30 @@ model nurse {
   hsu_bulletin         hsu_bulletin[]
   consultation_records consultation_records[]
   medAdministration    medAdministration[]
-  equipment_edits      EditsEquipment[] 
-  inventory_edits      EditsMedicine[] 
+  equipment_edits      EditsEquipment[]
+  inventory_edits      EditsMedicine[]
   diagnoses            diagnosis[]
 
   @@id([nurse_id, username])
 }
 
 model patient {
-  patient_id Int    @unique(map: "patient_id") @default(autoincrement())
-  username  String  @db.VarChar(225)
-  password  String  @db.VarChar(225)
-  name      String  @db.VarChar(225)
-  gmail     String  @db.VarChar(225)
-  age       Int
-  gender    String  @db.VarChar(225)
-  type      String  @db.VarChar(225) // 'student', 'faculty', 'staff', 'other'
+  patient_id   Int     @unique(map: "patient_id") @default(autoincrement())
+  username     String  @db.VarChar(225)
+  password     String  @db.VarChar(225)
+  name         String  @db.VarChar(225)
+  gmail        String  @db.VarChar(225)
+  age          Int
+  gender       String  @db.VarChar(225)
+  type         String  @db.VarChar(225) // 'student', 'faculty', 'staff', 'other'
   civil_status String  @db.VarChar(225) // 'single', 'married', 'widowed', 'separated'
-  address   String  @db.VarChar(225)
-  division String?  @db.VarChar(225) 
-  position String?  @db.VarChar(225) // 'student', 'faculty', 'staff', 'other'
-  grade     Int?
-  section   String?  @db.VarChar(225)
-  category  String? @db.VarChar(225) // Intern, Extern
-  status    String  @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
+  address      String  @db.VarChar(225)
+  division     String? @db.VarChar(225)
+  position     String? @db.VarChar(225) // 'student', 'faculty', 'staff', 'other'
+  grade        Int?
+  section      String? @db.VarChar(225)
+  category     String? @db.VarChar(225) // Intern, Extern
+  status       String  @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
 
   medAdministrations   medAdministration[]
   physical_exam        physical_exam[]
@@ -82,7 +82,7 @@ model appointment {
   notes          String?  @db.VarChar(500)
 
   patient patient @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction)
- 
+
   @@index([patient_id], map: "FK_patient_TO_appointment")
 }
 
@@ -95,7 +95,7 @@ model consultation_records {
   patient_name       String   @db.VarChar(225)
   patient_occupation String   @db.VarChar(225)
   nurse_name         String   @db.VarChar(225)
-  doctor_name        String?   @db.VarChar(225)
+  doctor_name        String?  @db.VarChar(225)
   complaint          String   @db.VarChar(225)
   remarks            String   @db.VarChar(500)
   intervention       String   @db.VarChar(500)
@@ -106,8 +106,8 @@ model consultation_records {
 
   // Relations
   nurse              nurse                    @relation(fields: [nurse_id], references: [nurse_id], onDelete: NoAction, onUpdate: NoAction)
-  patient            patient                 @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction)
-  doctor             doctor?                   @relation(fields: [doctor_id], references: [doctor_id], onDelete: NoAction, onUpdate: NoAction)
+  patient            patient                  @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction)
+  doctor             doctor?                  @relation(fields: [doctor_id], references: [doctor_id], onDelete: NoAction, onUpdate: NoAction)
   diagnosis          consultation_diagnosis[]
   medAdministrations medAdministration[]      @relation("ConsultationToMedAdministration")
   prescriptions      prescription[]
@@ -182,16 +182,13 @@ model medAdministration {
   @@index([med_id, medName])
 }
 
-
-
-
 model medicine {
-  medicine_id Int      @default(autoincrement())
-  medName     String   @db.VarChar(225)
+  medicine_id    Int      @default(autoincrement())
+  medName        String   @db.VarChar(225)
   medCategory_id Int      @default(1)
-  expiration  DateTime @db.Date
-  count       Int
-  otc         Boolean  @default(true) // Add OTC flag - true means over-the-counter (no prescription needed)
+  expiration     DateTime @db.Date
+  count          Int
+  otc            Boolean  @default(true) // Add OTC flag - true means over-the-counter (no prescription needed)
 
   // Relations
   category          medicineCategory    @relation(fields: [medCategory_id], references: [medCategory_id])
@@ -204,10 +201,10 @@ model medicine {
 }
 
 model medicineCategory {
-  medCategory_id Int               @id @default(autoincrement())
-  name        String            @unique @db.VarChar(225)
-  medicine    medicine[]
-  edits       EditsMedicine[]
+  medCategory_id Int             @id @default(autoincrement())
+  name           String          @unique @db.VarChar(225)
+  medicine       medicine[]
+  edits          EditsMedicine[]
 }
 
 model EditsMedicine {
@@ -220,72 +217,69 @@ model EditsMedicine {
   runningTotal Int // Add this to track total after each change
   category_id  Int // Add this to track medicine category
   nurse_id     Int // Make admin_id optional to handle existing records
-  nurse        nurse   @relation(fields: [nurse_id], references: [nurse_id])
-
+  nurse        nurse    @relation(fields: [nurse_id], references: [nurse_id])
 
   category medicineCategory @relation(fields: [category_id], references: [medCategory_id])
-  medicine medicine @relation(fields: [med_id, medName], references: [medicine_id, medName])
+  medicine medicine         @relation(fields: [med_id, medName], references: [medicine_id, medName])
 
   @@index([med_id, medName])
   @@index([nurse_id])
   @@index([category_id]) // Add index for category_id
 }
 
-
 model prescription {
   prescription_id Int      @id @default(autoincrement())
   consultation_id Int
   medicine_id     Int? // Optional connection to medicine
   medName         String?  @db.VarChar(225)
-  file_path       String?   @db.VarChar(255)  // Replace image Bytes with file path
-  file_name       String?   @db.VarChar(100)  // Original filename
-  mime_type       String?  @db.VarChar(50)   // File type (e.g., application/pdf)
-  file_size       Int?     // Size in bytes
+  file_path       String?  @db.VarChar(255) // Replace image Bytes with file path
+  file_name       String?  @db.VarChar(100) // Original filename
+  mime_type       String?  @db.VarChar(50) // File type (e.g., application/pdf)
+  file_size       Int? // Size in bytes
   date_uploaded   DateTime @default(now())
   notes           String?  @db.VarChar(500)
 
   // Relations
   consultation consultation_records @relation(fields: [consultation_id], references: [consultation_id], onDelete: Cascade)
-  medicine     medicine?           @relation(fields: [medicine_id, medName], references: [medicine_id, medName], onDelete: SetNull)
+  medicine     medicine?            @relation(fields: [medicine_id, medName], references: [medicine_id, medName], onDelete: SetNull)
 
   @@index([consultation_id])
   @@index([medicine_id, medName])
 }
 
-
 model equipment {
-  equipment_id   Int        @id @default(autoincrement())
-  equipName      String     @unique @db.VarChar(225)
-  count          Int
-  unit           String     @db.VarChar(225)
-  expiration     DateTime?  @db.Date // Optional expiration date
-  equipCategory_id Int      @default(1) // Add foreign key 
-  category       equipmentCategory @relation(fields: [equipCategory_id], references: [equipCategory_id]) // Add relation
-  EditsEquipment EditsEquipment[]
+  equipment_id     Int               @id @default(autoincrement())
+  equipName        String            @unique @db.VarChar(225)
+  count            Int
+  unit             String            @db.VarChar(225)
+  expiration       DateTime?         @db.Date // Optional expiration date
+  equipCategory_id Int               @default(1) // Add foreign key 
+  category         equipmentCategory @relation(fields: [equipCategory_id], references: [equipCategory_id]) // Add relation
+  EditsEquipment   EditsEquipment[]
 
   @@index([equipCategory_id]) // Add index for performance
   @@map("equipment")
 }
 
 model equipmentCategory {
-  equipCategory_id Int            @id @default(autoincrement())
-  name        String            @unique @db.VarChar(225)
-  equipment   equipment[]      
-  edits       EditsEquipment[]
+  equipCategory_id Int              @id @default(autoincrement())
+  name             String           @unique @db.VarChar(225)
+  equipment        equipment[]
+  edits            EditsEquipment[]
 }
 
 model EditsEquipment {
-  edit_id      Int       @id @default(autoincrement())
+  edit_id      Int               @id @default(autoincrement())
   equipment_id Int
-  equipName    String    @db.VarChar(225)
-  date         DateTime  @db.DateTime(0)
-  cause        String    @db.VarChar(225)
+  equipName    String            @db.VarChar(225)
+  date         DateTime          @db.DateTime(0)
+  cause        String            @db.VarChar(225)
   addSubCount  Int
   runningTotal Int
   nurse_id     Int
-  category_id  Int      // Add category ID to store the category
-  nurse        nurse    @relation(fields: [nurse_id], references: [nurse_id])
-  equipment    equipment @relation(fields: [equipment_id], references: [equipment_id])
+  category_id  Int // Add category ID to store the category
+  nurse        nurse             @relation(fields: [nurse_id], references: [nurse_id])
+  equipment    equipment         @relation(fields: [equipment_id], references: [equipment_id])
   category     equipmentCategory @relation(fields: [category_id], references: [equipCategory_id])
 
   @@index([equipment_id])
@@ -295,49 +289,49 @@ model EditsEquipment {
 
 model dental_certificates {
   patient_id Int
-  grade     Int?
-  date      DateTime @db.Date
-  file_path       String   @db.VarChar(255)  // Replace image Bytes with file path
-  file_name       String   @db.VarChar(100)  // Original filename
-  mime_type       String   @db.VarChar(50)   // File type (e.g., application/pdf)
-  file_size       Int?     // Size in bytes
-  dental_id Int      @id @default(autoincrement())
-  status    String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
-  notes     String?  @db.VarChar(500)
+  grade      Int?
+  date       DateTime @db.Date
+  file_path  String   @db.VarChar(255) // Replace image Bytes with file path
+  file_name  String   @db.VarChar(100) // Original filename
+  mime_type  String   @db.VarChar(50) // File type (e.g., application/pdf)
+  file_size  Int? // Size in bytes
+  dental_id  Int      @id @default(autoincrement())
+  status     String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
+  notes      String?  @db.VarChar(500)
 
-  patient   patient  @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction)
+  patient patient @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([patient_id], map: "FK_patient_TO_dental_certificates")
 }
 
 model medical_certificates {
-  patient_id  Int
+  patient_id Int
   grade      Int?
   date       DateTime @db.Date
- file_path       String?   @db.VarChar(255)  // Replace image Bytes with file path
-  file_name       String?   @db.VarChar(100)  // Original filename
-  mime_type       String?  @db.VarChar(50)   // File type (e.g., application/pdf)
-  file_size       Int?     // Size in bytes
+  file_path  String?  @db.VarChar(255) // Replace image Bytes with file path
+  file_name  String?  @db.VarChar(100) // Original filename
+  mime_type  String?  @db.VarChar(50) // File type (e.g., application/pdf)
+  file_size  Int? // Size in bytes
   medical_id Int      @id @default(autoincrement())
   status     String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
   notes      String?  @db.VarChar(500)
 
-  patient     patient @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction)
+  patient patient @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([patient_id], map: "FK_patient_TO_medical_certificates")
 }
 
 model opthal_certificates {
   patient_id Int
-  grade     Int?
-  date      DateTime @db.Date
-  file_path       String?   @db.VarChar(255)  // Replace image Bytes with file path
-  file_name       String?   @db.VarChar(100)  // Original filename
-  mime_type       String?  @db.VarChar(50)   // File type (e.g., application/pdf)
-  file_size       Int?     // Size in bytes
-  opthal_id Int      @id @default(autoincrement())
-  status    String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
-  notes     String?  @db.VarChar(500)
+  grade      Int?
+  date       DateTime @db.Date
+  file_path  String?  @db.VarChar(255) // Replace image Bytes with file path
+  file_name  String?  @db.VarChar(100) // Original filename
+  mime_type  String?  @db.VarChar(50) // File type (e.g., application/pdf)
+  file_size  Int? // Size in bytes
+  opthal_id  Int      @id @default(autoincrement())
+  status     String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
+  notes      String?  @db.VarChar(500)
 
   patient patient @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -348,10 +342,10 @@ model physical_exam {
   patient_id  Int
   grade       Int?
   date        DateTime @db.Date
- file_path       String?   @db.VarChar(255)  // Replace image Bytes with file path
-  file_name       String?   @db.VarChar(100)  // Original filename
-  mime_type       String?  @db.VarChar(50)   // File type (e.g., application/pdf)
-  file_size       Int?     // Size in bytes
+  file_path   String?  @db.VarChar(255) // Replace image Bytes with file path
+  file_name   String?  @db.VarChar(100) // Original filename
+  mime_type   String?  @db.VarChar(50) // File type (e.g., application/pdf)
+  file_size   Int? // Size in bytes
   physical_id Int      @id @default(autoincrement())
   status      String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
   notes       String?  @db.VarChar(500)
@@ -365,10 +359,10 @@ model medical_consent {
   patient_id         Int
   grade              Int?
   date               DateTime @db.Date
-  file_path       String?   @db.VarChar(255)  // Replace image Bytes with file path
-  file_name       String?   @db.VarChar(100)  // Original filename
-  mime_type       String?  @db.VarChar(50)   // File type (e.g., application/pdf)
-  file_size       Int?     // Size in bytes
+  file_path          String?  @db.VarChar(255) // Replace image Bytes with file path
+  file_name          String?  @db.VarChar(100) // Original filename
+  mime_type          String?  @db.VarChar(50) // File type (e.g., application/pdf)
+  file_size          Int? // Size in bytes
   medical_consent_id Int      @id @default(autoincrement())
   status             String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
   notes              String?  @db.VarChar(500)
@@ -379,13 +373,13 @@ model medical_consent {
 }
 
 model dental_consent {
-  patient_id         Int
+  patient_id        Int
   grade             Int?
   date              DateTime @db.Date
- file_path       String?   @db.VarChar(255)  // Replace image Bytes with file path
-  file_name       String?   @db.VarChar(100)  // Original filename
-  mime_type       String?  @db.VarChar(50)   // File type (e.g., application/pdf)
-  file_size       Int?     // Size in bytes
+  file_path         String?  @db.VarChar(255) // Replace image Bytes with file path
+  file_name         String?  @db.VarChar(100) // Original filename
+  mime_type         String?  @db.VarChar(50) // File type (e.g., application/pdf)
+  file_size         Int? // Size in bytes
   dental_consent_id Int      @id @default(autoincrement())
   status            String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
   notes             String?  @db.VarChar(500)
@@ -396,13 +390,13 @@ model dental_consent {
 }
 
 model dental_history {
-  patient_id         Int
+  patient_id        Int
   grade             Int?
   date              DateTime @db.Date
- file_path       String?   @db.VarChar(255)  // Replace image Bytes with file path
-  file_name       String?   @db.VarChar(100)  // Original filename
-  mime_type       String?  @db.VarChar(50)   // File type (e.g., application/pdf)
-  file_size       Int?     // Size in bytes
+  file_path         String?  @db.VarChar(255) // Replace image Bytes with file path
+  file_name         String?  @db.VarChar(100) // Original filename
+  mime_type         String?  @db.VarChar(50) // File type (e.g., application/pdf)
+  file_size         Int? // Size in bytes
   dental_history_id Int      @id @default(autoincrement())
   status            String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
   notes             String?  @db.VarChar(500)
@@ -411,17 +405,18 @@ model dental_history {
 
   @@index([patient_id], map: "FK_patient_TO_physical_exam")
 }
+
 model hh_pds {
   patient_id Int
-  grade     Int?
-  date      DateTime @db.Date
- file_path  String   @db.VarChar(255)  // Replace image Bytes with file path
-  file_name String   @db.VarChar(100)  // Original filename
-  mime_type String  @db.VarChar(50)   // File type (e.g., application/pdf)
-  file_size Int   // Size in bytes
-  hh_pds_id Int      @id @default(autoincrement())
-  status    String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
-  notes     String?  @db.VarChar(500)
+  grade      Int?
+  date       DateTime @db.Date
+  file_path  String   @db.VarChar(255) // Replace image Bytes with file path
+  file_name  String   @db.VarChar(100) // Original filename
+  mime_type  String   @db.VarChar(50) // File type (e.g., application/pdf)
+  file_size  Int // Size in bytes
+  hh_pds_id  Int      @id @default(autoincrement())
+  status     String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
+  notes      String?  @db.VarChar(500)
 
   patient patient @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -429,13 +424,13 @@ model hh_pds {
 }
 
 model laboratory {
-  patient_id     Int
-  grade          Int?
+  patient_id    Int
+  grade         Int?
   date          DateTime @db.Date
-  file_path       String @db.VarChar(255)  // Replace image Bytes with file path
-  file_name       String @db.VarChar(100)  // Original filename
-  mime_type       String @db.VarChar(50)   // File type (e.g., application/pdf)
-  file_size       Int  // Size in bytes
+  file_path     String   @db.VarChar(255) // Replace image Bytes with file path
+  file_name     String   @db.VarChar(100) // Original filename
+  mime_type     String   @db.VarChar(50) // File type (e.g., application/pdf)
+  file_size     Int // Size in bytes
   laboratory_id Int      @id @default(autoincrement())
   type          String   @db.VarChar(225)
   status        String   @default("pending") // 'pending', 'complete', 'ongoing', 'rejected'
@@ -462,12 +457,11 @@ model hsu_bulletin_files {
   file_id    Int          @id @default(autoincrement())
   post_id    Int
   created_at DateTime     @default(now())
-  file_path       String   @db.VarChar(255)  // Replace image Bytes with file path
-  file_name       String   @db.VarChar(100)  // Original filename
-  mime_type       String  @db.VarChar(50)   // File type (e.g., application/pdf)
-  file_size       Int     // Size in bytes
+  file_path  String       @db.VarChar(255) // Replace image Bytes with file path
+  file_name  String       @db.VarChar(100) // Original filename
+  mime_type  String       @db.VarChar(50) // File type (e.g., application/pdf)
+  file_size  Int // Size in bytes
   bulletin   hsu_bulletin @relation(fields: [post_id], references: [post_id])
 
   @@index([post_id], map: "HSU_bulletin_files_post_id_idx")
 }
-

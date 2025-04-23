@@ -98,7 +98,7 @@ export function usePatientFiles() {
             const apiBaseUrl = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001'
             
             // Use the fetch-client-files endpoint to get the file
-            const response = await fetch(`${apiBaseUrl}/fetch-client-files/file/${file.type}/${file.id}`, {
+            const response = await fetch(`${apiBaseUrl}/fetch-patient-files/file/${file.type}/${file.id}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }

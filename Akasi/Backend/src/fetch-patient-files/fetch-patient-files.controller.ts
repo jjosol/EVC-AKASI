@@ -1,22 +1,22 @@
-// src/fetch-client-files/fetch-client-files.controller.ts
+// src/fetch-patient-files/fetch-patient-files.controller.ts
 import { Controller, Get, Query, UseGuards, Param, Res, UnauthorizedException, Request, NotFoundException, Logger } from '@nestjs/common';
 import { FetchPatientFilesService } from './fetch-patient-files.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { Response } from 'express';
 import * as fs from 'fs';
 
-@Controller('fetch-client-files')
+@Controller('fetch-patient-files')
 export class FetchPatientFilesController {
     private readonly logger = new Logger(FetchPatientFilesController.name);
 
-    constructor(private readonly fetchClientFilesService: FetchPatientFilesService) { }
+    constructor(private readonly fetchPatientFilesService: FetchPatientFilesService) { }
 
     /**
-     * Get all client files with optional grade filtering
+     * Get all patient files with optional grade filtering
      */
     @UseGuards(JwtAuthGuard)
     @Get()
-    async fetchClientFiles(
+    async fetchPatientFiles(
         @Query('grade') grade: string,
         @Request() req
     ) {
@@ -30,14 +30,14 @@ export class FetchPatientFilesController {
 
         // First, get all files for the user
         this.logger.log(`User ${currentUserId} (${userRole}) requesting all files`);
-        const allFiles = await this.fetchClientFilesService.fetchAllClientFiles(currentUserId, userRole);
+        const allFiles = await this.fetchPatientFilesService.fetchAllPatientFiles(currentUserId, userRole);
 
         // If grade is specified, filter the results
         if (grade) {
             const gradeNum = parseInt(grade, 10);
             if (!isNaN(gradeNum)) {
                 this.logger.log(`Filtering files by grade ${gradeNum}`);
-                return this.fetchClientFilesService.filterFilesByGrade(allFiles, gradeNum);
+                return this.fetchPatientFilesService.filterFilesByGrade(allFiles, gradeNum);
             }
         }
 
@@ -74,7 +74,7 @@ export class FetchPatientFilesController {
 
         try {
             // First verify the file belongs to the current user
-            const fileInfo = await this.fetchClientFilesService.getFileInfo(fileType, id, currentUserId, userRole);
+            const fileInfo = await this.fetchPatientFilesService.getFileInfo(fileType, id, currentUserId, userRole);
 
             if (!fileInfo) {
                 // If file doesn't exist or doesn't belong to current user, return 404
@@ -82,7 +82,7 @@ export class FetchPatientFilesController {
             }
 
             // Get the file path (ownership validation is already done in the service)
-            const filePath = await this.fetchClientFilesService.getFileData(fileType, id, currentUserId, userRole);
+            const filePath = await this.fetchPatientFilesService.getFileData(fileType, id, currentUserId, userRole);
 
             if (!filePath) {
                 throw new NotFoundException('File content is empty');
@@ -117,7 +117,7 @@ export class FetchPatientFilesController {
      */
     @UseGuards(JwtAuthGuard)
     @Get('all')
-    async getAllClientFiles(@Request() req) {
+    async getAllPatientFiles(@Request() req) {
         const currentUserId = req.user.patient_id || req.user.id;
         const userRole = req.user.role;
 
@@ -126,6 +126,6 @@ export class FetchPatientFilesController {
         }
 
         this.logger.log(`User ${currentUserId} (${userRole}) requesting all files without filtering`);
-        return this.fetchClientFilesService.fetchAllClientFiles(currentUserId, userRole);
+        return this.fetchPatientFilesService.fetchAllPatientFiles(currentUserId, userRole);
     }
 }

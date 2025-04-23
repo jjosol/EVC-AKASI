@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
-// Add the client consultations composable
+// Add the patient consultations composable
 import { usePatientConsultations } from '~/composables/usePatientConsultations';
 
 // Initialize the consultations composable
@@ -78,9 +78,9 @@ watch([showPendingOnly, searchQuery], () => {
 });
 
 // Fetch consultation records for a faculty member
-const fetchFacultyConsultations = async (clientId) => {
-  if (!clientId) {
-    console.warn('Cannot fetch consultations: No client ID provided');
+const fetchFacultyConsultations = async (patientId) => {
+  if (!patientId) {
+    console.warn('Cannot fetch consultations: No patient ID provided');
     return;
   }
 
@@ -94,7 +94,7 @@ const fetchFacultyConsultations = async (clientId) => {
     }
 
     // Log the URL we're calling
-    const url = `http://localhost:3001/consultation-records/client/${clientId}`;
+    const url = `http://localhost:3001/consultation-records/patient/${patientId}`;
     console.log('Fetching consultations from:', url);
 
     const response = await fetch(url, {
@@ -128,7 +128,7 @@ const openFacultyModal = (faculty) => {
   fetchFacultyFiles();
   
   // Add this line to fetch consultation records when the modal opens
-  fetchFacultyConsultations(faculty.client_id);
+  fetchFacultyConsultations(faculty.patient_id);
 };
 
 // Fetch faculty from API
@@ -139,8 +139,8 @@ const fetchFaculty = async () => {
   
   try {
     const possiblePaths = [
-      '/api/get-clients/faculty',
-      'http://localhost:3001/get-clients/faculty'
+      '/api/get-patient/faculty',
+      'http://localhost:3001/get-patient/faculty'
     ];
     
     let errorMessages = [];
@@ -167,11 +167,11 @@ const fetchFaculty = async () => {
               
               if (pendingResponse.ok) {
                 const pendingResult = await pendingResponse.json();
-                const pendingFacultyIds = new Set(pendingResult.data.map(s => s.client_id));
+                const pendingFacultyIds = new Set(pendingResult.data.map(s => s.patient_id));
                 
                 // Mark faculty with pending files
                 result.data.forEach(faculty => {
-                  faculty.hasPendingFiles = pendingFacultyIds.has(faculty.client_id);
+                  faculty.hasPendingFiles = pendingFacultyIds.has(faculty.patient_id);
                 });
               }
             }
@@ -219,7 +219,7 @@ const fetchFacultyFiles = async () => {
   
   loadingFiles.value = true;
   facultyFiles.value = [];
-  const clientId = selectedFaculty.value.client_id;
+  const patientId = selectedFaculty.value.patient_id;
   
   try {
     // Get the token from localStorage
@@ -230,7 +230,7 @@ const fetchFacultyFiles = async () => {
     }
 
     // Make sure to include the token with the Bearer prefix
-    const response = await fetch(`${apiBaseUrl}/fetch-staff-files-admin?client_id=${clientId}`, {
+    const response = await fetch(`${apiBaseUrl}/fetch-staff-files-admin?patient_id=${patientId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -249,7 +249,7 @@ const fetchFacultyFiles = async () => {
     
     if (result && result.success) {
       // Fetch file statuses from the file_status table
-      const statusResponse = await fetch(`${apiBaseUrl}/fetch-file-statuses?client_id=${clientId}`, {
+      const statusResponse = await fetch(`${apiBaseUrl}/fetch-file-statuses?patient_id=${patientId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -272,7 +272,7 @@ const fetchFacultyFiles = async () => {
         };
       });
       
-      console.log(`Successfully fetched ${facultyFiles.value.length} files for client ${clientId}`);
+      console.log(`Successfully fetched ${facultyFiles.value.length} files for patient ${patientId}`);
     } else {
       throw new Error('Invalid response format');
     }
@@ -362,7 +362,7 @@ const viewFile = async (file) => {
     }
     
     // Fetch the file data from the API
-    const response = await fetch(`${apiBaseUrl}/fetch-client-files-admin/file/${file.type}/${file.id}`, {
+    const response = await fetch(`${apiBaseUrl}/fetch-patient-files-admin/file/${file.type}/${file.id}`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -446,7 +446,7 @@ const closeFileViewerModal = () => {
 const openReviewModal = (file) => {
   selectedReviewFile.value = {
     ...file,
-    clientName: selectedFaculty?.value?.name || 'Unknown',
+    patientName: selectedFaculty?.value?.name || 'Unknown',
     category: 'faculty'
   };
   showReviewModal.value = true;
@@ -481,7 +481,7 @@ const submitReview = async () => {
     const fileData = {
       fileId: selectedReviewFile.value.id,
       fileType: selectedReviewFile.value.type,
-      clientId: selectedFaculty.value.client_id,
+      patientId: selectedFaculty.value.patient_id,
       status: updateStatus.value,
       notes: updateNotes.value || null
     };
@@ -532,7 +532,7 @@ const submitReview = async () => {
       // Show success notification (you can implement a toast notification system here)
       alert('File status updated successfully');
       
-      // Refresh the faculty list to update the pending status (client status will be updated by the API)
+      // Refresh the faculty list to update the pending status (patient status will be updated by the API)
       fetchFaculty();
     } else {
       throw new Error('Invalid response format');
@@ -604,7 +604,7 @@ onUnmounted(() => {
 <template>
   <NavBar/>
   <div class="faculty-container">
-    <ClientOnly>
+    <PatientOnly>
       <!-- Filter Controls -->
       <div class="p-4 mb-6 bg-white rounded-lg shadow">
         <div class="flex flex-col items-center gap-3 sm:flex-row">
@@ -629,7 +629,7 @@ onUnmounted(() => {
         </div>
       </div>
       
-      <!-- Wrap dynamic content in ClientOnly to prevent hydration mismatches -->
+      <!-- Wrap dynamic content in PatientOnly to prevent hydration mismatches -->
       <div v-if="loading" class="flex justify-center py-8">
         <div class="w-12 h-12 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin"></div>
       </div>
@@ -647,7 +647,7 @@ onUnmounted(() => {
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div 
             v-for="faculty in filteredFaculty" 
-            :key="faculty.client_id"
+            :key="faculty.patient_id"
             class="p-4 transition-shadow bg-white rounded-lg shadow cursor-pointer hover:shadow-md"
             @click="openFacultyModal(faculty)"
           >
@@ -672,7 +672,7 @@ onUnmounted(() => {
         <h3 class="font-semibold">Debugging Information:</h3>
         <p>{{ debugInfo }}</p>
       </div>
-    </ClientOnly>
+    </PatientOnly>
   </div>
 
   <!-- Faculty Detail Modal -->
@@ -851,7 +851,7 @@ onUnmounted(() => {
                   <div v-else-if="consultationsError" class="p-4 text-red-700 rounded-md bg-red-50">
                     <p>{{ consultationsError }}</p>
                     <button 
-                      @click="fetchConsultations(selectedFaculty.client_id)" 
+                      @click="fetchConsultations(selectedFaculty.patient_id)" 
                       class="mt-2 text-sm underline hover:text-red-800"
                     >
                       Try again
@@ -1116,7 +1116,7 @@ onUnmounted(() => {
         
         <div class="mb-4">
           <p class="text-sm text-gray-600">Faculty</p>
-          <p class="font-medium">{{ selectedReviewFile.clientName || 'Unknown' }}</p>
+          <p class="font-medium">{{ selectedReviewFile.patientName || 'Unknown' }}</p>
         </div>
 
         <div class="mb-6">

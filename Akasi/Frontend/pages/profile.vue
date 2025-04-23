@@ -5,7 +5,7 @@
 definePageMeta({
   middleware: 'auth', // Reference your middleware here
   layout: 'main',
-  requiredRole: ['nurse', 'client'],
+  requiredRole: ['nurse', 'patient'],
 
 });
 </script>

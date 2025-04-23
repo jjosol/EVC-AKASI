@@ -9,7 +9,7 @@
         </div>
         <template v-else>
           <ProfileHeader/>
-          <ProfileFiles v-if="isClient"/>
+          <ProfileFiles v-if="isPatient"/>
         </template>
       </div>
     </div>
@@ -21,12 +21,12 @@ import ProfileHeader from '../parts/profileInformation.vue'
 import ProfileFiles from '../../PATIENT/parts/Profile/profileFiles.vue'
 import { useProfile } from '~/composables/useProfile'
 import { useAuth } from '~/composables/useAuth';
-const {isClient } = useAuth();
+const {isPatient } = useAuth();
 
 definePageMeta({
   layout: 'main',
   middleware: 'auth',
-  requiredRole: ['nurse', 'client'],
+  requiredRole: ['nurse', 'patient'],
 })
 
 const { loading, error, fetchProfile } = useProfile()

@@ -17,7 +17,7 @@
     
     definePageMeta({
         middleware: 'auth',
-        requiredRole: ['nurse', 'client'],
+        requiredRole: ['nurse', 'patient'],
         layout: 'main',
     });
     
@@ -26,17 +26,17 @@
 
     // Add computed properties to determine user category
     const isStudent = computed(() => {
-        console.log( profile.value?.category)
-        return profile.value?.category === 'Student';
+        console.log( profile.value?.type_str)
+        return profile.value?.type_str === 'Student';
       
     });
     console.log(isStudent)
     const isFaculty = computed(() => {
-        const category = profile.value?.category;
-        console.log('Category value:', category);
+        const type_str = profile.value?.type_str;
+        console.log('Category value:', type_str);
         console.log('Type check:', profile.value?.type === 'client');
-        console.log('Category check:', category === 'Student');
-        return  profile.value?.category === 'Faculty' || profile.value?.category === 'Staff';
+        console.log('Category check:', type_str === 'Student');
+        return  profile.value?.type_str === 'Faculty' || profile.value?.type_str === 'Staff';
         
     });
     console.log('isStudent.value:', isStudent.value);
@@ -49,7 +49,7 @@
         console.log('User Role:', userRole.value);
         console.log('Is Nurse:', isNurse.value);
         console.log('Is Client:', isClient.value);
-        console.log('User Category:', profile.value?.category);
+        console.log('User Category:', profile.value?.type_str);
         console.log('Is Student:', isStudent.value);
         console.log('Is Faculty:', isFaculty.value);
     });

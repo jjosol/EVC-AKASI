@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
-// Add the client consultations composable
+// Add the patient consultations composable
 import { usePatientConsultations } from '~/composables/usePatientConsultations';
 
 // Initialize the consultations composable
@@ -126,8 +126,8 @@ const fetchStaff = async () => {
   
   try {
     const possiblePaths = [
-      '/api/get-clients/staff',
-      'http://localhost:3001/get-clients/staff'
+      '/api/get-patient/staff',
+      'http://localhost:3001/get-patient/staff'
     ];
     
     let errorMessages = [];
@@ -154,11 +154,11 @@ const fetchStaff = async () => {
               
               if (pendingResponse.ok) {
                 const pendingResult = await pendingResponse.json();
-                const pendingStaffIds = new Set(pendingResult.data.map(s => s.client_id));
+                const pendingStaffIds = new Set(pendingResult.data.map(s => s.patient_id));
                 
                 // Mark staff with pending files
                 result.data.forEach(staff => {
-                  staff.hasPendingFiles = pendingStaffIds.has(staff.client_id);
+                  staff.hasPendingFiles = pendingStaffIds.has(staff.patient_id);
                 });
               }
             }
@@ -206,7 +206,7 @@ const fetchStaffFiles = async () => {
   
   loadingFiles.value = true;
   staffFiles.value = [];
-  const clientId = selectedStaff.value.client_id;
+  const patientId = selectedStaff.value.patient_id;
   
   try {
     // Get the token from localStorage
@@ -217,7 +217,7 @@ const fetchStaffFiles = async () => {
     }
 
     // Make sure to include the token with the Bearer prefix
-    const response = await fetch(`${apiBaseUrl}/fetch-staff-files-admin?client_id=${clientId}`, {
+    const response = await fetch(`${apiBaseUrl}/fetch-staff-files-admin?patient_id=${patientId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -236,7 +236,7 @@ const fetchStaffFiles = async () => {
     
     if (result && result.success) {
       // Fetch file statuses from the file_status table
-      const statusResponse = await fetch(`${apiBaseUrl}/fetch-file-statuses?client_id=${clientId}`, {
+      const statusResponse = await fetch(`${apiBaseUrl}/fetch-file-statuses?patient_id=${patientId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -259,7 +259,7 @@ const fetchStaffFiles = async () => {
         };
       });
       
-      console.log(`Successfully fetched ${staffFiles.value.length} files for client ${clientId}`);
+      console.log(`Successfully fetched ${staffFiles.value.length} files for patient ${patientId}`);
     } else {
       throw new Error('Invalid response format');
     }
@@ -349,7 +349,7 @@ const viewFile = async (file) => {
     }
     
     // Fetch the file data from the API
-    const response = await fetch(`${apiBaseUrl}/fetch-client-files-admin/file/${file.type}/${file.id}`, {
+    const response = await fetch(`${apiBaseUrl}/fetch-patient-files-admin/file/${file.type}/${file.id}`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -433,7 +433,7 @@ const closeFileViewerModal = () => {
 const openReviewModal = (file) => {
   selectedReviewFile.value = {
     ...file,
-    clientName: selectedStaff?.value?.name || 'Unknown',
+    patientName: selectedStaff?.value?.name || 'Unknown',
     category: 'staff'
   };
   showReviewModal.value = true;
@@ -468,7 +468,7 @@ const submitReview = async () => {
     const fileData = {
       fileId: selectedReviewFile.value.id,
       fileType: selectedReviewFile.value.type,
-      clientId: selectedStaff.value.client_id,
+      patientId: selectedStaff.value.patient_id,
       status: updateStatus.value,
       notes: updateNotes.value || null
     };
@@ -519,7 +519,7 @@ const submitReview = async () => {
       // Show success notification (you can implement a toast notification system here)
       alert('File status updated successfully');
       
-      // Refresh the staff list to update the pending status (client status will be updated by the API)
+      // Refresh the staff list to update the pending status (patient status will be updated by the API)
       fetchStaff();
     } else {
       throw new Error('Invalid response format');
@@ -575,7 +575,7 @@ onUnmounted(() => {
 <template>
   <NavBar/>
   <div class="staff-container">
-    <ClientOnly>
+    <PatientOnly>
       <!-- Filter Controls -->
       <div class="mb-6 p-4 bg-white rounded-lg shadow">
         <div class="flex flex-col sm:flex-row gap-3 items-center">
@@ -600,7 +600,7 @@ onUnmounted(() => {
         </div>
       </div>
       
-      <!-- Wrap dynamic content in ClientOnly to prevent hydration mismatches -->
+      <!-- Wrap dynamic content in PatientOnly to prevent hydration mismatches -->
       <div v-if="loading" class="flex justify-center py-8">
         <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
@@ -618,7 +618,7 @@ onUnmounted(() => {
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div 
             v-for="staff in filteredStaff" 
-            :key="staff.client_id"
+            :key="staff.patient_id"
             class="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow cursor-pointer"
             @click="openStaffModal(staff)"
           >
@@ -643,7 +643,7 @@ onUnmounted(() => {
         <h3 class="font-semibold">Debugging Information:</h3>
         <p>{{ debugInfo }}</p>
       </div>
-    </ClientOnly>
+    </PatientOnly>
   </div>
 
   <!-- Staff Detail Modal -->
@@ -823,7 +823,7 @@ onUnmounted(() => {
                   <div v-else-if="consultationsError" class="p-4 bg-red-50 text-red-700 rounded-md">
                     <p>{{ consultationsError }}</p>
                     <button 
-                      @click="fetchConsultations(selectedStaff.client_id)" 
+                      @click="fetchConsultations(selectedStaff.patient_id)" 
                       class="mt-2 text-sm underline hover:text-red-800"
                     >
                       Try again
@@ -1087,7 +1087,7 @@ onUnmounted(() => {
         
         <div class="mb-4">
           <p class="text-sm text-gray-600">Staff</p>
-          <p class="font-medium">{{ selectedReviewFile.clientName || 'Unknown' }}</p>
+          <p class="font-medium">{{ selectedReviewFile.patientName || 'Unknown' }}</p>
         </div>
 
         <div class="mb-6">

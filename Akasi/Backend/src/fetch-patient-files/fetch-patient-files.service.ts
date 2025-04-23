@@ -1,4 +1,4 @@
-// src/fetch-client-files/fetch-client-files.service.ts
+// src/fetch-patient-files/fetch-patient-files.service.ts
 import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
@@ -11,7 +11,7 @@ export class FetchPatientFilesService {
     /**
      * Fetch ALL certificate files for the current user
      */
-    async fetchAllClientFiles(currentUserId: number, userRole: string) {
+    async fetchAllPatientFiles(currentUserId: number, userRole: string) {
         if (!currentUserId) {
             throw new NotFoundException('User ID is required');
         }
@@ -140,7 +140,7 @@ export class FetchPatientFilesService {
     }
 
     /**
-     * Filters client files by grade (to be used after fetchAllClientFiles)
+     * Filters patient files by grade (to be used after fetchAllPatientFiles)
      */
     filterFilesByGrade(files: any[], grade: number) {
         if (!grade) {
@@ -153,8 +153,8 @@ export class FetchPatientFilesService {
     /**
      * Backward compatibility method - now just gets all files and filters by grade
      */
-    async fetchClientFiles(currentUserId: number, grade: number, userRole: string) {
-        const allFiles = await this.fetchAllClientFiles(currentUserId, userRole);
+    async fetchPatientFiles(currentUserId: number, grade: number, userRole: string) {
+        const allFiles = await this.fetchAllPatientFiles(currentUserId, userRole);
         const filteredFiles = this.filterFilesByGrade(allFiles, grade);
 
         this.logger.log(`Filtered ${allFiles.length} files to ${filteredFiles.length} files for grade ${grade}`);

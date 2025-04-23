@@ -155,12 +155,12 @@
               <div class="flex items-start justify-between">
                 <div>
                   <h4 class="font-bold">
-                    {{ appointment.client?.name || 'Client #' + appointment.client_id }}
+                    {{ appointment.patient?.name || 'Patient #' + appointment.patient_id }}
                   </h4>
                   <p class="text-xs text-gray-500">
-                    {{ appointment.client?.category || 'Unknown' }} 
-                    <span v-if="appointment.client?.grade">
-                      Grade {{ appointment.client.grade }}-{{ appointment.client.section }}
+                    {{ appointment.patient?.category || 'Unknown' }} 
+                    <span v-if="appointment.patient?.grade">
+                      Grade {{ appointment.patient.grade }}-{{ appointment.patient.section }}
                     </span>
                   </p>
                 </div>
@@ -446,7 +446,7 @@ const selectedDate = computed(() => {
 
 // Form validation
 const validateForm = () => {
-  if (!profile.value || !profile.value.client_id) {
+  if (!profile.value || !profile.value.patient_id) {
     statusMessage.value = 'Profile not loaded properly. Please refresh.';
     statusType.value = 'error';
     return false;
@@ -678,7 +678,7 @@ const submitAppointment = async () => {
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
-        client_id: profile.value.client_id,
+        patient_id: profile.value.patient_id,
         date: moment(dateObj).tz("Asia/Manila").format('YYYY-MM-DD'), // Format as YYYY-MM-DD
         hour: selectedHour.value,
         minute: selectedMinute.value,
@@ -801,16 +801,16 @@ const fetchUpcomingAppointments = async () => {
   
   try {
     await fetchProfile();
-    // Get the client ID from profile
-    const clientId = profile.value?.client_id;
+    // Get the patient ID from profile
+    const patientId = profile.value?.patient_id;
     const token = localStorage.getItem('token');
     
     if (!token) {
       throw new Error('Authentication token not found');
     }
     
-    // Add client_id to the URL if available
-    const url = `http://localhost:3001/fetch-appointments-client/upcoming`;
+    // Add patient_id to the URL if available
+    const url = `http://localhost:3001/fetch-appointments-patient/upcoming`;
     
     const response = await fetch(url, {
       headers: {

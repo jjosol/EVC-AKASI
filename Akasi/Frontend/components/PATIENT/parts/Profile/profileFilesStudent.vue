@@ -8,7 +8,7 @@
     // State variables
     const fileStatuses = ref([]);
     const loadingStatuses = ref(false);
-    const clientFiles = ref([]);
+    const patientFiles = ref([]);
     const loadingFiles = ref(false);
     const activeTab = ref('tab1');
     const showModal = ref(false);
@@ -157,11 +157,11 @@
         return statusColors[status?.toLowerCase()] || defaultClasses;
     }
 
-    // Fetch file statuses for current client
+    // Fetch file statuses for current patient
     async function fetchFileStatuses() {
         try {
-            if (!currentClientId.value) {
-                console.error('Cannot fetch file statuses: No client ID available');
+            if (!currentPatientId.value) {
+                console.error('Cannot fetch file statuses: No patient ID available');
                 return;
             }
 
@@ -172,7 +172,7 @@
                 throw new Error('Authentication token not found');
             }
 
-            const response = await fetch(`http://localhost:3001/fetch-file-statuses?client_id=${currentClientId.value}`, {
+            const response = await fetch(`http://localhost:3001/fetch-file-statuses?patient_id=${currentPatientId.value}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -188,7 +188,7 @@
                 fileStatuses.value = result.data;
                 console.log('File statuses loaded:', fileStatuses.value);
                 
-                // Merge file statuses with client files
+                // Merge file statuses with patient files
                 mergeFileStatusesWithFiles();
             } else {
                 console.error('Invalid response format for file statuses:', result);
@@ -200,11 +200,11 @@
         }
     }
 
-    // Merge file statuses with client files
+    // Merge file statuses with patient files
     function mergeFileStatusesWithFiles() {
-        if (!clientFiles.value.length || !fileStatuses.value.length) return;
+        if (!patientFiles.value.length || !fileStatuses.value.length) return;
         
-        clientFiles.value = clientFiles.value.map(file => {
+        patientFiles.value = patientFiles.value.map(file => {
             // Find matching status record
             const statusRecord = fileStatuses.value.find(status => 
                 status.file_type === file.type && status.file_id === file.id
@@ -249,8 +249,8 @@
 
         // Also add a watcher for active tab
         watch(activeTab, (newTab) => {
-            if (newTab === 'tab2' && currentClientId.value) {
-                fetchConsultations(currentClientId.value);
+            if (newTab === 'tab2' && currentPatientId.value) {
+                fetchConsultations(currentPatientId.value);
             }
         });
     });
@@ -260,7 +260,7 @@
         document.removeEventListener('click', handleClickOutside);
     });
 
-    const currentClientId = computed(() => {
+    const currentPatientId = computed(() => {
         // Check if profile is loaded
         if (profileLoading.value) {
             console.log('Profile is still loading...');
@@ -276,43 +276,43 @@
         // For debugging, log the profile
         console.log('Profile data:', profile.value);
         
-        // Try to extract client ID from profile
-        let clientId = null;
+        // Try to extract patient ID from profile
+        let patientId = null;
         
-        // Option 1: Try to get from profile.client_id
-        if (profile.value.client_id !== undefined) {
-            clientId = Number(profile.value.client_id);
-            console.log(`Using profile.client_id: ${clientId}`);
-            return clientId;
+        // Option 1: Try to get from profile.patient_id
+        if (profile.value.patient_id !== undefined) {
+            patientId = Number(profile.value.patient_id);
+            console.log(`Using profile.patient_id: ${patientId}`);
+            return patientId;
         }
         
         // Option 2: Try to get from profile.id
         if (profile.value.id !== undefined) {
-            clientId = Number(profile.value.id);
-            console.log(`Using profile.id: ${clientId}`);
-            return clientId;
+            patientId = Number(profile.value.id);
+            console.log(`Using profile.id: ${patientId}`);
+            return patientId;
         }
         
-        // Option 3: Try to get from profile.data.client_id
-        if (profile.value.data && profile.value.data.client_id !== undefined) {
-            clientId = Number(profile.value.data.client_id);
-            console.log(`Using profile.data.client_id: ${clientId}`);
-            return clientId;
+        // Option 3: Try to get from profile.data.patient_id
+        if (profile.value.data && profile.value.data.patient_id !== undefined) {
+            patientId = Number(profile.value.data.patient_id);
+            console.log(`Using profile.data.patient_id: ${patientId}`);
+            return patientId;
         }
         
         // Option 4: Check JWT token
-        console.log('Trying to extract client ID from JWT token...');
+        console.log('Trying to extract patient ID from JWT token...');
         const tokenPayload = debugToken();
         if (tokenPayload) {
             // In your JWT strategy, 'sub' is used for the ID
             if (tokenPayload.sub !== undefined) {
-            clientId = Number(tokenPayload.sub);
-            console.log(`Using JWT token sub field: ${clientId}`);
-            return clientId;
+            patientId = Number(tokenPayload.sub);
+            console.log(`Using JWT token sub field: ${patientId}`);
+            return patientId;
             }
         }
         
-        console.error('⚠️ No valid client ID found in profile or token');
+        console.error('⚠️ No valid patient ID found in profile or token');
         fileError.value = 'User information not available. Please log in again.';
         return null;
     });
@@ -324,9 +324,9 @@
       error: consultationsError,  
     } = usePatientConsultations();
 
-    const fetchConsultations = async (clientId) => {
-        if (!clientId) {
-            consultationsError.value = 'Client ID is required'
+    const fetchConsultations = async (patientId) => {
+        if (!patientId) {
+            consultationsError.value = 'Patient ID is required'
             return
         }
 
@@ -340,7 +340,7 @@
             }
 
             // Log the URL we're calling
-            const url = `http://localhost:3001/consultation-records/client/${clientId}`
+            const url = `http://localhost:3001/consultation-records/patient/${patientId}`
             console.log('Fetching consultations from:', url)
 
             const response = await fetch(url, {
@@ -367,7 +367,7 @@
     }
     // Watch for changes in the selectedGrade and fetch certificates when it changes
     watch(selectedGrade, (newGrade) => {
-        if (newGrade && currentClientId.value) {
+        if (newGrade && currentPatientId.value) {
             fetchFiles(newGrade);
         }
     });
@@ -380,8 +380,8 @@
     }
     });
 
-    // Make sure this also runs when currentClientId changes
-    watch(currentClientId, (newId) => {
+    // Make sure this also runs when currentPatientId changes
+    watch(currentPatientId, (newId) => {
         if (newId && activeTab.value === 'tab2') {
             fetchConsultations(newId);
         }
@@ -421,7 +421,7 @@ async function viewFile(file) {
         const apiBaseUrl = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001';
         
         // Make the request with proper authorization using the same endpoint as student.vue
-        const response = await fetch(`${apiBaseUrl}/fetch-client-files-admin/file/${file.type}/${file.id}`, {
+        const response = await fetch(`${apiBaseUrl}/fetch-patient-files-admin/file/${file.type}/${file.id}`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -738,7 +738,7 @@ async function createImagePreview(blob, maxWidth) {
 
     // Get the URL for viewing a file
     function getFileViewUrl(file) {
-        return `http://localhost:3001/client-files/file/${file.type}/${file.id}`;
+        return `http://localhost:3001/patient-files/file/${file.type}/${file.id}`;
     }
 
     // File handling
@@ -786,7 +786,7 @@ async function createImagePreview(blob, maxWidth) {
             await fetchFileStatuses();
             loadingFiles.value = true;
             fileError.value = '';
-            clientFiles.value = [];
+            patientFiles.value = [];
             
             const token = localStorage.getItem('token');
             if (!token) {
@@ -796,8 +796,8 @@ async function createImagePreview(blob, maxWidth) {
             return;
             }
             
-            // Use the CORRECT endpoint which is 'fetch-client-files/all' as defined in the controller
-            console.log('Fetching all client files first');
+            // Use the CORRECT endpoint which is 'fetch-patient-files/all' as defined in the controller
+            console.log('Fetching all patient files first');
             
             const response = await fetch('http://localhost:3001/fetch-client-files/all', {
             headers: {
@@ -821,20 +821,20 @@ async function createImagePreview(blob, maxWidth) {
             const allFiles = await response.json();
             console.log(`Fetched ${allFiles.length} total files for the current user`);
             
-            // Now filter the files by grade on the client side
+            // Now filter the files by grade on the patient side
             if (grade) {
             const gradeNumber = getGradeNumber(grade);
             console.log(`Filtering files for grade ${grade} (${gradeNumber})`);
             
-            clientFiles.value = allFiles.filter(file => file.grade === gradeNumber);
-            console.log(`Filtered to ${clientFiles.value.length} files for grade ${grade}`);
+            patientFiles.value = allFiles.filter(file => file.grade === gradeNumber);
+            console.log(`Filtered to ${patientFiles.value.length} files for grade ${grade}`);
             } else {
             // If no grade specified, show all files
-            clientFiles.value = allFiles;
+            patientFiles.value = allFiles;
             }
             
             // If we have files, clear any previous error
-            if (clientFiles.value.length > 0) {
+            if (patientFiles.value.length > 0) {
             fileError.value = '';
             } else {
             console.log(`No files found for grade ${grade}`);
@@ -845,7 +845,7 @@ async function createImagePreview(blob, maxWidth) {
         } catch (error) {
             console.error('Error fetching files:', error);
             fileError.value = 'Failed to load files. Please try again.';
-            clientFiles.value = [];
+            patientFiles.value = [];
         } finally {
             loadingFiles.value = false;
         }
@@ -869,7 +869,7 @@ async function createImagePreview(blob, maxWidth) {
         console.log('Token payload:', payload);
         }
 
-        // Ensure client_id is being sent correctly
+        // Ensure patient_id is being sent correctly
         const formData = new FormData();
         
         // Ensure these match the backend expectation
@@ -877,20 +877,20 @@ async function createImagePreview(blob, maxWidth) {
         formData.append('grade', uploadForm.value.grade.toString());
         formData.append('type', uploadForm.value.certType);
         
-        // Get client ID from the computed property
-        const clientId = currentClientId.value;
-        console.log('Sending client ID:', clientId);
+        // Get patient ID from the computed property
+        const patientId = currentPatientId.value;
+        console.log('Sending patient ID:', patientId);
         
-        formData.append('client_id', clientId.toString());
+        formData.append('patient_id', patientId.toString());
 
         console.log('Sending form data:', {
         file: uploadForm.value.file.name,
         grade: uploadForm.value.grade,
         type: uploadForm.value.certType,
-        client_id: clientId
+        patient_id: patientId
         });
 
-        const response = await fetch('http://localhost:3001/client-files/upload', {
+        const response = await fetch('http://localhost:3001/patient-files/upload', {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${token}`
@@ -947,15 +947,15 @@ const fileToDelete = ref(null);
 const isDeleting = ref(false);
 const deleteError = ref('');
 
-// Function to check if the file can be deleted (only if file grade matches client grade)
+// Function to check if the file can be deleted (only if file grade matches patient grade)
 function canDeleteFile(file) {
     if (!profile.value || !file) return false;
     
-    // Get the client's current grade
-    const clientGrade = profile.value.grade;
+    // Get the patient's current grade
+    const patientGrade = profile.value.grade;
     
-    // Check if file grade matches client's current grade
-    return file.grade === clientGrade;
+    // Check if file grade matches patient's current grade
+    return file.grade === patientGrade;
 }
 
 // Function to open the delete confirmation modal
@@ -984,7 +984,7 @@ async function deleteFile() {
             throw new Error('Authentication token not found');
         }
         
-        const response = await fetch('http://localhost:3001/client-files/delete/' + fileToDelete.value.id, {
+        const response = await fetch('http://localhost:3001/patient-files/delete/' + fileToDelete.value.id, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -1000,8 +1000,8 @@ async function deleteFile() {
             throw new Error(errorData.message || `Server error: ${response.status}`);
         }
         
-        // Remove the deleted file from the clientFiles array
-        clientFiles.value = clientFiles.value.filter(
+        // Remove the deleted file from the patientFiles array
+        patientFiles.value = patientFiles.value.filter(
             file => !(file.id === fileToDelete.value.id && file.type === fileToDelete.value.type)
         );
         
@@ -1096,9 +1096,9 @@ async function deleteFile() {
             <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2f4a71]"></div>
             </div>
             
-            <div v-else-if="clientFiles && clientFiles.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div v-else-if="patientFiles && patientFiles.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div 
-                v-for="file in clientFiles" 
+                v-for="file in patientFiles" 
                 :key="`${file.type}-${file.id}`" 
                 class="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
             >
@@ -1167,7 +1167,7 @@ async function deleteFile() {
                         View
                         </button>
                         
-                        <!-- Delete button - only show if file grade matches client grade -->
+                        <!-- Delete button - only show if file grade matches patient grade -->
                         <button 
                         v-if="canDeleteFile(file)"
                         @click.stop="confirmDeleteFile(file)"
@@ -1215,7 +1215,7 @@ async function deleteFile() {
             <div v-else-if="consultationsError" class="p-4 bg-red-50 text-red-700 rounded-md">
                 <p>{{ consultationsError }}</p>
                 <button 
-                    @click="fetchConsultations(currentClientId)" 
+                    @click="fetchConsultations(currentPatientId)" 
                     class="mt-2 text-sm underline hover:text-red-800"
                 >
                     Try again

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue';
-import PostClient from '../parts/Bulletin/PostClient.vue';
+import PostPatient from '../parts/Bulletin/PostClient.vue';
 import Post from '~/components/NURSE/parts/Bulletin/Post.vue';
 
 const posts = ref([]);
@@ -84,7 +84,7 @@ function closeModal() {
                     :key="post.post_id" 
                     class="post-card"
                 >
-                    <PostClient :post="post" />
+                    <PostPatient :post="post" />
                 </div>
             </transition-group>
         </div>
