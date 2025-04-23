@@ -9,13 +9,13 @@ import { Icon } from '@iconify/vue';
 
 // Import all the components
 import ConfirmationModal from '~/components/SHARED/parts/confirmationModal.vue';
-import AddModal from './addListComponents/AddModal.vue';
-import EditModal from './addListComponents/EditModal.vue';
-import MedicineModal from './addListComponents/MedicineModal.vue';
-import MedicineDetailModal from './addListComponents/MedicineDetailModal.vue';
-import AddDiagnosisModal from './addListComponents/AddDiagnosisModal.vue';
-import AddCategoryModal from './addListComponents/AddCategoryModal.vue';
-import StatusModal from './addListComponents/StatusModal.vue';
+import AddModal from './addListComponents/AddModalD.vue';
+import EditModal from './addListComponents/EditModalD.vue';
+import MedicineModal from './addListComponents/MedicineModalD.vue';
+import MedicineDetailModal from './addListComponents/MedicineDetailModalD.vue';
+import AddDiagnosisModal from './addListComponents/AddDiagnosisModalD.vue';
+import AddCategoryModal from './addListComponents/AddCategoryModalD.vue';
+import StatusModal from './addListComponents/StatusModalD.vue';
 
 // Properly initialize the profile composable
 const { profile, loading: profileLoading, fetchProfile } = useProfile();
@@ -1784,12 +1784,12 @@ const delayedAction = (callback, delay) => {
               <div class="flex items-start justify-between"> 
                 <div>
                   <h4 class="font-bold">
-                    {{ appointment.patient?.name || 'Patient #' + appointment.patient_id }}
+                    {{ appointment.client?.name || 'Client #' + appointment.client_id }}
                   </h4>
                   <p class="text-xs text-gray-500">
-                    {{ appointment.patient?.category || 'Unknown' }} 
-                    <span v-if="appointment.patient?.grade">
-                      Grade {{ appointment.patient.grade }}-{{ appointment.patient.section }}
+                    {{ appointment.client?.category || 'Unknown' }} 
+                    <span v-if="appointment.client?.grade">
+                      Grade {{ appointment.client.grade }}-{{ appointment.client.section }}
                     </span>
                   </p>
                 </div>

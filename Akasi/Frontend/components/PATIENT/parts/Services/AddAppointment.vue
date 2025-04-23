@@ -502,7 +502,6 @@ const fetchAvailableTimeSlots = async (date) => {
     minutesMap.value = [
       [0, 20, 40], // Hour 15
       [0, 20, 40]  // Hour 16
-
     ];
     return;
   }
@@ -513,7 +512,8 @@ const fetchAvailableTimeSlots = async (date) => {
       throw new Error('Authentication token not found');
     }
     
-    const formattedDate = moment(selectedDate.value.rawDate).tz("Asia/Manila").format('YYYY-MM-DD');
+    // Ensure consistent date formatting using ISO format
+    const formattedDate = new Date(date).toISOString().split('T')[0]; // Ensure YYYY-MM-DD format
     console.log(`Fetching booked slots for ${formattedDate}`);
     
     const response = await fetch(`http://localhost:3001/add-appointment/booked-slots?date=${formattedDate}`, {
@@ -678,7 +678,7 @@ const submitAppointment = async () => {
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
-        patient_id: profile.value.patient_id,
+        patient_id: profile.value.patient_id || profile.value.client_id, // Use patient_id, fallback to client_id for backwards compatibility
         date: moment(dateObj).tz("Asia/Manila").format('YYYY-MM-DD'), // Format as YYYY-MM-DD
         hour: selectedHour.value,
         minute: selectedMinute.value,
