@@ -55,7 +55,10 @@ export class PatientFilesService {
                             patient_id: patientId,
                             grade,
                             date: currentDate,
-                            dental: fileData,
+                            file_path: '', // Or some default path
+                            file_name: fileName,
+                            mime_type: mimeType,
+                            file_size: 0, // Or some default size
                             status: 'pending', // Default status
                             notes: null
                         },
@@ -69,7 +72,10 @@ export class PatientFilesService {
                             patient_id: patientId,
                             grade,
                             date: currentDate,
-                            medical: fileData,
+                            file_path: '', // Or some default path
+                            file_name: fileName,
+                            mime_type: mimeType,
+                            file_size: 0, // Or some default size
                             status: 'pending', // Default status
                             notes: null
                         },
@@ -83,7 +89,10 @@ export class PatientFilesService {
                             patient_id: patientId,
                             grade,
                             date: currentDate,
-                            opthal: fileData,
+                            file_path: '', // Or some default path
+                            file_name: fileName,
+                            mime_type: mimeType,
+                            file_size: 0, // Or some default size
                             status: 'pending', // Default status
                             notes: null
                         },
@@ -97,83 +106,102 @@ export class PatientFilesService {
                             patient_id: patientId,
                             grade,
                             date: currentDate,
-                            physical: fileData,
+                            //physical: fileData,
+                            file_path: '', // Or some default path
+                            file_name: fileName,
+                            mime_type: mimeType,
+                            file_size: 0, // Or some default size
                             status: 'pending', // Default status
                             notes: null
                         },
                     });
                     result = { id: physical.physical_id };
                     break;
-                
+
                 case 'hh_pds':
                     const hh_pds = await this.prisma.hh_pds.create({
                         data: {
                             patient_id: patientId,
                             grade,
                             date: currentDate,
-                            hh_pds: fileData,
+                            file_path: '', // Or some default path
+                            file_name: fileName,
+                            mime_type: mimeType,
+                            file_size: 0, // Or some default size
                             status: 'pending', // Default status
                             notes: null
                         },
                     });
                     result = { id: hh_pds.hh_pds_id };
                     break;
-                
+
                 case 'medical_consent':
                     const medical_consent = await this.prisma.medical_consent.create({
                         data: {
                             patient_id: patientId,
                             grade,
                             date: currentDate,
-                            medical_consent: fileData,
+                            file_path: '', // Or some default path
+                            file_name: fileName,
+                            mime_type: mimeType,
+                            file_size: 0, // Or some default size
                             status: 'pending', // Default status
                             notes: null
                         },
                     });
                     result = { id: medical_consent.medical_consent_id };
                     break;
-                
+
                 case 'dental_consent':
                     const dental_consent = await this.prisma.dental_consent.create({
                         data: {
                             patient_id: patientId,
                             grade,
                             date: currentDate,
-                            dental_consent: fileData,
+                            file_path: '', // Or some default path
+                            file_name: fileName,
+                            mime_type: mimeType,
+                            file_size: 0, // Or some default size
                             status: 'pending', // Default status
                             notes: null
                         },
                     });
                     result = { id: dental_consent.dental_consent_id };
                     break;
-                
+
                 case 'dental_history':
                     const dental_history = await this.prisma.dental_history.create({
                         data: {
                             patient_id: patientId,
                             grade,
                             date: currentDate,
-                            dental_history: fileData,
+                            file_path: '', // Or some default path
+                            file_name: fileName,
+                            mime_type: mimeType,
+                            file_size: 0, // Or some default size
                             status: 'pending', // Default status
                             notes: null
                         },
                     });
                     result = { id: dental_history.dental_history_id };
                     break;
-                
+
                 case 'laboratory':
                     const laboratory = await this.prisma.laboratory.create({
                         data: {
                             patient_id: patientId,
                             grade,
                             date: currentDate,
-                            laboratory: fileData,
-                            type:labType,
+                            file_path: '', // Or some default path
+                            file_name: fileName,
+                            mime_type: mimeType,
+                            file_size: 0, // Or some default size
+                            type: labType,
                             status: 'pending', // Default status
                             notes: null
                         },
                     });
-                    result = { id: physical.physical_id };
+                    result = { id: laboratory.laboratory_id }; // Fixed: use laboratory instead of physical
                     break;
 
                 default:
@@ -343,7 +371,7 @@ export class PatientFilesService {
                     result = await this.prisma.dental_certificates.findUnique({
                         where: { dental_id: id },
                         select: {
-                            dental: true,
+                            //dental: true,
                             patient_id: true,
                             status: true,
                             notes: true,
@@ -365,7 +393,7 @@ export class PatientFilesService {
                     result = await this.prisma.medical_certificates.findUnique({
                         where: { medical_id: id },
                         select: {
-                            medical: true,
+                            //medical: true,
                             patient_id: true,
                             status: true,
                             notes: true,
@@ -387,7 +415,7 @@ export class PatientFilesService {
                     result = await this.prisma.opthal_certificates.findUnique({
                         where: { opthal_id: id },
                         select: {
-                            opthal: true,
+                            //opthal: true,
                             patient_id: true,
                             status: true,
                             notes: true,
@@ -409,10 +437,10 @@ export class PatientFilesService {
                     result = await this.prisma.physical_exam.findUnique({
                         where: { physical_id: id },
                         select: {
-                            physical: true,
+                            //physical: true,
                             patient_id: true,
                             status: true,
-                             notes: true,
+                            notes: true,
                             patient: {
                                 select: {
                                     name: true,
