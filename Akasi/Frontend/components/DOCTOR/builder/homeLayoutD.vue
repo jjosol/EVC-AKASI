@@ -1,6 +1,8 @@
 <script setup>
 import { ref } from 'vue'
 import moment from 'moment-timezone'
+import AddList from '../parts/Home/AddListD.vue';
+import Calendar from '../../SHARED/parts/calendar.vue';
 
 const currentDay = ref({ 
   date: moment().tz("Asia/Manila").toDate()
@@ -40,6 +42,7 @@ const refreshCalendar = () => {
 definePageMeta({
   middleware: 'auth', // Reference your middleware here
   layout: 'main',
+  requiredRole: ['doctor'], // Ensure the page requires doctor role
 });
 </script>
 

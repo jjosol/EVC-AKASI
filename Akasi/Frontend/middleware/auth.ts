@@ -5,6 +5,11 @@ import { useAuth } from '~/composables/useAuth.js';
 export default defineNuxtRouteMiddleware((to) => {
   if (!import.meta.client) return;
 
+  // Skip auth check for login page to prevent infinite redirects
+  if (to.path === '/login' || to.path === '/register' || to.path.startsWith('/reset-password')) {
+    return;
+  }
+
   const { checkToken, userRole } = useAuth();
 
   if (!checkToken()) {
@@ -18,19 +23,25 @@ export default defineNuxtRouteMiddleware((to) => {
     requiredRole = [requiredRole]; // Convert to an array if it's not already
   }
 
-  if (requiredRole) {
-    // Check if userRole is in the array of required roles
-    if (userRole.value && !requiredRole.includes(userRole.value)) {
-      // User doesn't have any of the required roles
-      if (userRole.value === 'nurse') {  // Previously 'admin'
-        return navigateTo('/home'); // Redirect nurse
-      } else if (userRole.value === 'doctor') {  // New role
-        return navigateTo('/home'); // Redirect doctor
-      } else if (userRole.value === 'patient') {  // Previously 'client'
-        return navigateTo('/bulletin'); // Redirect patient
-      } else {
-        return navigateTo('/login'); // Redirect unknown roles
-      }
+  // If no specific role is required, allow access to authenticated users
+  if (!requiredRole || requiredRole.length === 0) {
+    return;
+  }
+
+  // Check if user has the required role
+  if (userRole.value && !requiredRole.includes(userRole.value)) {
+    // User doesn't have any of the required roles - redirect to their appropriate homepage
+    console.log(`User role ${userRole.value} doesn't match required roles ${requiredRole.join(', ')}`);
+
+    if (userRole.value === 'nurse') {
+      return navigateTo('/home');
+    } else if (userRole.value === 'doctor') {
+      // Redirect doctors to their dedicated page
+      return navigateTo('/doctor');
+    } else if (userRole.value === 'patient') {
+      return navigateTo('/bulletin');
+    } else {
+      return navigateTo('/login');
     }
   }
 });
