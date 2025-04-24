@@ -6,6 +6,7 @@ const PATIENT_URL = '/patients'; // Updated to use patients (plural) instead of 
 const INVENTORY_URL = '/medicine'; // Updated to use medicine instead of inventory
 const DIAGNOSIS_URL = '/diagnoses'; // Updated to use diagnoses (plural) instead of diagnosis
 const APPOINTMENT_URL = '/add-appointment'; // Added appointment URL
+const CHIEF_COMPLAINT_URL = '/chief-complaint'; // Added chief complaint URL
 
 // Define interfaces for type safety
 interface ConsultationRecord {
@@ -43,6 +44,12 @@ interface MedicationAdministration {
   end_date: string | Date;
   remarks?: string;
   intervention?: string;
+}
+
+interface ChiefComplaint {
+  chiefcomplaint_id?: number;
+  consultation_id: number;
+  complaint: string;
 }
 
 /**
@@ -397,4 +404,61 @@ export const createAppointment = async (appointmentData: any) => {
  */
 export const deleteAppointment = async (appointmentId: number) => {
   return del(`${APPOINTMENT_URL}/${appointmentId}`);
+};
+
+// Chief Complaint functions
+
+/**
+ * Fetches all chief complaints for a consultation
+ * @param {number} consultation_id - ID of the consultation
+ * @returns {Promise<ChiefComplaint[]>} List of chief complaints
+ */
+export const fetchChiefComplaints = async (consultation_id: number) => {
+  return get(`${CHIEF_COMPLAINT_URL}/consultation/${consultation_id}`);
+};
+
+/**
+ * Creates a new chief complaint
+ * @param {ChiefComplaint} data - Chief complaint data
+ * @returns {Promise<ChiefComplaint>} Created chief complaint
+ */
+export const createChiefComplaint = async (data: ChiefComplaint) => {
+  return post(CHIEF_COMPLAINT_URL, data);
+};
+
+/**
+ * Creates multiple chief complaints at once
+ * @param {ChiefComplaint[]} data - Array of chief complaint data
+ * @returns {Promise<ChiefComplaint[]>} Created chief complaints
+ */
+export const createManyChiefComplaints = async (data: ChiefComplaint[]) => {
+  return post(`${CHIEF_COMPLAINT_URL}/bulk`, data);
+};
+
+/**
+ * Updates a chief complaint
+ * @param {number} chiefcomplaint_id - ID of the chief complaint to update
+ * @param {Partial<ChiefComplaint>} data - Updated chief complaint data
+ * @returns {Promise<ChiefComplaint>} Updated chief complaint
+ */
+export const updateChiefComplaint = async (chiefcomplaint_id: number, data: Partial<ChiefComplaint>) => {
+  return put(`${CHIEF_COMPLAINT_URL}/${chiefcomplaint_id}`, { complaint: data.complaint });
+};
+
+/**
+ * Deletes a chief complaint
+ * @param {number} chiefcomplaint_id - ID of the chief complaint to delete
+ * @returns {Promise<void>} No content
+ */
+export const deleteChiefComplaint = async (chiefcomplaint_id: number) => {
+  return del(`${CHIEF_COMPLAINT_URL}/${chiefcomplaint_id}`);
+};
+
+/**
+ * Deletes all chief complaints for a consultation
+ * @param {number} consultation_id - ID of the consultation
+ * @returns {Promise<void>} No content
+ */
+export const deleteAllChiefComplaints = async (consultation_id: number) => {
+  return del(`${CHIEF_COMPLAINT_URL}/consultation/${consultation_id}`);
 };

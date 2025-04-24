@@ -35,6 +35,9 @@ import { EquipmentModule } from './equipment/equipment.module';
 import { DoctorService } from './doctor/doctor.service';
 import { DoctorController } from './doctor/doctor.controller';
 import { DoctorModule } from './doctor/doctor.module';
+import { ChiefComplaintController } from './chief-complaint/chief-complaint.controller';
+import { ChiefComplaintService } from './chief-complaint/chief-complaint.service';
+import { ChiefComplaintModule } from './chief-complaint/chief-complaint.module';
 
 
 @Module({
@@ -69,9 +72,10 @@ import { DoctorModule } from './doctor/doctor.module';
     DiagnosisModule,
     GetPatientConsultationsModule,
     EquipmentModule,
-    DoctorModule
+    DoctorModule,
+    ChiefComplaintModule
   ],
-  providers: [AppService, DoctorService], // ONLY services directly used by AppModule
-  controllers: [AppController, DoctorController], // ONLY controllers directly in AppModule
+  providers: [AppService, DoctorService, ChiefComplaintService], // ONLY services directly used by AppModule
+  controllers: [AppController, DoctorController, ChiefComplaintController], // ONLY controllers directly in AppModule
 })
 export class AppModule { }
