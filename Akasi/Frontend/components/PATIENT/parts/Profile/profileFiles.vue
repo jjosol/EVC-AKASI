@@ -8,7 +8,7 @@
         </div>
 </template>
     
-    <script setup>
+<script setup>
     import { ref, computed, onMounted } from 'vue';
     import { useAuth } from '~/composables/useAuth';
     import { useProfile } from '~/composables/useProfile';
@@ -21,25 +21,19 @@
         layout: 'main',
     });
     
-    const { isNurse, isClient, userRole } = useAuth();
+    const { isNurse, isPatient, userRole } = useAuth();
     const { profile, fetchProfile } = useProfile();
 
     // Add computed properties to determine user category
     const isStudent = computed(() => {
-        console.log( profile.value?.type_str)
         return profile.value?.type_str === 'Student';
-      
     });
-    console.log(isStudent)
+
     const isFaculty = computed(() => {
         const type_str = profile.value?.type_str;
-        console.log('Category value:', type_str);
-        console.log('Type check:', profile.value?.type === 'patient');
-        console.log('Category check:', type_str === 'Student');
-        return  profile.value?.type_str === 'Faculty' || profile.value?.type_str === 'Staff';
-        
+        return profile.value?.type_str === 'Faculty' || profile.value?.type_str === 'Staff';
     });
-    console.log('isStudent.value:', isStudent.value);
+    
     onMounted(async () => {
         // Fetch the profile data if not already loaded
         if (!profile.value) {
@@ -48,7 +42,7 @@
         
         console.log('User Role:', userRole.value);
         console.log('Is Nurse:', isNurse.value);
-        console.log('Is Client:', isClient.value);
+        console.log('Is Patient:', isPatient.value);
         console.log('User Category:', profile.value?.type_str);
         console.log('Is Student:', isStudent.value);
         console.log('Is Faculty:', isFaculty.value);
