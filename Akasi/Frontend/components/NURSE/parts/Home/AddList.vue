@@ -352,7 +352,7 @@ const savePerson = async () => {
       !Array.isArray(selectedPerson.value.complaints) ||
       !selectedPerson.value.complaints.length
     ) {
-      throw new Error('At least one diagnosis is required');
+      throw new Error('At least one complaint is required');
     }
 
     // Prepare consultation data
@@ -409,6 +409,30 @@ const savePerson = async () => {
     // Ensure consultationId is obtained
     if (!consultationId) {
       throw new Error('Consultation ID is not available');
+    }
+
+    // First, delete any existing chief complaints for this consultation to start fresh
+    try {
+      await consultationRecordService.deleteAllChiefComplaints(consultationId);
+    } catch (error) {
+      console.warn('No existing chief complaints to delete or error deleting:', error);
+      // Continue with creating new complaints
+    }
+
+    // Create new chief complaints
+    const chiefComplaints = selectedPerson.value.complaints.map(complaint => ({
+      consultation_id: consultationId,
+      complaint: complaint.text
+    }));
+
+    // Add each chief complaint
+    if (chiefComplaints.length > 0) {
+      try {
+        await consultationRecordService.createManyChiefComplaints(chiefComplaints);
+        console.log(`${chiefComplaints.length} chief complaints saved successfully`);
+      } catch (complaintError) {
+        console.error('Error saving chief complaints:', complaintError);
+      }
     }
 
     // Handle individual diagnoses via the specialized endpoints if they have disease_id
@@ -504,6 +528,7 @@ const savePerson = async () => {
  */
 /**
  * Fetches inventory items using the inventoryService
+ * @returns {Promise<void>}
  */
 /**
  * Fetches inventory items using the consultationRecordService
@@ -1927,76 +1952,39 @@ const delayedAction = (callback, delay) => {
       </div>
     </div>
     
-    <!-- Complaint/Diagnosis Section -->
+    <!-- Complaint Section - Previously Diagnosis Section -->
     <div class="mb-4">
-      <label for="complaint" class="block text-sm font-semibold text-gray-600">Diagnosis</label>
-      <div v-if="!isViewOnly" class="flex items-center mb-2 space-x-2">
-        <div class="relative flex-grow">
-          <input 
-            v-model="diagnosisSearchQuery"
-            type="text"
-            placeholder="Search or select diagnoses..."
-            class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md"
-            @blur="(e) => delayedAction(() => { closeDiagnosisDropdown() }, 200)"
-          />
-          <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <Icon icon="mdi:magnify" class="w-5 h-5 text-gray-400" />
-          </div>
-          <div class="absolute inset-y-0 right-0 flex items-center pr-3">
-            <button 
-              @click="toggleDiagnosisDropdown" 
-              type="button"
-              class="text-gray-400 focus:outline-none"
-            >
-              <Icon :icon="showDiagnosisDropdown ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="w-5 h-5" />
-            </button>
-          </div>
-          
-          <!-- Diagnosis dropdown -->
-          <div v-if="showDiagnosisDropdown || diagnosisSearchQuery" 
-              class="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg">
-            <div v-if="filteredDiseases.length === 0" class="p-3 text-sm text-gray-500">
-              No matching diagnoses
-            </div>
-            <div v-else class="overflow-y-auto max-h-60">
-              <!-- Group diagnoses by category -->
-              <div v-for="(categoryId, index) in Object.keys(diseasesByCategory)" :key="categoryId" class="border-b last:border-b-0">
-                <div class="px-3 py-1 text-xs font-semibold text-gray-500 bg-gray-50">
-                  {{ getCategoryName(categoryId) }}
-                </div>
-                <div 
-                  v-for="disease in filteredDiagnosesByCategory(categoryId, diagnosisSearchQuery)"
-                  :key="disease.diagnosis_id"
-                  @click="selectDisease(disease)"
-                  class="flex items-center justify-between p-2 cursor-pointer hover:bg-gray-100"
-                >
-                  <div>
-                    <div class="font-medium">{{ disease.name }}</div>
-                  </div>
-                  <Icon icon="mdi:plus" class="text-green-500" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Buttons for managing diagnoses/categories -->
-        
+      <label for="complaint" class="block text-sm font-semibold text-gray-600">Chief Complaints</label>
+      <div v-if="!isViewOnly" class="flex items-center mb-2">
         <button 
-          @click="openManageModal" 
-          class="flex items-center px-3 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700"
+          @click="addComplaint" 
+          class="p-1 text-white bg-blue-600 rounded-full hover:bg-blue-700"
+          title="Add a new complaint"
         >
-          <Icon icon="mdi:cog" class="mr-1" />
-          Manage
+          <Icon icon="mdi:plus" class="w-4 h-4" />
         </button>
       </div>
       
-      <!-- Selected diagnoses display -->
-      <div class="flex flex-wrap gap-2 mb-2">
-        <div v-for="complaint in selectedPerson.complaints" :key="complaint.id" class="flex items-center px-3 py-1 bg-purple-100 rounded-full">
-          {{ complaint.text }}
-          <button v-if="!isViewOnly" @click="removeComplaint(complaint.id)" class="ml-2 text-red-500 hover:text-red-700">
-            <Icon icon="mdi:delete" />
+      <!-- Chief complaints input fields - Compact version -->
+      <div class="flex flex-wrap gap-2">
+        <div 
+          v-for="complaint in selectedPerson.complaints" 
+          :key="complaint.id" 
+          class="flex items-center bg-gray-50 rounded-md border border-gray-200 overflow-hidden"
+        >
+          <input 
+            v-model="complaint.text" 
+            type="text" 
+            :disabled="isViewOnly"
+            class="w-36 px-2 py-1 text-sm border-none focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent" 
+            placeholder="Enter complaint"
+          />
+          <button 
+            v-if="!isViewOnly" 
+            @click="removeComplaint(complaint.id)" 
+            class="p-1 text-red-500 hover:text-red-700"
+          >
+            <Icon icon="mdi:close" class="w-4 h-4" />
           </button>
         </div>
       </div>

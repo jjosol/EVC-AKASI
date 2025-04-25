@@ -111,6 +111,7 @@ model consultation_records {
   diagnosis          consultation_diagnosis[]
   medAdministrations medAdministration[]      @relation("ConsultationToMedAdministration")
   prescriptions      prescription[]
+  chiefcomplaints    chiefcomplaint[]        // Add relation to chiefcomplaints
 
   @@index([nurse_id], map: "FK_nurse_TO_consultation_records")
   @@index([patient_id], map: "FK_patient_TO_consultation_records")
@@ -465,3 +466,15 @@ model hsu_bulletin_files {
 
   @@index([post_id], map: "HSU_bulletin_files_post_id_idx")
 }
+
+model chiefcomplaint {
+  chiefcomplaint_id Int      @id @default(autoincrement())
+  consultation_id   Int
+  complaint         String   @db.VarChar(225)
+  
+  // Relations
+  consultation      consultation_records @relation(fields: [consultation_id], references: [consultation_id], onDelete: Cascade)
+
+  @@index([consultation_id])
+}
+
