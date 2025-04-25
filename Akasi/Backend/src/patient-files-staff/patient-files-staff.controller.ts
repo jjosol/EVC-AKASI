@@ -96,14 +96,74 @@ export class PatientFilesStaffController {
                     // Create directory structure based on file type and patient ID
                     const fileType = req.body.type || 'general';
                     const patientId = req.body.patient_id || 'unknown';
+                    const schoolYear = '2024-2025'; // Use the current school year
                     const today = new Date();
-                    const year = today.getFullYear();
-                    const month = String(today.getMonth() + 1).padStart(2, '0');
                     
-                    // Create path like: uploads/dental/2023/05/patientId/
-                    const uploadPath = path.resolve(__dirname, `../../uploads/${fileType}/${year}/${month}/${patientId}`);
-                    fs.mkdirSync(uploadPath, { recursive: true });
-                    cb(null, uploadPath);
+                    // Map file type to the correct folder name
+                    let folderName = 'general';
+                    switch (fileType.toLowerCase()) {
+                        case 'dental':
+                            folderName = 'dental-certificates';
+                            break;
+                        case 'medical':
+                            folderName = 'medical-certificates';
+                            break;
+                        case 'opthal':
+                            folderName = 'opthal-certificates';
+                            break;
+                        case 'physical':
+                            folderName = 'physical-exam';
+                            break;
+                        case 'laboratory':
+                            folderName = 'laboratory';
+                            break;
+                        case 'dental_consent':
+                            folderName = 'dental-consent';
+                            break;
+                        case 'medical_consent':
+                            folderName = 'medical-consent';
+                            break;
+                        case 'dental_history':
+                            folderName = 'dental-history';
+                            break;
+                        case 'hh_pds':
+                            folderName = 'hh-pds';
+                            break;
+                        default:
+                            folderName = 'general';
+                    }
+
+                    // Get patient grade information to create proper folder structure
+                    const prismaService = new PrismaService();
+                    prismaService.patient.findUnique({
+                        where: { patient_id: parseInt(patientId) },
+                        select: { grade: true }
+                    }).then(patient => {
+                        // Create complete upload path with school year, file type, and grade
+                        let uploadPath;
+                        if (patient && patient.grade) {
+                            // For students, include grade level
+                            const gradeFolderName = `g${patient.grade}`;
+                            uploadPath = path.resolve(__dirname, `../../uploads/${schoolYear}/${folderName}/${gradeFolderName}`);
+                        } else {
+                            // For staff or if grade isn't available
+                            uploadPath = path.resolve(__dirname, `../../uploads/${schoolYear}/${folderName}`);
+                        }
+                        
+                        // Create directories if they don't exist
+                        fs.mkdirSync(uploadPath, { recursive: true });
+                        
+                        // Log the destination path for debugging
+                        console.log(`Saving file to: ${uploadPath}`);
+                        
+                        cb(null, uploadPath);
+                    }).catch(error => {
+                        console.error("Error getting patient grade:", error);
+                        // Fallback path if we can't get patient info
+                        const uploadPath = path.resolve(__dirname, `../../uploads/${schoolYear}/${folderName}`);
+                        fs.mkdirSync(uploadPath, { recursive: true });
+                        cb(null, uploadPath);
+                    });
                 },
                 filename: (req, file, cb) => {
                     // Generate more descriptive filename

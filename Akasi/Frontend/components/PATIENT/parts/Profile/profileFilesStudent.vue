@@ -799,7 +799,7 @@ async function createImagePreview(blob, maxWidth) {
             // Use the CORRECT endpoint which is 'fetch-patient-files/all' as defined in the controller
             console.log('Fetching all patient files first');
             
-            const response = await fetch('http://localhost:3001/fetch-client-files/all', {
+            const response = await fetch('http://localhost:3001/fetch-patient-files/all', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -1025,7 +1025,7 @@ async function deleteFile() {
 </script>
 
 <template>
-<div class="bg-white shadow-md rounded-xl overflow-hidden mt-5">
+<div class="mt-5 overflow-hidden bg-white shadow-md rounded-xl">
     <div class="tabs-container">
     <!-- Tab Navigation -->
     <div class="tab-nav">
@@ -1057,7 +1057,7 @@ async function deleteFile() {
                     class="inline-flex justify-between items-center w-56 rounded-md border border-gray-200 px-4 py-2 bg-white text-sm font-medium text-[#2f4a71] hover:bg-[#f8f4ff] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
                 >
                     {{ selectedGrade || 'Select Grade' }}
-                    <svg class="-mr-1 ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <svg class="w-5 h-5 ml-2 -mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a 1 1 0 111.414 1.414l-4 4a 1 1 0 01-1.414 0l-4-4a 1 1 0 010-1.414z" clip-rule="evenodd" />
                     </svg>
                 </button>
@@ -1065,7 +1065,7 @@ async function deleteFile() {
 
                 <div 
                 v-if="isOpen" 
-                class="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 focus:outline-none z-10 max-h-48 overflow-y-auto"
+                class="absolute right-0 z-10 w-56 mt-2 overflow-y-auto origin-top-right bg-white divide-y divide-gray-100 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none max-h-48"
                 >
                 <div class="py-1">
                     <a 
@@ -1096,11 +1096,11 @@ async function deleteFile() {
             <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2f4a71]"></div>
             </div>
             
-            <div v-else-if="patientFiles && patientFiles.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div v-else-if="patientFiles && patientFiles.length > 0" class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             <div 
                 v-for="file in patientFiles" 
                 :key="`${file.type}-${file.id}`" 
-                class="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                class="overflow-hidden transition-shadow border rounded-lg shadow-sm hover:shadow-md"
             >
                 <div class="p-4">
                 <div class="flex items-start">
@@ -1116,7 +1116,7 @@ async function deleteFile() {
                         'inline-block p-2 rounded-md'
                         ]"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                         </svg>
                     </span>
@@ -1128,7 +1128,7 @@ async function deleteFile() {
                     <p class="text-xs text-gray-500">
                         Grade {{ file.grade }}
                     </p>
-                    <p class="text-xs text-gray-400 mt-1">
+                    <p class="mt-1 text-xs text-gray-400">
                         {{ formatDate(file.date) }}
                     </p>
                     </div>
@@ -1148,19 +1148,19 @@ async function deleteFile() {
 
                     <!-- Notes (if available) -->
                     <div v-if="file.notes" class="mt-2">
-                        <p class="text-xs text-gray-600 italic">
+                        <p class="text-xs italic text-gray-600">
                             <span class="font-medium">Note:</span> {{ file.notes }}
                         </p>
                     </div>
             
                 <!-- Actions -->
                 <!-- Add this inside the Actions div, right after the View button -->
-                    <div class="mt-3 flex justify-between">
+                    <div class="flex justify-between mt-3">
                         <button 
                         @click="viewFile(file)"
                         class="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
                         >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
@@ -1173,7 +1173,7 @@ async function deleteFile() {
                         @click.stop="confirmDeleteFile(file)"
                         class="inline-flex items-center px-2.5 py-1.5 border border-red-300 text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                         >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                         Delete
@@ -1183,8 +1183,8 @@ async function deleteFile() {
             </div>
             </div>
             
-            <div v-else class="text-center py-12">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div v-else class="py-12 text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             <p class="mt-3 text-gray-500">No certificates found for this grade</p>
@@ -1194,7 +1194,7 @@ async function deleteFile() {
         <!-- No Grade Selected State -->
         <div v-else class="p-6 text-center">
             <div class="p-8">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
             </svg>
             <p class="mt-4 text-gray-500">Please select a grade to view available certificates</p>
@@ -1203,7 +1203,7 @@ async function deleteFile() {
         </div>
 
         <!-- Tab 2 Content -->
-        <div v-if="activeTab === 'tab2'" class="tab-panel p-4">
+        <div v-if="activeTab === 'tab2'" class="p-4 tab-panel">
             <h2 class="text-xl font-medium mb-6 text-[#2f4a71]">Consultation Records</h2>
             
             <!-- Loading state -->
@@ -1212,7 +1212,7 @@ async function deleteFile() {
             </div>
             
             <!-- Error state -->
-            <div v-else-if="consultationsError" class="p-4 bg-red-50 text-red-700 rounded-md">
+            <div v-else-if="consultationsError" class="p-4 text-red-700 rounded-md bg-red-50">
                 <p>{{ consultationsError }}</p>
                 <button 
                     @click="fetchConsultations(currentPatientId)" 
@@ -1223,8 +1223,8 @@ async function deleteFile() {
             </div>
             
             <!-- No records state -->
-            <div v-else-if="consultations.length === 0" class="text-center py-12">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div v-else-if="consultations.length === 0" class="py-12 text-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 <p class="mt-3 text-gray-500">No consultation records found</p>
@@ -1232,27 +1232,27 @@ async function deleteFile() {
             
             <!-- Update the consultation records section in profileFilesStudent.vue -->
             <div v-else class="divide-y divide-gray-200">
-                <div v-for="record in consultations" :key="record.id" class="py-4 hover:bg-gray-50 transition-colors rounded-lg p-4">
-                    <div class="flex justify-between items-start">
+                <div v-for="record in consultations" :key="record.id" class="p-4 py-4 transition-colors rounded-lg hover:bg-gray-50">
+                    <div class="flex items-start justify-between">
                         <div>
                             <div class="text-sm text-gray-500">{{ formatDate(record.date) }}</div>
                             <h3 class="font-medium text-lg text-[#2f4a71]">
                                 {{ record.diagnoses || 'General Consultation' }}
                             </h3>
-                            <div class="mt-1 flex items-center">
+                            <div class="flex items-center mt-1">
                                 <span class="text-sm text-gray-600">Attended by: {{ record.doctor || 'School Physician' }}</span>
                             </div>
                         </div>
                         
                         <!-- Status indicators -->
                         <div class="flex space-x-2">
-                            <span v-if="record.confined" class="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">
+                            <span v-if="record.confined" class="px-2 py-1 text-xs font-medium text-red-800 bg-red-100 rounded-full">
                                 Confined
                             </span>
-                            <span v-if="record.medAdministration" class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+                            <span v-if="record.medAdministration" class="px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full">
                                 Medication
                             </span>
-                            <span v-if="record.intern" class="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full font-medium">
+                            <span v-if="record.intern" class="px-2 py-1 text-xs font-medium text-purple-800 bg-purple-100 rounded-full">
                                 Intern
                             </span>
                         </div>
@@ -1273,13 +1273,13 @@ async function deleteFile() {
                                 <p class="font-medium text-gray-700">Medications:</p>
                                 <div class="mt-1 space-y-2">
                                     <div v-for="(medication, index) in record.medications" :key="medication.id" 
-                                        class="flex items-start bg-blue-50 p-2 rounded">
-                                        <div class="flex-shrink-0 h-5 w-5 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center mr-2 text-xs font-bold">
+                                        class="flex items-start p-2 rounded bg-blue-50">
+                                        <div class="flex items-center justify-center flex-shrink-0 w-5 h-5 mr-2 text-xs font-bold text-blue-800 bg-blue-100 rounded-full">
                                             {{ index + 1 }}
                                         </div>
                                         <div class="flex-1">
                                             <p class="font-medium">{{ medication.name }}</p>
-                                            <div class="text-xs text-gray-600 mt-1">
+                                            <div class="mt-1 text-xs text-gray-600">
                                                 <p><span class="font-medium">Quantity:</span> {{ medication.count }}</p>
                                                 <p><span class="font-medium">Schedule:</span> {{ medication.schedule }}</p>
                                                 <p><span class="font-medium">Duration:</span> {{ formatDate(medication.startDate) }} - {{ formatDate(medication.endDate) }}</p>
@@ -1317,29 +1317,29 @@ async function deleteFile() {
     <!-- Access Denied Modal -->
         <div 
             v-if="showAccessDeniedModal" 
-            class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
             @click.self="closeAccessDeniedModal"
         >
-            <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
+            <div class="w-full max-w-md mx-4 overflow-hidden bg-white rounded-lg shadow-xl">
                 <div class="p-6">
                     <div class="flex items-center justify-center mb-6">
-                        <div class="bg-red-100 rounded-full p-3">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div class="p-3 bg-red-100 rounded-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m0 0v2m0-2h2m-2 0H9m3-4V8m6 8l-3.5-2m-6 0L6 16m6-10c-.5 0-1.3.8-2.5 2-1 1-1.5 1-2.5 1V5a3 3 0 116 0z" />
                             </svg>
                         </div>
                     </div>
                     
-                    <h3 class="text-xl font-medium text-gray-900 text-center mb-2">Access Denied</h3>
+                    <h3 class="mb-2 text-xl font-medium text-center text-gray-900">Access Denied</h3>
                     
-                    <p class="text-gray-600 text-center mb-6">
+                    <p class="mb-6 text-center text-gray-600">
                         You can only view your own files. Please select a file that belongs to your account.
                     </p>
                     
                     <div class="flex justify-center">
                         <button 
                             @click="closeAccessDeniedModal" 
-                            class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                         >
                             OK
                         </button>
@@ -1352,16 +1352,16 @@ async function deleteFile() {
 
 <!-- File Viewer Modal -->
 <!-- In your template section, replace the file viewer modal with this improved version -->
-<div v-if="showViewerModal" class="fixed inset-0 z-50 overflow-hidden bg-black bg-opacity-75 flex items-center justify-center">
-  <div class="bg-white rounded-lg w-11/12 md:w-4/5 max-w-4xl h-5/6 flex flex-col relative overflow-hidden">
+<div v-if="showViewerModal" class="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black bg-opacity-75">
+  <div class="relative flex flex-col w-11/12 max-w-4xl overflow-hidden bg-white rounded-lg md:w-4/5 h-5/6">
     <!-- Modal header -->
-    <div class="p-4 border-b flex justify-between items-center">
+    <div class="flex items-center justify-between p-4 border-b">
       <h3 class="text-lg font-medium">{{ selectedFile?.fileName || 'File Viewer' }}</h3>
       <div class="space-x-2">
         <button 
           v-if="selectedFile && !fileLoading" 
           @click="downloadFile(selectedFile)" 
-          class="px-3 py-1 bg-blue-500 text-white rounded text-sm"
+          class="px-3 py-1 text-sm text-white bg-blue-500 rounded"
         >
           Download
         </button>
@@ -1374,20 +1374,20 @@ async function deleteFile() {
     </div>
     
     <!-- Modal body with viewer -->
-    <div class="flex-1 overflow-auto p-4 bg-gray-50">
+    <div class="flex-1 p-4 overflow-auto bg-gray-50">
       <!-- Loading state -->
-      <div v-if="fileLoading || selectedFile?.isLoading" class="h-full flex items-center justify-center">
-        <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+      <div v-if="fileLoading || selectedFile?.isLoading" class="flex items-center justify-center h-full">
+        <div class="w-16 h-16 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin"></div>
         <p class="ml-3 text-gray-600">Loading file...</p>
       </div>
       
       <!-- Error state -->
-      <div v-else-if="fileError" class="h-full flex items-center justify-center">
-        <div class="text-center p-6 bg-red-50 rounded-lg max-w-md">
-          <svg class="w-12 h-12 text-red-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      <div v-else-if="fileError" class="flex items-center justify-center h-full">
+        <div class="max-w-md p-6 text-center rounded-lg bg-red-50">
+          <svg class="w-12 h-12 mx-auto text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
-          <h3 class="text-lg font-medium text-red-800 mt-2">Failed to load file</h3>
+          <h3 class="mt-2 text-lg font-medium text-red-800">Failed to load file</h3>
           <p class="mt-1 text-red-600">{{ fileError }}</p>
         </div>
       </div>
@@ -1395,13 +1395,13 @@ async function deleteFile() {
       <!-- Image viewer -->
       <div 
         v-else-if="selectedFile?.isImage" 
-        class="h-full flex items-center justify-center"
+        class="flex items-center justify-center h-full"
       >
-        <div v-if="imageLoadError" class="text-center p-4 bg-red-50 rounded-lg">
-          <p class="text-red-600 mb-2">Error displaying image. The file may be too large ({{ formatFileSize(selectedFile?.size || 0) }}).</p>
+        <div v-if="imageLoadError" class="p-4 text-center rounded-lg bg-red-50">
+          <p class="mb-2 text-red-600">Error displaying image. The file may be too large ({{ formatFileSize(selectedFile?.size || 0) }}).</p>
           <button 
             @click="downloadFile(selectedFile)"
-            class="px-3 py-1 bg-blue-500 text-white rounded"
+            class="px-3 py-1 text-white bg-blue-500 rounded"
           >
             Download Instead {{ selectedFile.url }}
           </button>
@@ -1410,7 +1410,7 @@ async function deleteFile() {
           v-else
           :src="selectedFile.previewUrl || selectedFile.url" 
           :alt="selectedFile.fileName" 
-          class="max-w-full max-h-full object-contain"
+          class="object-contain max-w-full max-h-full"
           @error="imageLoadError = true"
         />
       </div>
@@ -1423,11 +1423,11 @@ async function deleteFile() {
           class="w-full h-full"
           @error="fileError = 'PDF viewer not supported in this browser'"
         >
-          <div class="flex flex-col items-center justify-center h-full text-center p-6 bg-gray-100 rounded-lg">
+          <div class="flex flex-col items-center justify-center h-full p-6 text-center bg-gray-100 rounded-lg">
             <p class="mb-3">Your browser doesn't support PDF viewing.</p>
             <button 
               @click="downloadFile(selectedFile)"
-              class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
             >
               Download PDF
             </button>
@@ -1436,7 +1436,7 @@ async function deleteFile() {
       </div>
       
       <!-- Video viewer -->
-      <div v-else-if="selectedFile?.isVideo" class="h-full flex items-center justify-center">
+      <div v-else-if="selectedFile?.isVideo" class="flex items-center justify-center h-full">
         <video 
           :src="selectedFile.url" 
           controls 
@@ -1448,15 +1448,15 @@ async function deleteFile() {
       </div>
       
       <!-- Generic file (download only) -->
-      <div v-else class="h-full flex items-center justify-center">
-        <div class="text-center p-6 bg-gray-100 rounded-lg">
-          <svg class="w-16 h-16 text-gray-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      <div v-else class="flex items-center justify-center h-full">
+        <div class="p-6 text-center bg-gray-100 rounded-lg">
+          <svg class="w-16 h-16 mx-auto text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
           <p class="mt-3 mb-4">This file type can't be previewed in the browser.</p>
           <button 
             @click="downloadFile(selectedFile)"
-            class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
           >
             Download File
           </button>
@@ -1469,19 +1469,19 @@ async function deleteFile() {
 <!-- Modal for uploading files (kept for reference) -->
 <div 
     v-if="showModal" 
-    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
     @click.self="closeModal()"
 >
     <!-- Modal Container -->
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
+    <div class="w-full max-w-md mx-4 overflow-hidden bg-white rounded-lg shadow-xl">
     <!-- Modal Header -->
-    <div class="flex justify-between items-center p-4 border-b">
+    <div class="flex items-center justify-between p-4 border-b">
         <h3 class="text-lg font-medium text-gray-900">Upload Certificate</h3>
         <button 
         @click="closeModal" 
         class="text-gray-400 hover:text-gray-500 focus:outline-none"
         >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
         </svg>
         </button>
@@ -1489,11 +1489,11 @@ async function deleteFile() {
     
     <!-- Modal Body - File Upload Form -->
     <div class="p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Upload Certificate Files</h3>
+        <h3 class="mb-4 text-lg font-medium text-gray-900">Upload Certificate Files</h3>
         
         <!-- Certificate Type Selection -->
         <div class="mb-4">
-        <label for="certType" class="block text-sm font-medium text-gray-700 mb-1">Certificate Type</label>
+        <label for="certType" class="block mb-1 text-sm font-medium text-gray-700">Certificate Type</label>
         <select 
             id="certType"
             v-model="uploadForm.certType"
@@ -1516,7 +1516,7 @@ async function deleteFile() {
         
         <!-- Or select grade if none is currently selected -->
         <div v-else class="mb-4">
-        <label for="grade" class="block text-sm font-medium text-gray-700 mb-1">Grade</label>
+        <label for="grade" class="block mb-1 text-sm font-medium text-gray-700">Grade</label>
         <select 
             id="grade"
             v-model="uploadForm.grade"
@@ -1531,11 +1531,11 @@ async function deleteFile() {
         
         <!-- File Upload -->
         <div class="mb-4">
-        <label for="fileUpload" class="block text-sm font-medium text-gray-700 mb-1">Upload File</label>
-        <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+        <label for="fileUpload" class="block mb-1 text-sm font-medium text-gray-700">Upload File</label>
+        <div class="flex justify-center px-6 pt-5 pb-6 mt-1 border-2 border-gray-300 border-dashed rounded-md">
             <div class="space-y-1 text-center">
             <svg
-                class="mx-auto h-12 w-12 text-gray-400"
+                class="w-12 h-12 mx-auto text-gray-400"
                 stroke="currentColor"
                 fill="none"
                 viewBox="0 0 48 48"
@@ -1583,7 +1583,7 @@ async function deleteFile() {
             :style="{ width: `${uploadProgress}%` }"
             ></div>
         </div>
-        <p class="text-sm text-gray-600 mt-1">Uploading: {{ uploadProgress }}%</p>
+        <p class="mt-1 text-sm text-gray-600">Uploading: {{ uploadProgress }}%</p>
         </div>
     </div>
 
@@ -1598,7 +1598,7 @@ async function deleteFile() {
         </button>
         <button 
         @click="closeModal" 
-        class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+        class="inline-flex justify-center w-full px-4 py-2 mt-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
         >
         Cancel
         </button>
@@ -1610,18 +1610,18 @@ async function deleteFile() {
 <!-- Delete Confirmation Modal -->
 <div 
     v-if="showDeleteConfirmModal" 
-    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
     @click.self="closeDeleteConfirmModal"
 >
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
+    <div class="w-full max-w-md mx-4 overflow-hidden bg-white rounded-lg shadow-xl">
         <!-- Modal Header -->
-        <div class="flex justify-between items-center p-4 border-b">
+        <div class="flex items-center justify-between p-4 border-b">
             <h3 class="text-lg font-medium text-gray-900">Confirm Deletion</h3>
             <button 
                 @click="closeDeleteConfirmModal" 
                 class="text-gray-400 hover:text-gray-500 focus:outline-none"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
             </button>
@@ -1630,7 +1630,7 @@ async function deleteFile() {
         <!-- Modal Body -->
         <div class="p-6">
             <div class="flex items-center mb-4 text-red-600">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
                 <span class="text-lg font-medium">Are you sure?</span>
@@ -1643,25 +1643,25 @@ async function deleteFile() {
             </p>
             
             <!-- Error message if delete fails -->
-            <div v-if="deleteError" class="mb-4 p-2 bg-red-50 text-red-600 rounded">
+            <div v-if="deleteError" class="p-2 mb-4 text-red-600 rounded bg-red-50">
                 {{ deleteError }}
             </div>
             
             <div class="flex justify-end space-x-3">
                 <button 
                     @click="closeDeleteConfirmModal"
-                    class="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                    class="px-4 py-2 text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
                     :disabled="isDeleting"
                 >
                     Cancel
                 </button>
                 <button 
                     @click="deleteFile"
-                    class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                    class="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-700"
                     :disabled="isDeleting"
                 >
                     <span v-if="isDeleting">
-                        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <svg class="inline-block w-4 h-4 mr-2 -ml-1 text-white animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>

@@ -10,13 +10,15 @@ const mkdirAsync = promisify(fs.mkdir);
 @Injectable()
 export class StorageService {
   private readonly uploadDir = path.join(process.cwd(), 'uploads');
-  private readonly bulletinDir = path.join(this.uploadDir, 'bulletin');
-  private readonly prescriptionDir = path.join(this.uploadDir, 'prescriptions');
-  private readonly medicalCertificatesDir = path.join(this.uploadDir, 'medical-certificates');
-  private readonly dentalCertificatesDir = path.join(this.uploadDir, 'dental-certificates');
-  private readonly opthalCertificatesDir = path.join(this.uploadDir, 'opthal-certificates');
-  private readonly physicalExamDir = path.join(this.uploadDir, 'physical-exam');
-  private readonly laboratoryDir = path.join(this.uploadDir, 'laboratory');
+  private readonly currentSchoolYear = '2024-2025'; // Current school year as a constant
+  private readonly bulletinDir = path.join(this.uploadDir, this.currentSchoolYear, 'bulletin');
+  private readonly prescriptionDir = path.join(this.uploadDir, this.currentSchoolYear, 'prescriptions');
+  private readonly medicalCertificatesDir = path.join(this.uploadDir, this.currentSchoolYear, 'medical-certificates');
+  private readonly dentalCertificatesDir = path.join(this.uploadDir, this.currentSchoolYear, 'dental-certificates');
+  private readonly opthalCertificatesDir = path.join(this.uploadDir, this.currentSchoolYear, 'opthal-certificates');
+  private readonly physicalExamDir = path.join(this.uploadDir, this.currentSchoolYear, 'physical-exam');
+  private readonly laboratoryDir = path.join(this.uploadDir, this.currentSchoolYear, 'laboratory');
+  private readonly generalDir = path.join(this.uploadDir, this.currentSchoolYear, 'general');
 
   constructor(private prisma: PrismaService) { 
     // Ensure directories exist
@@ -27,13 +29,15 @@ export class StorageService {
     try {
       const directories = [
         this.uploadDir,
+        path.join(this.uploadDir, this.currentSchoolYear),
         this.bulletinDir,
         this.prescriptionDir,
         this.medicalCertificatesDir,
         this.dentalCertificatesDir,
         this.opthalCertificatesDir,
         this.physicalExamDir,
-        this.laboratoryDir
+        this.laboratoryDir,
+        this.generalDir
       ];
 
       for (const dir of directories) {
@@ -147,56 +151,67 @@ export class StorageService {
     const fileExtension = path.extname(file.originalname);
     const fileName = `${timestamp}_${patientId}${fileExtension}`;
     let baseDirectory: string;
+    let fileType = type; // Store original type for database entry
     
     // Determine the base directory based on file type
-    switch (type) {
+    switch (type.toLowerCase()) {
+      case 'medical':
       case 'medical-certificate':
         baseDirectory = this.medicalCertificatesDir;
+        fileType = 'medical-certificate';
         break;
+      case 'dental':
       case 'dental-certificate':
         baseDirectory = this.dentalCertificatesDir;
+        fileType = 'dental-certificate';
         break;
+      case 'opthal':
       case 'opthal-certificate':
         baseDirectory = this.opthalCertificatesDir;
+        fileType = 'opthal-certificate';
         break;
+      case 'physical':
       case 'physical-exam':
         baseDirectory = this.physicalExamDir;
+        fileType = 'physical-exam';
         break;
       case 'laboratory':
         baseDirectory = this.laboratoryDir;
         break;
       default:
-        throw new Error(`Unsupported file type: ${type}`);
+        // Fallback to a general directory within uploads
+        baseDirectory = this.generalDir;
+        console.warn(`File type '${type}' not explicitly mapped to a directory, using general folder`);
+        // Make sure general directory exists
+        if (!fs.existsSync(baseDirectory)) {
+          fs.mkdirSync(baseDirectory, { recursive: true });
+        }
     }
 
-    // Get the current year for organizing files
+    // Current year for this file path
     const today = new Date();
-    const year = today.getFullYear().toString();
-    
-    // Create year directory
-    const yearDir = path.join(baseDirectory, year);
-    if (!fs.existsSync(yearDir)) {
-      await mkdirAsync(yearDir, { recursive: true });
-    }
     
     // Create grade or division directory
-    let categoryDir = yearDir;
-    let relativeDirPath = path.join(type, year);
+    let categoryDir = baseDirectory;
+    let relativeDirPath;
     
     // For students, use grade level; for staff, use division
     if (grade !== null) {
       // Student: use grade folder
       const gradeFolderName = `g${grade}`;
-      categoryDir = path.join(yearDir, gradeFolderName);
-      relativeDirPath = path.join(type, year, gradeFolderName);
+      categoryDir = path.join(baseDirectory, gradeFolderName);
+      relativeDirPath = path.join(this.currentSchoolYear, fileType.toLowerCase(), gradeFolderName);
     } else if (division !== null) {
       // Staff: use division folder
-      categoryDir = path.join(yearDir, division);
-      relativeDirPath = path.join(type, year, division);
+      categoryDir = path.join(baseDirectory, division);
+      relativeDirPath = path.join(this.currentSchoolYear, fileType.toLowerCase(), division);
+    } else {
+      // Default path without grade or division
+      relativeDirPath = path.join(this.currentSchoolYear, fileType.toLowerCase());
     }
     
     // Ensure the category directory exists
-    if (categoryDir !== yearDir && !fs.existsSync(categoryDir)) {
+    if (!fs.existsSync(categoryDir)) {
       await mkdirAsync(categoryDir, { recursive: true });
     }
     
@@ -213,6 +228,10 @@ export class StorageService {
       // Write file to disk
       await writeFileAsync(filePath, file.buffer);
       
+      console.log(`File saved to: ${filePath}`);
+      console.log(`Relative path for DB: ${relativePath}`);
+      console.log(`File type: ${fileType}`);
+      
       // Create record in the appropriate table based on type
       const fileData = {
         patient_id: patientId,
@@ -226,14 +245,17 @@ export class StorageService {
         notes: null
       };
 
-      switch (type) {
+      switch (fileType.toLowerCase()) {
         case 'medical-certificate':
           return await this.prisma.medical_certificates.create({ data: fileData });
         case 'dental-certificate':
+        case 'dental':
           return await this.prisma.dental_certificates.create({ data: fileData });
         case 'opthal-certificate':
+        case 'opthal':
           return await this.prisma.opthal_certificates.create({ data: fileData });
         case 'physical-exam':
+        case 'physical':
           return await this.prisma.physical_exam.create({ data: fileData });
         case 'laboratory':
           // For laboratory records, we need an additional 'type' field
@@ -243,9 +265,11 @@ export class StorageService {
               type: 'general' // Default type, can be overridden by parameters
             }
           });
+        default:
+          throw new Error(`Unsupported file type: ${fileType}`);
       }
     } catch (error) {
-      console.error(`Error uploading ${type} file:`, error);
+      console.error(`Error uploading ${fileType} file:`, error);
       throw error;
     }
   }

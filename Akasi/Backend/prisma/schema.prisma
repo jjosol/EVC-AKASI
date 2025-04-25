@@ -103,6 +103,7 @@ model consultation_records {
   confined           Boolean
   medAdministration  Boolean
   disposition        String   @default("") @db.VarChar(500)
+  diagnosis_text     String?  @db.VarChar(1000) // Stores formatted diagnosis text
 
   // Relations
   nurse              nurse                    @relation(fields: [nurse_id], references: [nurse_id], onDelete: NoAction, onUpdate: NoAction)

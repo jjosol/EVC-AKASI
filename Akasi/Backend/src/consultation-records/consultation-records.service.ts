@@ -8,6 +8,42 @@ import { Prisma } from '@prisma/client';
 export class ConsultationRecordsService {
   constructor(private prisma: PrismaService) { }
 
+  // Helper method to update diagnoses_text field
+  private async updateDiagnosesText(consultation_id: number): Promise<void> {
+    try {
+      // Get all diagnoses for this consultation
+      const consultationWithDiagnoses = await this.prisma.consultation_records.findUnique({
+        where: { consultation_id },
+        include: {
+          diagnosis: {
+            include: {
+              diagnosis: true
+            }
+          }
+        }
+      });
+
+      if (!consultationWithDiagnoses) {
+        throw new NotFoundException(`Consultation record with ID ${consultation_id} not found`);
+      }
+
+      // Format diagnoses as a comma-separated string
+      const diagnosesText = consultationWithDiagnoses.diagnosis
+        .map(d => d.diagnosis?.name)
+        .filter(Boolean)
+        .join(', ');
+
+      // Update the consultation record with formatted diagnoses
+      await this.prisma.consultation_records.update({
+        where: { consultation_id },
+        data: { diagnosis_text: diagnosesText || null }
+      });
+    } catch (error) {
+      console.error(`Error updating diagnoses_text: ${error.message}`);
+      // Don't throw here to avoid disrupting main operations
+    }
+  }
+
   // Method to create a consultation record
   async createConsultationRecord(data: ConsultationRecordCreateInput) {
     try {
@@ -81,8 +117,11 @@ export class ConsultationRecordsService {
         where: { consultation_id },
         data: updateData,
       });
+      
+      // After updating the consultation, ensure the diagnoses_text is synchronized
+      await this.updateDiagnosesText(consultation_id);
 
-      return consultationRecord;
+      return this.getConsultationRecord(consultation_id);
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -298,6 +337,9 @@ export class ConsultationRecordsService {
           diagnosis_id
         }
       });
+      
+      // Update diagnoses_text field
+      await this.updateDiagnosesText(consultation_id);
 
       return { message: 'Diagnosis linked to consultation successfully' };
     } catch (error) {
@@ -333,6 +375,9 @@ export class ConsultationRecordsService {
           }
         }
       });
+      
+      // Update diagnoses_text field
+      await this.updateDiagnosesText(consultation_id);
 
       return { message: 'Diagnosis removed from consultation successfully' };
     } catch (error) {
@@ -381,8 +426,10 @@ export class ConsultationRecordsService {
         intervention: record.intervention,
         confined: record.confined,
         medAdministration: record.medAdministration,
-        // Format diagnoses from related records
-        diagnoses: record.diagnosis?.map(d => d.diagnosis?.name).filter(Boolean).join(', ') || record.complaint,
+        // Use diagnoses_text if available, otherwise generate it from relations
+        diagnoses: record.diagnosis_text || 
+                   record.diagnosis?.map(d => d.diagnosis?.name).filter(Boolean).join(', ') || 
+                   record.complaint,
         // Include medication administration details
         medications: record.medAdministrations?.map(med => ({
           id: med.med_administration_id,
