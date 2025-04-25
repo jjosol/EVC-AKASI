@@ -8,7 +8,7 @@ import * as consultationRecordService from '~/services/consultationRecordService
 import { Icon } from '@iconify/vue';
 
 // Import all the components
-import ConfirmationModal from '~/components/SHARED/parts/confirmationModal.vue';
+// import ConfirmationModal from '~/components/SHARED/parts/confirmationModal.vue';
 import AddModal from './addListComponents/AddModalD.vue';
 import EditModal from './addListComponents/EditModalD.vue';
 import MedicineModal from './addListComponents/MedicineModalD.vue';

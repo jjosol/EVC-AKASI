@@ -48,7 +48,7 @@ export class ConsultationRecordsService {
   async createConsultationRecord(data: ConsultationRecordCreateInput) {
     try {
       const { diagnosis_ids, ...consultationData } = data;
-       
+
       // Create the consultation record using the properly formatted data
       const record = await this.prisma.consultation_records.create({
         data: {
@@ -56,7 +56,7 @@ export class ConsultationRecordsService {
           nurse_id: consultationData.nurse_id,
           doctor_id: consultationData.doctor_id || null,
           date: new Date(consultationData.date),
-          patient_name: consultationData.patient_name, 
+          patient_name: consultationData.patient_name,
           patient_occupation: consultationData.patient_occupation,
           nurse_name: consultationData.nurse_name,
           doctor_name: consultationData.doctor_name || null,
@@ -261,10 +261,10 @@ export class ConsultationRecordsService {
               }
             }
           });
-          
+
           // Calculate new running total
           const newTotal = medicineItem.count + record.count;
-          
+
           // Log the return to inventory - Changed EditsMedicine to editsMedicine (camelCase)
           await prisma.editsMedicine.create({
             data: {

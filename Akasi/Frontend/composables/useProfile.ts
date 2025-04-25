@@ -45,6 +45,7 @@ export function useProfile() {
   const error = ref<string | null>(null)
   const isNurse = ref(false)
   const isDoctor = ref(false)
+  const isPatient = ref(false)
 
   async function fetchProfile() {
     try {
@@ -62,14 +63,17 @@ export function useProfile() {
             profile.value = createMockNurseProfile()
             isNurse.value = true
             isDoctor.value = false
+            isPatient.value = false
           } else if (role === 'doctor') {
             profile.value = createMockDoctorProfile()
             isNurse.value = false
             isDoctor.value = true
+            isPatient.value = false
           } else {
             profile.value = createMockPatientProfile()
             isNurse.value = false
             isDoctor.value = false
+            isPatient.value = true
           }
           console.log('Created mock profile:', profile.value)
           return profile.value
@@ -94,14 +98,17 @@ export function useProfile() {
               profile.value = createMockNurseProfile()
               isNurse.value = true
               isDoctor.value = false
+              isPatient.value = false
             } else if (role === 'doctor') {
               profile.value = createMockDoctorProfile()
               isNurse.value = false
               isDoctor.value = true
+              isPatient.value = false
             } else {
               profile.value = createMockPatientProfile()
               isNurse.value = false
               isDoctor.value = false
+              isPatient.value = true
             }
             console.log('Created mock profile after auth error:', profile.value)
             return profile.value
@@ -128,6 +135,7 @@ export function useProfile() {
           }
           isNurse.value = true
           isDoctor.value = false
+          isPatient.value = false
           localStorage.setItem('userRole', 'nurse')
           console.log('Processed nurse profile:', profile.value)
         } else if (userData.doctor_id !== undefined) {
@@ -141,6 +149,7 @@ export function useProfile() {
           }
           isNurse.value = false
           isDoctor.value = true
+          isPatient.value = false
           localStorage.setItem('userRole', 'doctor')
           console.log('Processed doctor profile:', profile.value)
         } else if (userData.patient_id !== undefined) {
@@ -164,6 +173,7 @@ export function useProfile() {
           }
           isNurse.value = false
           isDoctor.value = false
+          isPatient.value = true
           localStorage.setItem('userRole', 'patient')
           console.log('Processed patient profile:', profile.value)
         } else {
@@ -180,14 +190,17 @@ export function useProfile() {
             profile.value = createMockNurseProfile()
             isNurse.value = true
             isDoctor.value = false
+            isPatient.value = false
           } else if (role === 'doctor') {
             profile.value = createMockDoctorProfile()
             isNurse.value = false
             isDoctor.value = true
+            isPatient.value = false
           } else {
             profile.value = createMockPatientProfile()
             isNurse.value = false
             isDoctor.value = false
+            isPatient.value = true
           }
           console.log('Created mock profile after fetch error:', profile.value)
           return profile.value
@@ -210,14 +223,17 @@ export function useProfile() {
           profile.value = createMockNurseProfile()
           isNurse.value = true
           isDoctor.value = false
+          isPatient.value = false
         } else if (role === 'doctor') {
           profile.value = createMockDoctorProfile()
           isNurse.value = false
           isDoctor.value = true
+          isPatient.value = false
         } else {
           profile.value = createMockPatientProfile()
           isNurse.value = false
           isDoctor.value = false
+          isPatient.value = true
         }
         console.log('Created mock profile after general error:', profile.value)
         return profile.value
@@ -277,6 +293,7 @@ export function useProfile() {
     error,
     isNurse,
     isDoctor,
+    isPatient,
     fetchProfile
   }
 }

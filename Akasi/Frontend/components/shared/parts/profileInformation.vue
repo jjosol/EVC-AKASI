@@ -142,6 +142,7 @@
   </div>
 </template>
 
+<!-- Modify the computed property to handle doctor type -->
 <script setup>
 import { onMounted, computed } from 'vue'
 import { useProfile } from '~/composables/useProfile'
@@ -160,12 +161,17 @@ const getUserTypeOrCategory = computed(() => {
   if (profile.value.type === 'nurse') {
     return 'Nurse';
   }
-  else{
-    return profile.value.category; // Student, Faculty, Staff, etc.
+  // If user is doctor, display "doctor"
+  else if (profile.value.type === 'doctor') {
+    return 'Doctor';
   }
-  console.log("dvsfvs", profile.value.category)
-  // Fallback to role or just "User"
-  return profile.value.role || 'User';
+  // For patients, display their category
+  else if (profile.value.type === 'patient') {
+    return profile.value.category || 'Patient'; // Student, Faculty, Staff, etc.
+  }
+  
+  // Fallback to type or just "User"
+  return profile.value.type || 'User';
 });
 
 const retryFetch = () => { 

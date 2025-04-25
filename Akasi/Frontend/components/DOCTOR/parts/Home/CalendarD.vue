@@ -137,7 +137,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class= "w-full p-4 bg-white lg:w-3/4 md:p-10 lg:p-20 rounded-3xl">
+  <div class= "w-full p-4 bg-white lg:w-3/4 md:p-10 lg:p-20">
     <h1 class="text-5xl text-[#2f4a71] m-0 font-bold">Confinement Calendar</h1>
     <br>
     <div class="flex items-center border-t gap-16 justify-left text-[#2f4a71]">
