@@ -1,5 +1,5 @@
 <template>
-  <div v-if="show" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 z-60">
+  <div v-if="show" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 z-[100]">
     <div class="w-2/3 p-6 bg-white rounded-2xl">
       <h2 class="mb-4 text-2xl font-semibold">Add Product</h2>
       <div class="flex items-center mb-4">
@@ -119,3 +119,11 @@ const canAddMedicine = (medicine) => {
   return !isNaN(requestedQty) && requestedQty > 0 && requestedQty <= medicine.displayCount;
 };
 </script>
+
+<style scoped>
+/* Add specific styles to ensure modal appears on top */
+.fixed {
+  position: fixed;
+  z-index: 100;
+}
+</style>

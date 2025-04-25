@@ -4,13 +4,42 @@ import puppeteer from 'puppeteer'
 export default defineEventHandler(async (event) => {
   try {
     const body = await readBody(event)
-    const { html, conclusionText } = body
+    const { 
+      html, 
+      conclusionStudent, 
+      conclusionTeaching, 
+      conclusionNonTeaching 
+    } = body
     
     if (!html) {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'HTML content is required' })
       }
+    }
+    
+    // Process HTML content - insert conclusions if provided
+    let processedHtml = html;
+    
+    if (conclusionStudent) {
+      processedHtml = processedHtml.replace(
+        /<textarea[^>]*id="conclusion-student"[^>]*>.*?<\/textarea>/g,
+        `<textarea id="conclusion-student" name="conclusion-student" rows="4">${conclusionStudent}</textarea>`
+      );
+    }
+    
+    if (conclusionTeaching) {
+      processedHtml = processedHtml.replace(
+        /<textarea[^>]*id="conclusion-teaching"[^>]*>.*?<\/textarea>/g,
+        `<textarea id="conclusion-teaching" name="conclusion-teaching" rows="4">${conclusionTeaching}</textarea>`
+      );
+    }
+    
+    if (conclusionNonTeaching) {
+      processedHtml = processedHtml.replace(
+        /<textarea[^>]*id="conclusion-nonteaching"[^>]*>.*?<\/textarea>/g,
+        `<textarea id="conclusion-nonteaching" name="conclusion-nonteaching" rows="4">${conclusionNonTeaching}</textarea>`
+      );
     }
     
     console.log('Launching puppeteer...')
@@ -22,10 +51,13 @@ export default defineEventHandler(async (event) => {
     const page = await browser.newPage()
     
     console.log('Setting page content...')
-    await page.setContent(html, { 
+    await page.setContent(processedHtml, { 
       waitUntil: 'networkidle0',
       timeout: 30000
     })
+    
+    // Wait for fonts to load
+    await page.evaluateHandle('document.fonts.ready')
     
     console.log('Generating PDF...')
     const pdf = await page.pdf({
