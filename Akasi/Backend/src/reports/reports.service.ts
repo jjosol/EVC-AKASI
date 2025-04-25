@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { GetIllnessService } from '../get-illness/get-illness.service';
+import * as puppeteer from 'puppeteer';
 
 @Injectable()
 export class ReportsService {
@@ -562,5 +563,73 @@ export class ReportsService {
       female: 0,
       total: 0
     };
+  }
+
+  async generatePdf(
+    html: string, 
+    conclusionStudent?: string, 
+    conclusionTeaching?: string, 
+    conclusionNonTeaching?: string
+  ): Promise<Buffer> {
+    try {
+      console.log('Starting PDF generation process');
+
+      // Insert conclusion texts if provided
+      if (conclusionStudent) {
+        html = html.replace(
+          /<textarea[^>]*id="conclusion-student"[^>]*>.*?<\/textarea>/g,
+          `<textarea id="conclusion-student" name="conclusion-student" rows="4">${conclusionStudent}</textarea>`
+        );
+      }
+      if (conclusionTeaching) {
+        html = html.replace(
+          /<textarea[^>]*id="conclusion-teaching"[^>]*>.*?<\/textarea>/g,
+          `<textarea id="conclusion-teaching" name="conclusion-teaching" rows="4">${conclusionTeaching}</textarea>`
+        );
+      }
+      if (conclusionNonTeaching) {
+        html = html.replace(
+          /<textarea[^>]*id="conclusion-nonteaching"[^>]*>.*?<\/textarea>/g,
+          `<textarea id="conclusion-nonteaching" name="conclusion-nonteaching" rows="4">${conclusionNonTeaching}</textarea>`
+        );
+      }
+
+      // Launch puppeteer
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+      
+      const page = await browser.newPage();
+      
+      // Set content and wait for all resources to load
+      await page.setContent(html, {
+        waitUntil: 'networkidle0'
+      });
+
+      // Adjust the page for PDF printing
+      await page.evaluateHandle('document.fonts.ready');
+
+      // Generate PDF
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: {
+          top: '10mm',
+          right: '10mm',
+          bottom: '10mm',
+          left: '10mm'
+        }
+      });
+
+      // Close the browser
+      await browser.close();
+      
+      console.log('PDF generation completed successfully');
+      return Buffer.from(pdfBuffer);
+    } catch (error) {
+      console.error('Error in PDF generation:', error);
+      throw new Error(`PDF generation failed: ${error.message}`);
+    }
   }
 }

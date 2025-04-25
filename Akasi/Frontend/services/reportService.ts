@@ -60,6 +60,34 @@ interface ConsultationMonitoringRecord {
 }
 
 /**
+ * Interface for common illnesses data
+ */
+interface CommonIllnessesData {
+  counts: {
+    students: {
+      total: number;
+      male: number;
+      female: number;
+    };
+    facultyStaff: {
+      total: number;
+      male: number;
+      female: number;
+    };
+  };
+  diagnoses: {
+    students: {
+      male: string;
+      female: string;
+    };
+    facultyStaff: {
+      male: string;
+      female: string;
+    };
+  };
+}
+
+/**
  * Fetches illness summary report data from the backend
  * 
  * @param startMonth The starting month for the report period
@@ -136,6 +164,68 @@ export const fetchConsultationMonitoring = async (
 };
 
 /**
+ * Fetches common illnesses data from the backend
+ * 
+ * @param startMonth The starting month for the report period
+ * @param endMonth The ending month for the report period (optional)
+ * @param year The year for the report
+ * @param isYearly Whether this is a yearly report (optional)
+ * @returns Promise with common illnesses data
+ */
+export const fetchCommonIllnessesData = async (
+  startMonth: string,
+  endMonth: string | null,
+  year: string,
+  isYearly: boolean = false
+): Promise<CommonIllnessesData> => {
+  try {
+    // Build query parameters
+    const params = new URLSearchParams();
+    params.append('startMonth', startMonth);
+    
+    if (endMonth && endMonth !== 'null') {
+      params.append('endMonth', endMonth);
+    }
+    
+    params.append('startYear', year);
+    
+    // For yearly reports, the end year could be next year (for academic year reports)
+    if (isYearly) {
+      const academicEndYear = (parseInt(year.split('-')[0]) + 1).toString();
+      params.append('endYear', academicEndYear);
+    } else {
+      params.append('endYear', year);
+    }
+    
+    console.log(`Fetching common illnesses data with params: ${params.toString()}`);
+    const response = await get(`${REPORTS_URL}/common-illnesses?${params.toString()}`);
+    
+    return response.data || {
+      counts: {
+        students: { total: 0, male: 0, female: 0 },
+        facultyStaff: { total: 0, male: 0, female: 0 }
+      },
+      diagnoses: {
+        students: { male: 'No data', female: 'No data' },
+        facultyStaff: { male: 'No data', female: 'No data' }
+      }
+    };
+  } catch (error) {
+    console.error('Error fetching common illnesses data:', error);
+    return {
+      counts: {
+        students: { total: 0, male: 0, female: 0 },
+        facultyStaff: { total: 0, male: 0, female: 0 }
+      },
+      diagnoses: {
+        students: { male: 'Error retrieving data', female: 'Error retrieving data' },
+        facultyStaff: { male: 'Error retrieving data', female: 'Error retrieving data' }
+      }
+    };
+  }
+};
+
+/**
  * Generates a PDF from HTML content
  * 
  * @param htmlContent HTML content to convert to PDF
@@ -171,14 +261,13 @@ export const generatePdf = async (
       );
     }
     
-    const response = await fetch('/_generate-pdf', {
+    const response = await fetch(`${REPORTS_URL}/generate-pdf`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         html: htmlContent,
-        // Pass conclusions if needed by the backend, though currently it only uses the HTML
         conclusionStudent, 
         conclusionTeaching,
         conclusionNonTeaching
@@ -187,7 +276,7 @@ export const generatePdf = async (
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to generate PDF');
+      throw new Error(errorData.error || 'PDF generation failed');
     }
 
     return await response.blob();

@@ -128,14 +128,19 @@ export const generatePdf = async (htmlContent, conclusionStudent, conclusionTeac
       );
     }
     
-    // Create a FormData object to send to the server-side PDF generation API
-    const formData = new FormData();
-    formData.append('html', finalHtml);
-    
-    // Call the API endpoint that generates PDFs
-    const response = await fetch('/api/reports/generate-pdf', {
+    // Call the API endpoint that generates PDFs using the correct endpoint path
+    // Notice that we're using /api/reports/generate-pdf to match the pattern of other API calls
+    const response = await fetch(`/api/reports/generate-pdf`, {
       method: 'POST',
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        html: finalHtml,
+        conclusionStudent,
+        conclusionTeaching,
+        conclusionNonTeaching
+      }),
     });
     
     if (!response.ok) {

@@ -42,7 +42,7 @@
                             :key="hour" 
                             :value="hour"
                           >
-                            {{ hour < 10 ? '0' + hour : hour }}
+                            {{ hour > 12 ? hour - 12 : hour }} {{ hour >= 12 ? 'PM' : 'AM' }}
                           </option>
                         </select>
                       </span> 
