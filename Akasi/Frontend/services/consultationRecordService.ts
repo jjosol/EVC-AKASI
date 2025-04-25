@@ -137,33 +137,33 @@ export const updateConsultationWithMedication = async (consultation_id: number) 
 export const validateMedicationDates = (startDate: string | Date, endDate: string | Date): { valid: boolean; message: string } => {
   const today = new Date();
   today.setHours(0, 0, 0, 0); // Reset time part for date comparison
-  
+
   const start = new Date(startDate);
   start.setHours(0, 0, 0, 0);
-  
+
   const end = new Date(endDate);
   end.setHours(0, 0, 0, 0);
-  
+
   // Check if start date is before today
   if (start < today) {
     return { valid: false, message: 'Start date cannot be before today' };
   }
-  
+
   // Check if end date is before today
   if (end < today) {
     return { valid: false, message: 'End date cannot be before today' };
   }
-  
+
   // Check if start and end dates are the same
   if (start.getTime() === end.getTime()) {
     return { valid: false, message: 'Start date and end date cannot be the same' };
   }
-  
+
   // Check if start date is after end date
   if (start > end) {
     return { valid: false, message: 'Start date must be before end date' };
   }
-  
+
   return { valid: true, message: '' };
 };
 
@@ -189,7 +189,7 @@ export const createMedAdministrationRecord = async (data: MedicationAdministrati
       throw new Error(validation.message);
     }
   }
-  
+
   return post(MED_ADMIN_URL, data);
 };
 
@@ -216,7 +216,7 @@ export const updateMedAdministrationRecord = async (med_administration_id: numbe
       throw new Error(validation.message);
     }
   }
-  
+
   return put(`${MED_ADMIN_URL}/${med_administration_id}`, data);
 };
 
@@ -354,9 +354,9 @@ export const updateAppointmentStatus = async (appointmentId: number, status: str
     if (!['pending', 'approved', 'rejected'].includes(status)) {
       throw new Error('Invalid status value. Status must be pending, approved, or rejected.');
     }
-    
+
     const result = await put(`${APPOINTMENT_URL}/${appointmentId}/status`, { status, notes });
-    
+
     return result;
   } catch (error) {
     console.error(`Error updating appointment status:`, error);
