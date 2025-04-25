@@ -1027,323 +1027,323 @@ async function deleteFile() {
 <template>
 <div class="mt-5 overflow-hidden bg-white shadow-md rounded-xl">
     <div class="tabs-container">
-    <!-- Tab Navigation -->
-    <div class="tab-nav">
-        <button 
-        @click="activeTab = 'tab1'" 
-        :class="['tab-button', activeTab === 'tab1' ? 'active' : '']"
-        >
-        Enrollment Files
-        </button>
-        <button 
-        @click="activeTab = 'tab2'" 
-        :class="['tab-button', activeTab === 'tab2' ? 'active' : '']"
-        >
-        Consultation Records
-        </button>
-    </div>
-    
-    <div class="tab-content">
-        <!-- Enrollment Files -->
-        <div v-if="activeTab === 'tab1'" class="tab-panel">
-        <div class="p-6 border-b border-gray-100">
-            <div class="flex items-center justify-between">
-            <!-- Dropdown Select -->
-            <div class="relative inline-block text-left">
-                <div>
-                <button 
-                    @click="isOpen = !isOpen" 
-                    type="button" 
-                    class="inline-flex justify-between items-center w-56 rounded-md border border-gray-200 px-4 py-2 bg-white text-sm font-medium text-[#2f4a71] hover:bg-[#f8f4ff] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
-                >
-                    {{ selectedGrade || 'Select Grade' }}
-                    <svg class="w-5 h-5 ml-2 -mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a 1 1 0 111.414 1.414l-4 4a 1 1 0 01-1.414 0l-4-4a 1 1 0 010-1.414z" clip-rule="evenodd" />
-                    </svg>
-                </button>
-                </div>
-
-                <div 
-                v-if="isOpen" 
-                class="absolute right-0 z-10 w-56 mt-2 overflow-y-auto origin-top-right bg-white divide-y divide-gray-100 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none max-h-48"
-                >
-                <div class="py-1">
-                    <a 
-                    v-for="grade in grades" 
-                    :key="grade" 
-                    @click="selectGrade(grade)" 
-                    class="block px-4 py-2 text-sm cursor-pointer hover:bg-[#f8f4ff]"
-                    :class="selectedGrade === grade ? 'bg-[#f8f4ff] text-[#2f4a71] font-medium' : 'text-gray-700'"
-                    >
-                    {{ grade }}
-                    </a>
-                </div>
-                </div>
-            </div>
-
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
             <button 
-                @click="openModal" 
-                class="p-1 pl-3 pr-3 font-bold text-white bg-[#2f4a71] rounded hover:bg-[#8b67db]"
+                @click="activeTab = 'tab1'" 
+                :class="['tab-button', activeTab === 'tab1' ? 'active' : '']"
             >
-                Add Files
+                Enrollment Files
             </button>
-            </div>
-        </div>
-
-        <!-- Files Grid - Shows after grade selection -->
-        <div v-if="selectedGrade" class="p-6">
-            <div v-if="loadingFiles" class="flex justify-center py-8">
-            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2f4a71]"></div>
-            </div>
-            
-            <div v-else-if="patientFiles && patientFiles.length > 0" class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <div 
-                v-for="file in patientFiles" 
-                :key="`${file.type}-${file.id}`" 
-                class="overflow-hidden transition-shadow border rounded-lg shadow-sm hover:shadow-md"
+            <button 
+                @click="activeTab = 'tab2'" 
+                :class="['tab-button', activeTab === 'tab2' ? 'active' : '']"
             >
-                <div class="p-4">
-                <div class="flex items-start">
-                    <!-- File Type Icon -->
-                    <div class="flex-shrink-0 mr-3">
-                    <span 
-                        :class="[
-                        file.type === 'dental' ? 'bg-blue-100 text-blue-700' :
-                        file.type === 'medical' ? 'bg-green-100 text-green-700' :
-                        file.type === 'opthal' ? 'bg-purple-100 text-purple-700' :
-                        file.type === 'physical' ? 'bg-orange-100 text-orange-700' :
-                        'bg-gray-100 text-gray-700',
-                        'inline-block p-2 rounded-md'
-                        ]"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
-                    </span>
-                    </div>
-                    
-                    <!-- File Info -->
-                    <div class="flex-1 min-w-0">
-                    <h3 class="text-sm font-medium text-gray-900 truncate">{{ file.typeLabel }}</h3>
-                    <p class="text-xs text-gray-500">
-                        Grade {{ file.grade }}
-                    </p>
-                    <p class="mt-1 text-xs text-gray-400">
-                        {{ formatDate(file.date) }}
-                    </p>
-                    </div>
-                </div>
-
-                <div v-if="file.status" class="mt-2">
-                        <span 
-                            :class="[
-                                getStatusClasses(file.status).bg,
-                                getStatusClasses(file.status).text,
-                                'px-2 py-1 text-xs rounded-full font-medium'
-                            ]"
-                        >
-                            {{ formatStatus(file.status) }}
-                        </span>
-                    </div>
-
-                    <!-- Notes (if available) -->
-                    <div v-if="file.notes" class="mt-2">
-                        <p class="text-xs italic text-gray-600">
-                            <span class="font-medium">Note:</span> {{ file.notes }}
-                        </p>
-                    </div>
-            
-                <!-- Actions -->
-                <!-- Add this inside the Actions div, right after the View button -->
-                    <div class="flex justify-between mt-3">
-                        <button 
-                        @click="viewFile(file)"
-                        class="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
-                        >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                        View
-                        </button>
-                        
-                        <!-- Delete button - only show if file grade matches patient grade -->
-                        <button 
-                        v-if="canDeleteFile(file)"
-                        @click.stop="confirmDeleteFile(file)"
-                        class="inline-flex items-center px-2.5 py-1.5 border border-red-300 text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                        >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        Delete
-                        </button>
-                    </div>
-                </div>
-            </div>
-            </div>
-            
-            <div v-else class="py-12 text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <p class="mt-3 text-gray-500">No certificates found for this grade</p>
-            </div>
+                Consultation Records
+            </button>
         </div>
+        
+        <div class="tab-content">
+            <!-- Enrollment Files -->
+            <div v-if="activeTab === 'tab1'" class="tab-panel">
+                <div class="p-6 border-b border-gray-100">
+                    <div class="flex items-center justify-between">
+                        <!-- Dropdown Select -->
+                        <div class="relative inline-block text-left">
+                            <div>
+                                <button 
+                                    @click="isOpen = !isOpen" 
+                                    type="button" 
+                                    class="inline-flex justify-between items-center w-56 rounded-md border border-gray-200 px-4 py-2 bg-white text-sm font-medium text-[#2f4a71] hover:bg-[#f8f4ff] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
+                                >
+                                    {{ selectedGrade || 'Select Grade' }}
+                                    <svg class="w-5 h-5 ml-2 -mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a 1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
 
-        <!-- No Grade Selected State -->
-        <div v-else class="p-6 text-center">
-            <div class="p-8">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
-            </svg>
-            <p class="mt-4 text-gray-500">Please select a grade to view available certificates</p>
-            </div>
-        </div>
-        </div>
-
-        <!-- Tab 2 Content -->
-        <div v-if="activeTab === 'tab2'" class="p-4 tab-panel">
-            <h2 class="text-xl font-medium mb-6 text-[#2f4a71]">Consultation Records</h2>
-            
-            <!-- Loading state -->
-            <div v-if="consultationsLoading" class="flex justify-center py-8">
-                <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2f4a71]"></div>
-            </div>
-            
-            <!-- Error state -->
-            <div v-else-if="consultationsError" class="p-4 text-red-700 rounded-md bg-red-50">
-                <p>{{ consultationsError }}</p>
-                <button 
-                    @click="fetchConsultations(currentPatientId)" 
-                    class="mt-2 text-sm underline hover:text-red-800"
-                >
-                    Try again
-                </button>
-            </div>
-            
-            <!-- No records state -->
-            <div v-else-if="consultations.length === 0" class="py-12 text-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <p class="mt-3 text-gray-500">No consultation records found</p>
-            </div>
-            
-            <!-- Update the consultation records section in profileFilesStudent.vue -->
-            <div v-else class="divide-y divide-gray-200">
-                <div v-for="record in consultations" :key="record.id" class="p-4 py-4 transition-colors rounded-lg hover:bg-gray-50">
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <div class="text-sm text-gray-500">{{ formatDate(record.date) }}</div>
-                            <h3 class="font-medium text-lg text-[#2f4a71]">
-                                {{ record.diagnoses || 'General Consultation' }}
-                            </h3>
-                            <div class="flex items-center mt-1">
-                                <span class="text-sm text-gray-600">Attended by: {{ record.doctor || 'School Physician' }}</span>
+                            <div 
+                                v-if="isOpen" 
+                                class="absolute right-0 z-10 w-56 mt-2 overflow-y-auto origin-top-right bg-white divide-y divide-gray-100 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none max-h-48"
+                            >
+                                <div class="py-1">
+                                    <a 
+                                        v-for="grade in grades" 
+                                        :key="grade" 
+                                        @click="selectGrade(grade)" 
+                                        class="block px-4 py-2 text-sm cursor-pointer hover:bg-[#f8f4ff]"
+                                        :class="selectedGrade === grade ? 'bg-[#f8f4ff] text-[#2f4a71] font-medium' : 'text-gray-700'"
+                                    >
+                                        {{ grade }}
+                                    </a>
+                                </div>
                             </div>
                         </div>
+
+                        <button 
+                            @click="openModal" 
+                            class="p-1 pl-3 pr-3 font-bold text-white bg-[#2f4a71] rounded hover:bg-[#8b67db]"
+                        >
+                            Add Files
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Files Grid - Shows after grade selection -->
+                <div v-if="selectedGrade" class="p-6">
+                    <div v-if="loadingFiles" class="flex justify-center py-8">
+                        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2f4a71]"></div>
+                    </div>
+                    
+                    <div v-else-if="patientFiles && patientFiles.length > 0" class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        <div 
+                            v-for="file in patientFiles" 
+                            :key="`${file.type}-${file.id}`" 
+                            class="overflow-hidden transition-shadow border rounded-lg shadow-sm hover:shadow-md"
+                        >
+                            <div class="p-4">
+                                <!-- File content here -->
+                                <div class="flex items-start">
+                                    <!-- File Type Icon -->
+                                    <div class="flex-shrink-0 mr-3">
+                                        <span 
+                                            :class="[
+                                                file.type === 'dental' ? 'bg-blue-100 text-blue-700' :
+                                                file.type === 'medical' ? 'bg-green-100 text-green-700' :
+                                                file.type === 'opthal' ? 'bg-purple-100 text-purple-700' :
+                                                file.type === 'physical' ? 'bg-orange-100 text-orange-700' :
+                                                'bg-gray-100 text-gray-700',
+                                                'inline-block p-2 rounded-md'
+                                            ]"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                            </svg>
+                                        </span>
+                                    </div>
+                                    
+                                    <!-- File Info -->
+                                    <div class="flex-1 min-w-0">
+                                        <h3 class="text-sm font-medium text-gray-900 truncate">{{ file.typeLabel }}</h3>
+                                        <p class="text-xs text-gray-500">
+                                            Grade {{ file.grade }}
+                                        </p>
+                                        <p class="mt-1 text-xs text-gray-400">
+                                            {{ formatDate(file.date) }}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div v-if="file.status" class="mt-2">
+                                    <span 
+                                        :class="[
+                                            getStatusClasses(file.status).bg,
+                                            getStatusClasses(file.status).text,
+                                            'px-2 py-1 text-xs rounded-full font-medium'
+                                        ]"
+                                    >
+                                        {{ formatStatus(file.status) }}
+                                    </span>
+                                </div>
+
+                                <!-- Notes (if available) -->
+                                <div v-if="file.notes" class="mt-2">
+                                    <p class="text-xs italic text-gray-600">
+                                        <span class="font-medium">Note:</span> {{ file.notes }}
+                                    </p>
+                                </div>
                         
-                        <!-- Status indicators -->
-                        <div class="flex space-x-2">
-                            <span v-if="record.confined" class="px-2 py-1 text-xs font-medium text-red-800 bg-red-100 rounded-full">
-                                Confined
-                            </span>
-                            <span v-if="record.medAdministration" class="px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full">
-                                Medication
-                            </span>
-                            <span v-if="record.intern" class="px-2 py-1 text-xs font-medium text-purple-800 bg-purple-100 rounded-full">
-                                Intern
-                            </span>
+                                <!-- Actions -->
+                                <div class="flex justify-between mt-3">
+                                    <button 
+                                        @click="viewFile(file)"
+                                        class="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f4a71]"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                        View
+                                    </button>
+                                    
+                                    <!-- Delete button - only show if file grade matches patient grade -->
+                                    <button 
+                                        v-if="canDeleteFile(file)"
+                                        @click.stop="confirmDeleteFile(file)"
+                                        class="inline-flex items-center px-2.5 py-1.5 border border-red-300 text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
-                    <!-- Enhanced details section with medication information -->
-                    <details class="mt-2">
-                        <summary class="text-sm text-[#2f4a71] cursor-pointer hover:underline focus:outline-none">
-                            View details
-                        </summary>
-                        <div class="mt-3 ml-2 text-sm">
-                            <!-- Complaint section -->
-                            <div v-if="record.complaint" class="mb-2">
+                    <div v-else class="py-12 text-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <p class="mt-3 text-gray-500">No certificates found for this grade</p>
+                    </div>
+                </div>
+
+                <!-- No Grade Selected State -->
+                <div v-else class="p-6 text-center">
+                    <div class="p-8">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
+                        </svg>
+                        <p class="mt-4 text-gray-500">Please select a grade to view available certificates</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2 Content - Consultation Records -->
+            <div v-if="activeTab === 'tab2'" class="p-4 tab-panel">
+                <h2 class="text-xl font-medium mb-6 text-[#2f4a71]">Consultation Records</h2>
+                
+                <!-- Loading state -->
+                <div v-if="consultationsLoading" class="flex justify-center py-8">
+                    <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2f4a71]"></div>
+                </div>
+                
+                <!-- Error state -->
+                <div v-else-if="consultationsError" class="p-4 text-red-700 rounded-md bg-red-50">
+                    <p>{{ consultationsError }}</p>
+                    <button 
+                        @click="fetchConsultations(currentPatientId)" 
+                        class="mt-2 text-sm underline hover:text-red-800"
+                    >
+                        Try again
+                    </button>
+                </div>
+                
+                <!-- No records state -->
+                <div v-else-if="consultations.length === 0" class="py-12 text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p class="mt-3 text-gray-500">No consultation records found</p>
+                </div>
+                
+                <!-- Consultation records display -->
+                <div v-else class="divide-y divide-gray-200">
+                    <div v-for="record in consultations" :key="record.id" class="p-4 py-4 transition-colors rounded-lg hover:bg-gray-50">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <div class="text-sm text-gray-500">{{ formatDate(record.date) }}</div>
+                                <h3 class="font-medium text-lg text-[#2f4a71]">
+                                    {{ record.diagnoses || 'General Consultation' }}
+                                </h3>
+                                <div class="flex items-center mt-1">
+                                    <span class="text-sm text-gray-600">Attended by: {{ record.doctor || 'School Physician' }}</span>
+                                </div>
                             </div>
                             
-                            <!-- Medication section - show if there are any medications -->
-                            <div v-if="record.medications && record.medications.length > 0" class="mb-2">
-                                <p class="font-medium text-gray-700">Medications:</p>
-                                <div class="mt-1 space-y-2">
-                                    <div v-for="(medication, index) in record.medications" :key="medication.id" 
-                                        class="flex items-start p-2 rounded bg-blue-50">
-                                        <div class="flex items-center justify-center flex-shrink-0 w-5 h-5 mr-2 text-xs font-bold text-blue-800 bg-blue-100 rounded-full">
-                                            {{ index + 1 }}
-                                        </div>
-                                        <div class="flex-1">
-                                            <p class="font-medium">{{ medication.name }}</p>
-                                            <div class="mt-1 text-xs text-gray-600">
-                                                <p><span class="font-medium">Quantity:</span> {{ medication.count }}</p>
-                                                <p><span class="font-medium">Schedule:</span> {{ medication.schedule }}</p>
-                                                <p><span class="font-medium">Duration:</span> {{ formatDate(medication.startDate) }} - {{ formatDate(medication.endDate) }}</p>
-                                                <p v-if="medication.remarks"><span class="font-medium">Notes:</span> {{ medication.remarks }}</p>
+                            <!-- Status indicators -->
+                            <div class="flex space-x-2">
+                                <span v-if="record.confined" class="px-2 py-1 text-xs font-medium text-red-800 bg-red-100 rounded-full">
+                                    Confined
+                                </span>
+                                <span v-if="record.medAdministration" class="px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full">
+                                    Medication
+                                </span>
+                                <span v-if="record.intern" class="px-2 py-1 text-xs font-medium text-purple-800 bg-purple-100 rounded-full">
+                                    Intern
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- Enhanced details section with medication information -->
+                        <details class="mt-2">
+                            <summary class="text-sm text-[#2f4a71] cursor-pointer hover:underline focus:outline-none">
+                                View details
+                            </summary>
+                            <div class="mt-3 ml-2 text-sm">
+                                <!-- Complaint section -->
+                                <div v-if="record.complaint" class="mb-2">
+                                </div>
+                                
+                                <!-- Medication section - show if there are any medications -->
+                                <div v-if="record.medications && record.medications.length > 0" class="mb-2">
+                                    <p class="font-medium text-gray-700">Medications:</p>
+                                    <div class="mt-1 space-y-2">
+                                        <div v-for="(medication, index) in record.medications" :key="medication.id" 
+                                            class="flex items-start p-2 rounded bg-blue-50">
+                                            <div class="flex items-center justify-center flex-shrink-0 w-5 h-5 mr-2 text-xs font-bold text-blue-800 bg-blue-100 rounded-full">
+                                                {{ index + 1 }}
+                                            </div>
+                                            <div class="flex-1">
+                                                <p class="font-medium">{{ medication.name }}</p>
+                                                <div class="mt-1 text-xs text-gray-600">
+                                                    <p><span class="font-medium">Quantity:</span> {{ medication.count }}</p>
+                                                    <p><span class="font-medium">Schedule:</span> {{ medication.schedule }}</p>
+                                                    <p><span class="font-medium">Duration:</span> {{ formatDate(medication.startDate) }} - {{ formatDate(medication.endDate) }}</p>
+                                                    <p v-if="medication.remarks"><span class="font-medium">Notes:</span> {{ medication.remarks }}</p>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
+                                
+                                <!-- Action Taken section -->
+                                <div v-if="record.action" class="mb-2">
+                                    <p class="font-medium text-gray-700">Action Taken:</p>
+                                    <p class="text-gray-600">{{ record.action }}</p>
+                                </div>
+                                
+                                <!-- Disposition section -->
+                                <div v-if="record.disposition" class="mb-2">
+                                    <p class="font-medium text-gray-700">Disposition:</p>
+                                    <p class="text-gray-600">{{ record.disposition }}</p>
+                                </div>
+                                
+                                <!-- Remarks section -->
+                                <div v-if="record.remarks" class="mb-2">
+                                    <p class="font-medium text-gray-700">Remarks:</p>
+                                    <p class="text-gray-600">{{ record.remarks }}</p>
+                                </div>
                             </div>
-                            
-                            <!-- Action Taken section -->
-                            <div v-if="record.action" class="mb-2">
-                                <p class="font-medium text-gray-700">Action Taken:</p>
-                                <p class="text-gray-600">{{ record.action }}</p>
-                            </div>
-                            
-                            <!-- Disposition section -->
-                            <div v-if="record.disposition" class="mb-2">
-                                <p class="font-medium text-gray-700">Disposition:</p>
-                                <p class="text-gray-600">{{ record.disposition }}</p>
-                            </div>
-                            
-                            <!-- Remarks section -->
-                            <div v-if="record.remarks" class="mb-2">
-                                <p class="font-medium text-gray-700">Remarks:</p>
-                                <p class="text-gray-600">{{ record.remarks }}</p>
-                            </div>
-                        </div>
-                    </details>
+                        </details>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Access Denied Modal -->
-        <div 
-            v-if="showAccessDeniedModal" 
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-            @click.self="closeAccessDeniedModal"
-        >
-            <div class="w-full max-w-md mx-4 overflow-hidden bg-white rounded-lg shadow-xl">
-                <div class="p-6">
-                    <div class="flex items-center justify-center mb-6">
-                        <div class="p-3 bg-red-100 rounded-full">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m0 0v2m0-2h2m-2 0H9m3-4V8m6 8l-3.5-2m-6 0L6 16m6-10c-.5 0-1.3.8-2.5 2-1 1-1.5 1-2.5 1V5a3 3 0 116 0z" />
-                            </svg>
-                        </div>
+    <div 
+        v-if="showAccessDeniedModal" 
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+        @click.self="closeAccessDeniedModal"
+    >
+        <div class="w-full max-w-md mx-4 overflow-hidden bg-white rounded-lg shadow-xl">
+            <div class="p-6">
+                <div class="flex items-center justify-center mb-6">
+                    <div class="p-3 bg-red-100 rounded-full">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m0 0v2m0-2h2m-2 0H9m3-4V8m6 8l-3.5-2m-6 0L6 16m6-10c-.5 0-1.3.8-2.5 2-1 1-1.5 1-2.5 1V5a3 3 0 116 0z" />
+                        </svg>
                     </div>
-                    
-                    <h3 class="mb-2 text-xl font-medium text-center text-gray-900">Access Denied</h3>
-                    
-                    <p class="mb-6 text-center text-gray-600">
-                        You can only view your own files. Please select a file that belongs to your account.
-                    </p>
-                    
-                    <div class="flex justify-center">
-                        <button 
-                            @click="closeAccessDeniedModal" 
-                            class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                        >
-                            OK
-                        </button>
-                    </div>
+                </div>
+                
+                <h3 class="mb-2 text-xl font-medium text-center text-gray-900">Access Denied</h3>
+                
+                <p class="mb-6 text-center text-gray-600">
+                    You can only view your own files. Please select a file that belongs to your account.
+                </p>
+                
+                <div class="flex justify-center">
+                    <button 
+                        @click="closeAccessDeniedModal" 
+                        class="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    >
+                        OK
+                    </button>
                 </div>
             </div>
         </div>
@@ -1351,7 +1351,6 @@ async function deleteFile() {
 </div>
 
 <!-- File Viewer Modal -->
-<!-- In your template section, replace the file viewer modal with this improved version -->
 <div v-if="showViewerModal" class="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black bg-opacity-75">
   <div class="relative flex flex-col w-11/12 max-w-4xl overflow-hidden bg-white rounded-lg md:w-4/5 h-5/6">
     <!-- Modal header -->
@@ -1403,7 +1402,7 @@ async function deleteFile() {
             @click="downloadFile(selectedFile)"
             class="px-3 py-1 text-white bg-blue-500 rounded"
           >
-            Download Instead {{ selectedFile.url }}
+            Download Instead
           </button>
         </div>
         <img 

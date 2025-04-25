@@ -15,6 +15,8 @@ interface CertificateUploadDto {
 
 @Injectable()
 export class PatientFilesService {
+    private readonly uploadDir = path.join(process.cwd(), 'uploads');
+
     constructor(
         private prisma: PrismaService,
         private patientStatusService: PatientStatusService
@@ -850,17 +852,40 @@ export class PatientFilesService {
                     break;
             }
 
+            console.log(`Attempting to delete file: ID=${id}, Type=${type}, File Path=${filePath}`);
+
             // Delete the physical file if it exists
-            if (filePath && fs.existsSync(filePath)) {
-                try {
-                    fs.unlinkSync(filePath);
-                } catch (fileError) {
-                    console.error(`Failed to delete file ${filePath}:`, fileError);
-                    // Continue with database deletion even if file deletion fails
+            if (filePath) {
+                // Always resolve relative to uploads directory
+                const normalizedFilePath = filePath.replace(/^uploads[\\/]/, ''); // Remove leading uploads/ if present
+                const absolutePath = path.join(this.uploadDir, normalizedFilePath);
+                let fileDeleted = false;
+
+                // Try both the absolute path and the raw filePath (in case it's already absolute)
+                const possiblePaths = [
+                    absolutePath,
+                    filePath
+                ];
+
+                for (const possiblePath of possiblePaths) {
+                    console.log(`Checking for file at: ${possiblePath}`);
+                    try {
+                        if (fs.existsSync(possiblePath)) {
+                            fs.unlinkSync(possiblePath);
+                            console.log(`Successfully deleted file: ${possiblePath}`);
+                            fileDeleted = true;
+                            break;
+                        }
+                    } catch (fileError) {
+                        console.error(`Failed to delete file ${possiblePath}:`, fileError);
+                    }
+                }
+                if (!fileDeleted) {
+                    console.warn(`Could not find file to delete. Tried paths: ${possiblePaths.join(', ')}`);
                 }
             }
 
-            // Delete the database record
+            // Continue with database record deletion
             switch (type) {
                 case 'dental':
                     await this.prisma.dental_certificates.delete({

@@ -50,6 +50,125 @@ export class StorageService {
     }
   }
 
+  // Add new saveFileToStorage method
+  async saveFileToStorage(file: Express.Multer.File, type: string, patientId: number, grade?: number): Promise<{ fileName: string; filePath: string; mimeType: string; fileSize: number }> {
+    const timestamp = Date.now();
+    const fileExtension = path.extname(file.originalname);
+    const fileName = `${timestamp}_${patientId}${fileExtension}`;
+    const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9]/g, '-').substring(0, 30);
+    
+    // Normalize the file type to ensure consistent matching
+    const normalizedType = type.toLowerCase().trim();
+    
+    console.log(`Saving file with type: '${normalizedType}'`);
+    
+    // Determine the base directory based on file type
+    let baseDirectory: string;
+    let fileType = normalizedType;
+    
+    switch (normalizedType) {
+      case 'medical':
+      case 'medical-certificate':
+        baseDirectory = this.medicalCertificatesDir;
+        fileType = 'medical-certificate';
+        break;
+      case 'dental':
+      case 'dental-certificate':
+        baseDirectory = this.dentalCertificatesDir;
+        fileType = 'dental-certificate';
+        break;
+      case 'opthal':
+      case 'opthal-certificate':
+      case 'ophthalmological':
+      case 'ophthalmological-certificate':
+        baseDirectory = this.opthalCertificatesDir;
+        fileType = 'opthal-certificate';
+        break;
+      case 'physical':
+      case 'physical-exam':
+      case 'physical-examination':
+        baseDirectory = this.physicalExamDir;
+        fileType = 'physical-exam';
+        break;
+      case 'dental_consent':
+      case 'dental-consent':
+        baseDirectory = path.join(this.uploadDir, this.currentSchoolYear, 'dental-consent');
+        fileType = 'dental-consent';
+        break;
+      case 'medical_consent':
+      case 'medical-consent':
+        baseDirectory = path.join(this.uploadDir, this.currentSchoolYear, 'medical-consent');
+        fileType = 'medical-consent';
+        break;
+      case 'dental_history':
+      case 'dental-history':
+        baseDirectory = path.join(this.uploadDir, this.currentSchoolYear, 'dental-history');
+        fileType = 'dental-history';
+        break;
+      case 'hh_pds':
+      case 'hh-pds':
+        baseDirectory = path.join(this.uploadDir, this.currentSchoolYear, 'hh-pds');
+        fileType = 'hh-pds';
+        break;
+      case 'laboratory':
+        baseDirectory = this.laboratoryDir;
+        break;
+      default:
+        // Fallback to a general directory within uploads
+        baseDirectory = this.generalDir;
+        console.warn(`File type '${normalizedType}' not explicitly mapped to a directory, using general folder`);
+    }
+
+    // Create appropriate subdirectories
+    let categoryDir = baseDirectory;
+    let relativeDirPath;
+    
+    if (grade !== undefined && grade !== null) {
+      // Use grade folder
+      const gradeFolderName = `g${grade}`;
+      categoryDir = path.join(baseDirectory, gradeFolderName);
+      relativeDirPath = path.join(this.currentSchoolYear, fileType.toLowerCase(), gradeFolderName);
+    } else {
+      // Default path without grade
+      relativeDirPath = path.join(this.currentSchoolYear, fileType.toLowerCase());
+    }
+    
+    // Ensure the category directory exists
+    if (!fs.existsSync(categoryDir)) {
+      await mkdirAsync(categoryDir, { recursive: true });
+    }
+    
+    // Full path for the file
+    const filePath = path.join(categoryDir, fileName);
+    
+    // Relative path for database storage
+    const relativePath = path.join(relativeDirPath, fileName).replace(/\\/g, '/');
+
+    // Write file to disk
+    await writeFileAsync(filePath, file.buffer || fs.readFileSync(file.path));
+    
+    console.log(`Saved file to: ${filePath}`);
+    console.log(`Relative path for DB: ${relativePath}`);
+    
+    return {
+      fileName: sanitizedName, 
+      filePath: relativePath,
+      mimeType: file.mimetype,
+      fileSize: file.size
+    };
+  }
+
+  // Add new getFileUrl method
+  getFileUrl(relativePath: string): string {
+    // This returns a URL that can be used to access the file
+    // The exact implementation depends on your server setup
+    if (!relativePath) return '';
+    
+    // For a simple implementation, just return the path that can be
+    // appended to your base URL
+    return `/api/storage/file/${encodeURIComponent(relativePath)}`;
+  }
+
   async uploadFile(file: {
     originalname: string;
     mimetype: string;
@@ -150,11 +269,17 @@ export class StorageService {
     const timestamp = Date.now();
     const fileExtension = path.extname(file.originalname);
     const fileName = `${timestamp}_${patientId}${fileExtension}`;
+    
+    // Normalize the file type to ensure consistent matching
+    const normalizedType = type.toLowerCase().trim();
+    
+    console.log(`Uploading patient file with type: '${normalizedType}'`);
+    
     let baseDirectory: string;
-    let fileType = type; // Store original type for database entry
+    let fileType = normalizedType; // Store original type for database entry
     
     // Determine the base directory based on file type
-    switch (type.toLowerCase()) {
+    switch (normalizedType) {
       case 'medical':
       case 'medical-certificate':
         baseDirectory = this.medicalCertificatesDir;
@@ -167,11 +292,14 @@ export class StorageService {
         break;
       case 'opthal':
       case 'opthal-certificate':
+      case 'ophthalmological':
+      case 'ophthalmological-certificate':
         baseDirectory = this.opthalCertificatesDir;
         fileType = 'opthal-certificate';
         break;
       case 'physical':
       case 'physical-exam':
+      case 'physical-examination':
         baseDirectory = this.physicalExamDir;
         fileType = 'physical-exam';
         break;
@@ -181,7 +309,7 @@ export class StorageService {
       default:
         // Fallback to a general directory within uploads
         baseDirectory = this.generalDir;
-        console.warn(`File type '${type}' not explicitly mapped to a directory, using general folder`);
+        console.warn(`File type '${normalizedType}' not explicitly mapped to a directory, using general folder`);
         // Make sure general directory exists
         if (!fs.existsSync(baseDirectory)) {
           fs.mkdirSync(baseDirectory, { recursive: true });

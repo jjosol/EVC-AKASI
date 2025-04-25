@@ -908,14 +908,44 @@ export class PatientFilesStaffService {
                     break;
             }
 
+            console.log(`Attempting to delete file: ID=${id}, Type=${type}, File Path=${filePath}`);
+
             // Delete the physical file if it exists
-            if (filePath && fs.existsSync(filePath)) {
-                try {
-                    fs.unlinkSync(filePath);
-                    console.log(`Successfully deleted file: ${filePath}`);
-                } catch (fileError) {
-                    console.error(`Failed to delete file ${filePath}:`, fileError);
-                    // Continue with database deletion even if file deletion fails
+            if (filePath) {
+                // Define possible paths to check for the file
+                const uploadDir = path.join(process.cwd(), 'uploads');
+                const possiblePaths = [
+                    // Direct path (if absolute)
+                    filePath,
+                    // Absolute path from uploadDir
+                    path.join(uploadDir, filePath),
+                    // Try without uploads prefix if it's included
+                    filePath.startsWith('uploads/') ? path.join(uploadDir, filePath.substring(8)) : null,
+                    // Try with uploads prefix if it's not included
+                    !filePath.startsWith('uploads/') ? path.join(uploadDir, 'uploads', filePath) : null
+                ].filter(Boolean); // Remove null entries
+                
+                let fileDeleted = false;
+                
+                // Try each possible path
+                for (const possiblePath of possiblePaths) {
+                    console.log(`Checking for file at: ${possiblePath}`);
+                    
+                    if (fs.existsSync(possiblePath)) {
+                        try {
+                            fs.unlinkSync(possiblePath);
+                            console.log(`Successfully deleted file: ${possiblePath}`);
+                            fileDeleted = true;
+                            break; // Exit loop once file is deleted
+                        } catch (fileError) {
+                            console.error(`Failed to delete file ${possiblePath}:`, fileError);
+                            // Continue trying other paths
+                        }
+                    }
+                }
+                
+                if (!fileDeleted) {
+                    console.warn(`Could not find file to delete. Tried paths: ${possiblePaths.join(', ')}`);
                 }
             }
 
