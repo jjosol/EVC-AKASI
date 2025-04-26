@@ -158,7 +158,7 @@ const fetchStudents = async () => {
             const token = localStorage.getItem('token');
             
             if (token) {
-              const pendingResponse = await fetch(`${apiBaseUrl}/students-with-pending-files`, {
+              const pendingResponse = await fetch(`${apiBaseUrl}/patient-files/patients-with-pending-files`, {
                 headers: {
                   'Authorization': `Bearer ${token}`
                 }
@@ -166,8 +166,7 @@ const fetchStudents = async () => {
               
               if (pendingResponse.ok) {
                 const pendingResult = await pendingResponse.json();
-                const pendingStudentIds = new Set(pendingResult.data.map(s => s.patient_id));
-                
+                const pendingStudentIds = new Set((pendingResult.data || []).map(s => s.patient_id));
                 // Mark students with pending files
                 result.data.forEach(student => {
                   student.hasPendingFiles = pendingStudentIds.has(student.patient_id);
@@ -237,8 +236,8 @@ const fetchStudentFiles = async () => {
       throw new Error('Authentication token not found. Please log in again.');
     }
 
-    // Make sure to include the token with the Bearer prefix
-    const response = await fetch(`${apiBaseUrl}/fetch-patient-files-admin?patient_id=${patientId}&grade=${gradeNumber}`, {
+    // Fetch all files for the grade
+    const response = await fetch(`${apiBaseUrl}/patient-files?grade=${gradeNumber}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -255,9 +254,11 @@ const fetchStudentFiles = async () => {
     
     const result = await response.json();
     
-    if (result && result.success) {
+    if (result && Array.isArray(result)) {
+      // Filter files for the selected patient
+      const filesForPatient = result.filter(file => file.patient_id === patientId);
       // Fetch file statuses from the file_status table
-      const statusResponse = await fetch(`${apiBaseUrl}/fetch-file-statuses?patient_id=${patientId}`, {
+      const statusResponse = await fetch(`${apiBaseUrl}/patient-files/fetch-file-statuses?patient_id=${patientId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -268,7 +269,7 @@ const fetchStudentFiles = async () => {
       const fileStatuses = statusResult.success ? statusResult.data : [];
       
       // Merge file data with status information
-      studentFiles.value = result.data.map(file => {
+      studentFiles.value = filesForPatient.map(file => {
         const statusInfo = fileStatuses.find(s => 
           s.file_id === file.id && s.file_type === file.type
         );
@@ -377,7 +378,7 @@ const viewFile = async (file) => {
     }
     
     // Fetch the file data from the API
-    const response = await fetch(`${apiBaseUrl}/fetch-patient-files-admin/file/${file.type}/${file.id}`, {
+    const response = await fetch(`${apiBaseUrl}/patient-files/download/${file.id}?type=${file.type}`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }

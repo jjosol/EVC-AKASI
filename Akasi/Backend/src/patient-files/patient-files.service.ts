@@ -748,8 +748,13 @@ export class PatientFilesService {
 
             // Read file from filesystem if it exists
             let fileData = null;
-            if (filePath && fs.existsSync(filePath)) {
-                fileData = fs.readFileSync(filePath);
+            if (filePath) {
+                const absolutePath = path.isAbsolute(filePath)
+                    ? filePath
+                    : path.join(this.uploadDir, filePath);
+                if (fs.existsSync(absolutePath)) {
+                    fileData = fs.readFileSync(absolutePath);
+                }
             }
 
             return {
