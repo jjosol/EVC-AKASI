@@ -82,14 +82,24 @@ export class FetchPatientFilesController {
             }
 
             // Get the file path (ownership validation is already done in the service)
-            const filePath = await this.fetchPatientFilesService.getFileData(fileType, id, currentUserId, userRole);
+            let filePath = await this.fetchPatientFilesService.getFileData(fileType, id, currentUserId, userRole);
 
             if (!filePath) {
                 throw new NotFoundException('File content is empty');
             }
 
+            // Always resolve the file path relative to the uploads directory
+            const pathModule = require('path');
+            const uploadsDir = pathModule.join(process.cwd(), 'uploads');
+            let resolvedPath = filePath;
+            if (!pathModule.isAbsolute(filePath)) {
+                resolvedPath = pathModule.join(uploadsDir, filePath);
+            }
+            this.logger.log(`Attempting to serve file from: ${resolvedPath}`);
+
             // Check if file exists on disk
-            if (!fs.existsSync(filePath)) {
+            if (!fs.existsSync(resolvedPath)) {
+                this.logger.error(`File not found on disk: ${resolvedPath}`);
                 throw new NotFoundException('File not found on disk');
             }
 
@@ -104,7 +114,7 @@ export class FetchPatientFilesController {
             res.setHeader('Content-Security-Policy', "default-src 'self'");
 
             // Stream the file instead of loading it all in memory
-            const fileStream = fs.createReadStream(filePath);
+            const fileStream = fs.createReadStream(resolvedPath);
             fileStream.pipe(res);
         } catch (error) {
             this.logger.error('Error serving file:', error);

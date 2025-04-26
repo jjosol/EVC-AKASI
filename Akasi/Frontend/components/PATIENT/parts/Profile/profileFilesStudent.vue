@@ -417,11 +417,11 @@ async function viewFile(file) {
 
         console.log(`Requesting file: ${file.type}/${file.id}`);
         
-        // Use the exact same endpoint string from student.vue
+        // Use the correct endpoint for student file access
         const apiBaseUrl = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001';
         
-        // Make the request with proper authorization using the same endpoint as student.vue
-        const response = await fetch(`${apiBaseUrl}/fetch-patient-files-admin/file/${file.type}/${file.id}`, {
+        // Make the request with proper authorization
+        const response = await fetch(`${apiBaseUrl}/fetch-patient-files/file/${file.type}/${file.id}`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
