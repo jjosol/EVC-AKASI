@@ -70,19 +70,19 @@ export class StorageService {
       case 'medical':
       case 'medical-certificate':
         baseDirectory = this.medicalCertificatesDir;
-        fileType = 'medical-certificate';
+        fileType = 'medical-certificates'; // FIX: use plural to match folder
         break;
       case 'dental':
       case 'dental-certificate':
         baseDirectory = this.dentalCertificatesDir;
-        fileType = 'dental-certificate';
+        fileType = 'dental-certificates';
         break;
       case 'opthal':
       case 'opthal-certificate':
       case 'ophthalmological':
       case 'ophthalmological-certificate':
         baseDirectory = this.opthalCertificatesDir;
-        fileType = 'opthal-certificate';
+        fileType = 'opthal-certificates';
         break;
       case 'physical':
       case 'physical-exam':
@@ -283,7 +283,7 @@ export class StorageService {
       case 'medical':
       case 'medical-certificate':
         baseDirectory = this.medicalCertificatesDir;
-        fileType = 'medical-certificate';
+        fileType = 'medical-certificates'; // FIX: use plural to match folder
         break;
       case 'dental':
       case 'dental-certificate':
@@ -374,7 +374,7 @@ export class StorageService {
       };
 
       switch (fileType.toLowerCase()) {
-        case 'medical-certificate':
+        case 'medical-certificates': // FIX: use plural to match folder
           return await this.prisma.medical_certificates.create({ data: fileData });
         case 'dental-certificate':
         case 'dental':
