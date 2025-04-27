@@ -104,6 +104,8 @@ model consultation_records {
   medAdministration  Boolean
   disposition        String   @default("") @db.VarChar(500)
   diagnosis_text     String?  @db.VarChar(1000) // Stores formatted diagnosis text
+  health_record_created Boolean @default(false)
+  healthRecord          HealthRecord?
 
   // Relations
   nurse              nurse                    @relation(fields: [nurse_id], references: [nurse_id], onDelete: NoAction, onUpdate: NoAction)
@@ -477,5 +479,19 @@ model chiefcomplaint {
   consultation      consultation_records @relation(fields: [consultation_id], references: [consultation_id], onDelete: Cascade)
 
   @@index([consultation_id])
+}
+
+model HealthRecord {
+  id                Int      @id @default(autoincrement())
+  consultation_id   Int      @unique
+  temperature       Float
+  weight            Float
+  height            Float
+  blood_pressure    String   @db.VarChar(50)
+  diagnosis         String   @db.VarChar(1000)
+  instructions      String   @db.VarChar(1000)
+  created_at        DateTime @default(now())
+
+  consultation      consultation_records @relation(fields: [consultation_id], references: [consultation_id])
 }
 

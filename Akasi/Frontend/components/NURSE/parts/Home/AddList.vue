@@ -653,7 +653,8 @@ const groupedMedicines = computed(() => {
       displayCount: itemCount,
       requestedQuantity: 1, // Initialize with default value of 1
       category_id: item.category_id,
-      expired
+      expired,
+      otc: item.otc === true // Ensure boolean, pass to modal
     });
   });
 
@@ -1970,13 +1971,13 @@ const delayedAction = (callback, delay) => {
         <div 
           v-for="complaint in selectedPerson.complaints" 
           :key="complaint.id" 
-          class="flex items-center bg-gray-50 rounded-md border border-gray-200 overflow-hidden"
+          class="flex items-center overflow-hidden border border-gray-200 rounded-md bg-gray-50"
         >
           <input 
             v-model="complaint.text" 
             type="text" 
             :disabled="isViewOnly"
-            class="w-36 px-2 py-1 text-sm border-none focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent" 
+            class="px-2 py-1 text-sm bg-transparent border-none w-36 focus:outline-none focus:ring-1 focus:ring-blue-500" 
             placeholder="Enter complaint"
           />
           <button 
@@ -2158,7 +2159,7 @@ const delayedAction = (callback, delay) => {
             <button @click="deleteCategory(category.category_id)"
               class="p-2 text-white bg-red-500 rounded hover:bg-red-600" title="Delete Category">
               <Icon icon="mdi:delete" class="w-5 h-5" />
-            </button>
+                       </button>
           </div>
         </div>
         <div v-else class="text-sm text-gray-500">
@@ -2201,7 +2202,7 @@ const delayedAction = (callback, delay) => {
             </div>
           </div>
           <button @click="openAddCategoryModal"
-            class="px-3 py-2 mt-1 text-white bg-blue-600 rounded-md hover:bg-blue-700" title="Add new category">
+            class="flex items-center px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700" title="Add new category">
             <Icon icon="mdi:plus" />
           </button>
         </div>

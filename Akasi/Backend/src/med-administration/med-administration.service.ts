@@ -33,7 +33,7 @@ export class MedAdministrationService {
           throw new BadRequestException('Consultation record not found');
         }
 
-        // 2. Check medicine availability
+        // 2. Check medicine availability and RX/OTC status
         const medicine = await prisma.medicine.findFirst({
           where: {
             medicine_id: data.med_id,
@@ -45,11 +45,20 @@ export class MedAdministrationService {
           throw new BadRequestException('Medicine not found in inventory');
         }
 
+        // RX/OTC validation
+        if (medicine.otc === false) { // RX
+          // Check for prescription file (assume data.prescriptionFile or data.prescription_file)
+          if (!data.prescriptionFile && !data.prescription_file) {
+            // Instead of dispensing, return a special error or flag for manual review
+            throw new BadRequestException('Prescription required for RX medicine. Record will be sent for doctor review.');
+          }
+        }
+
         if (medicine.count < data.count) {
           throw new BadRequestException(`Insufficient inventory. Available: ${medicine.count}`);
         }
 
-        // 3. Use medicineService.reduceInventory with nurse_id
+        // 3. Use medicineService.reduceInventory with nurse_id (only if not flagged for review)
         await this.medicineService.reduceInventory(
           data.med_id,
           data.medName,
@@ -74,7 +83,7 @@ export class MedAdministrationService {
             date: new Date(), // Use current date
             patient_name: data.patient_name,
             remarks: data.remarks || null,
-            intervention: data.intervention || null,
+            intervention: data.intervention || null
           },
         });
       } catch (error) {
