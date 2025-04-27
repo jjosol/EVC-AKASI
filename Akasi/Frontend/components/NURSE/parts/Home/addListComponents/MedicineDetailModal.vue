@@ -1,5 +1,11 @@
+<style scoped>
+.medicine-detail-modal {
+  z-index: 99999 !important;
+}
+</style>
+
 <template>
-  <div v-if="show" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 z-70">
+  <div class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 medicine-detail-modal">
     <div class="w-1/3 p-6 bg-white rounded-2xl">
       <h2 class="mb-4 text-xl font-semibold">{{ isViewOnly ? 'Medicine Details' : (medicine.index !== undefined ? 'Edit Medicine' : 'Add Medicine') }}</h2>
       
@@ -77,7 +83,7 @@
           <label class="block mb-1 text-sm font-medium text-gray-700">Remarks</label>
           <textarea 
             v-model="medicine.remarks" 
-            class="w-full p-2 border border-gray-300 rounded h-24"
+            class="w-full h-24 p-2 border border-gray-300 rounded"
             :disabled="isViewOnly"
           ></textarea>
         </div>

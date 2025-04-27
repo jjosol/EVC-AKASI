@@ -176,26 +176,31 @@ const createConsultationRecord = async (person) => {
     const now = new Date();
     selectedDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
     
-    const formattedDateTime = selectedDateTime.toISOString();
-
-    // Prepare the data object for the service call
     const consultationData = {
-      patient_id: person.clientId, // Updated from client_id to patient_id
-      nurse_id: currentUser.value.admin_id, // Updated from admin_id to nurse_id
-      date: formattedDateTime,
-      patient_name: person.name,
-      patient_occupation: person.occupation || `${person.grade}-${person.section}`,
-      nurse_name: currentUser.value.name,
-      complaint: selectedConsultationRecord.value?.complaint || '',
-      remarks: selectedConsultationRecord.value?.remarks || '',
-      confined: selectedConsultationRecord.value?.confined || false,
-      medAdministration: true,
-      intervention: selectedConsultationRecord.value?.intervention || '',
-      action: '',
-      disposition: '',
-      doctor_id: currentUser.value.role === 'doctor' ? currentUser.value.admin_id : undefined,
-      doctor_name: currentUser.value.role === 'doctor' ? currentUser.value.name : undefined
+      patient_id: selectedPerson.value.clientId, // FIX: use patient_id
+      nurse_id: currentUser.value.admin_id,     // FIX: use nurse_id
+      nurse_name: currentUser.value.name, // Ensure nurse_name is set
+      date: selectedDateTime.toISOString(),
+      patient_name: selectedPerson.value.name,
+      patient_occupation:
+        selectedPerson.value.occupation ||
+        `${selectedPerson.value.grade}-${selectedPerson.value.section}`,
+      doctor: currentUser.value.name,
+      complaint: selectedPerson.value.complaints.length > 0 ? selectedPerson.value.complaints.map(c => c.text).join(', ') : null,
+      remarks: selectedPerson.value.remarks || '',
+      confined: Boolean(selectedPerson.value.confined),
+      medAdministration: Boolean(selectedPerson.value.medicationAdministration),
+      fatality: Boolean(selectedPerson.value.fatality),
+      intervention: selectedPerson.value.intervention || '',
+      // Include diagnosis_ids array if present
+      diagnosis_ids: selectedPerson.value.complaints
+        .filter(c => c.disease_id)
+        .map(c => c.disease_id),
+      action: selectedPerson.value.action || '',
+      disposition: selectedPerson.value.disposition || ''
     };
+    // Debug: log consultationData before sending
+    console.log('Consultation data:', consultationData);
 
     // Use the service function instead of direct fetch
     return await consultationRecordService.createConsultationRecord(consultationData);
@@ -361,14 +366,15 @@ const savePerson = async () => {
     selectedDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
 
     const consultationData = {
-      client_id: selectedPerson.value.clientId,
-      admin_id: currentUser.value.admin_id, // Remove the optional chaining
+      patient_id: selectedPerson.value.clientId, // FIX: use patient_id
+      nurse_id: currentUser.value.admin_id,     // FIX: use nurse_id
+      nurse_name: currentUser.value.name, // Ensure nurse_name is set
       date: selectedDateTime.toISOString(),
       patient_name: selectedPerson.value.name,
       patient_occupation:
         selectedPerson.value.occupation ||
         `${selectedPerson.value.grade}-${selectedPerson.value.section}`,
-      doctor: currentUser.value.name, // Remove the optional chaining
+      doctor: currentUser.value.name,
       complaint: selectedPerson.value.complaints.length > 0 ? selectedPerson.value.complaints.map(c => c.text).join(', ') : null,
       remarks: selectedPerson.value.remarks || '',
       confined: Boolean(selectedPerson.value.confined),
@@ -382,143 +388,39 @@ const savePerson = async () => {
       action: selectedPerson.value.action || '',
       disposition: selectedPerson.value.disposition || ''
     };
+    // Debug: log consultationData before sending
+    console.log('Consultation data:', consultationData);
 
-    let consultationId;
+    // Use the service function instead of direct fetch
+    const newConsultation = await consultationRecordService.createConsultationRecord(consultationData);
+    const consultationId = newConsultation.consultation_id;
 
-    // Check if updating an existing consultation record
-    if (selectedConsultationRecord.value?.consultation_id) {
-      try {
-        // First, fetch the existing record to check if it exists
-        await consultationRecordService.fetchConsultationRecord(selectedConsultationRecord.value.consultation_id);
-
-        // Update the existing consultation record
-        await consultationRecordService.updateConsultationRecord(selectedConsultationRecord.value.consultation_id, consultationData);
-        consultationId = selectedConsultationRecord.value.consultation_id;
-      } catch (fetchError) {
-        // If the record is not found, create a new one
-        console.warn('Consultation record not found, creating a new one.');
-        const newRecord = await consultationRecordService.createConsultationRecord(consultationData);
-        consultationId = newRecord.consultation_id;
-      }
-    } else {
-      // Create a new consultation record
-      const newRecord = await consultationRecordService.createConsultationRecord(consultationData);
-      consultationId = newRecord.consultation_id;
-    }
-
-    // Ensure consultationId is obtained
-    if (!consultationId) {
-      throw new Error('Consultation ID is not available');
-    }
-
-    // First, delete any existing chief complaints for this consultation to start fresh
-    try {
-      await consultationRecordService.deleteAllChiefComplaints(consultationId);
-    } catch (error) {
-      console.warn('No existing chief complaints to delete or error deleting:', error);
-      // Continue with creating new complaints
-    }
-
-    // Create new chief complaints
-    const chiefComplaints = selectedPerson.value.complaints.map(complaint => ({
-      consultation_id: consultationId,
-      complaint: complaint.text
-    }));
-
-    // Add each chief complaint
-    if (chiefComplaints.length > 0) {
-      try {
-        await consultationRecordService.createManyChiefComplaints(chiefComplaints);
-        console.log(`${chiefComplaints.length} chief complaints saved successfully`);
-      } catch (complaintError) {
-        console.error('Error saving chief complaints:', complaintError);
+    // Save each medicine to medAdministration
+    if (selectedPerson.value.medicines && consultationId) {
+      for (const medicine of selectedPerson.value.medicines) {
+        await consultationRecordService.createMedAdministrationRecord({
+          consultation_id: consultationId,
+          patient_id: selectedPerson.value.clientId,  // Changed from client_id to patient_id
+          nurse_id: currentUser.value.admin_id,       // Changed from admin_id to nurse_id
+          med_id: medicine.med_id,
+          medName: medicine.name,
+          count: Number(medicine.quantity),
+          schedule: medicine.schedule || '',
+          start_date: medicine.startDate,
+          end_date: medicine.endDate,
+          date: new Date().toISOString(),
+          patient_name: selectedPerson.value.name,    // Changed from patient to patient_name
+          remarks: medicine.remarks || '',
+        });
       }
     }
 
-    // Handle individual diagnoses via the specialized endpoints if they have disease_id
-    // This step allows us to maintain the proper relationships in the database
-    for (const complaint of selectedPerson.value.complaints) {
-      if (complaint.disease_id) {
-        try {
-          await consultationRecordService.linkDiagnosisToConsultation(
-            consultationId,
-            complaint.disease_id
-          );
-        } catch (error) {
-          console.warn(`Failed to link diagnosis ${complaint.disease_id} to consultation: ${error.message}`);
-        }
-      }
-    }
-
-    // Handle medicines if medication administration is enabled
-  if (
-    selectedPerson.value.medicationAdministration &&
-    selectedPerson.value.medicines?.length > 0
-  ) {
-    // Process each medicine in the array
-    for (const medicine of selectedPerson.value.medicines) {
-      if (medicine.markedForDeletion) {
-        // Delete the medicine if it has an ID (existing record)
-        if (medicine.med_administration_id) {
-          await consultationRecordService.deleteMedAdministrationRecord(medicine.med_administration_id);
-        }
-        continue; // Skip to next medicine
-      }
-      
-      // Create new medicine record with tracking information
-      const medAdminData = {
-        consultation_id: consultationId,
-        client_id: selectedPerson.value.clientId,
-        admin_id: currentUser.value.admin_id, // Replace with actual admin ID from auth
-        med_id: medicine.med_id,
-        medName: medicine.name,
-        count: Number(medicine.quantity),
-        schedule: medicine.schedule || 'As needed',
-        start_date: medicine.startDate || new Date().toISOString().split('T')[0],
-        end_date: medicine.endDate || new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0],
-        remarks: medicine.remarks || '',
-        date: new Date().toISOString(),
-        patient: selectedPerson.value.name,
-        cause: `Dispensed to ${selectedPerson.value.name} in consultation #${consultationId}`
-      };
-
-      try {
-        await consultationRecordService.createMedAdministrationRecord(medAdminData);
-        console.log(`Medication ${medicine.name} saved successfully`);
-      } catch (medicineError) {
-        console.error(`Error saving medication ${medicine.name}:`, medicineError);
-        // Continue with other medicines instead of failing completely
-      }
-    }
-  }
-
-    // After processing medicines, update the selectedPerson.medicines array
-    // to trigger reactivity
-    const medAdminRecords = await consultationRecordService.fetchMedAdministrationRecords(consultationId);
-
-    // Map the med admin records to match the expected format
-    const mappedMedicines = medAdminRecords.map(record => ({
-      med_id: record.med_id,
-      consultation_id: record.consultation_id,
-      name: record.medName,
-      quantity: record.count,
-      schedule: record.schedule,
-      startDate: new Date(record.start_date).toISOString().split('T')[0],
-      endDate: new Date(record.end_date).toISOString().split('T')[0],
-      remarks: record.remarks
-    }));
-
-    selectedPerson.value.medicines = mappedMedicines;
-
-    // Reset form and refresh data
-    selectedPerson.value = null;
+    // Close modal and refresh list
     showEditModal.value = false;
-    showAddModal.value = false;
     await fetchPatients();
-    emit('consultation-saved');
   } catch (error) {
-    console.error('Error saving data:', error);
-    alert('Failed to save data: ' + error.message);
+    console.error('Error creating consultation record:', error);
+    throw error;
   }
 };
 
@@ -592,6 +494,7 @@ onMounted(() => {
   fetchPatients();
   fetchRecordCount();
   fetchInventory(); 
+  fetchProfile(); 
 
   if (activeTab.value === 'tab2') {
     fetchAppointmentsForSelectedDate();
@@ -645,7 +548,7 @@ const groupedMedicines = computed(() => {
     }
     
     groups[name].push({
-      med_id: item.med_id,
+      med_id: item.med_id || item.medicine_id, // Fix: ensure med_id is always set
       name: item.medName,
       batch_number: item.batch_number || null,
       expiry_date: item.expiration ? new Date(item.expiration).toLocaleDateString() : 'N/A',
@@ -1339,7 +1242,7 @@ const deleteCategory = async (categoryId) => {
     // Delete all diseases in the category first
     const diseasesToDelete = diseases.value.filter(d => d.category_id === categoryId);
     for (const disease of diseasesToDelete) {
-      await consultationRecordService.deleteDisease(diagnosis_id);
+      await consultationRecordService.deleteDisease(disease.diagnosis_id);
     }
 
     // Then delete the category itself
@@ -2144,7 +2047,7 @@ const delayedAction = (callback, delay) => {
   >
     <div class="space-y-4">
       <div>
-        <label for="category-name" class="block text-sm font-medium text-gray-700">Category Name</label>
+        <label for="category-name" class="block text-sm text-gray-700 fontmedium">Category Name</label>
         <input v-model="newCategory.name" id="category-name" type="text" placeholder="Enter category name"
           class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" />
       </div>
@@ -2159,7 +2062,7 @@ const delayedAction = (callback, delay) => {
             <button @click="deleteCategory(category.category_id)"
               class="p-2 text-white bg-red-500 rounded hover:bg-red-600" title="Delete Category">
               <Icon icon="mdi:delete" class="w-5 h-5" />
-                       </button>
+            </button>
           </div>
         </div>
         <div v-else class="text-sm text-gray-500">
@@ -2231,6 +2134,7 @@ const delayedAction = (callback, delay) => {
           :class="activeManageTab === 'categories' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600'">
           Categories
         </button>
+```vue
       </div>
 
       <!-- Diagnoses Tab -->
