@@ -105,6 +105,7 @@ model consultation_records {
   disposition        String   @default("") @db.VarChar(500)
   diagnosis_text     String?  @db.VarChar(1000) // Stores formatted diagnosis text
   health_record_created Boolean @default(false)
+  doctorShow         Boolean  @default(false)  // Controls visibility on the doctor side
   healthRecord          HealthRecord?
 
   // Relations

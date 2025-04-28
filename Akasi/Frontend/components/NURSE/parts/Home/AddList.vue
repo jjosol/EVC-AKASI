@@ -8,7 +8,7 @@ import * as consultationRecordService from '~/services/consultationRecordService
 import { Icon } from '@iconify/vue';
 
 // Import all the components
-import ConfirmationModal from '~/components/SHARED/parts/confirmationModal.vue';
+import ConfirmationModal from '~/components/shared/parts/confirmationModal.vue';
 import AddModal from './addListComponents/AddModal.vue';
 import EditModal from './addListComponents/EditModal.vue';
 import MedicineModal from './addListComponents/MedicineModal.vue';
@@ -261,7 +261,8 @@ const fetchPatients = async () => {
         medAdministration: record.medAdministration,
         intervention: record.intervention,
         action: record.action,
-        disposition: record.disposition
+        disposition: record.disposition,
+        doctorShow: record.doctorShow || false
       }));
   } catch (error) {
     console.error('Error fetching patients:', error.message);
@@ -1611,6 +1612,29 @@ const delayedAction = (callback, delay) => {
     callback();
   }, delay);
 };
+
+/**
+ * Sends consultation record to doctor
+ * @param {Object} patient - Patient record
+ */
+const sendToDoctor = async (patient) => {
+  try {
+    if (patient.doctorShow) {
+      alert('This record has already been sent to the doctor.');
+      return;
+    }
+
+    await consultationRecordService.updateConsultationRecord(patient.consultation_id, {
+      doctorShow: true
+    });
+
+    patient.doctorShow = true;
+    alert('Record sent to doctor successfully!');
+  } catch (error) {
+    console.error('Error sending record to doctor:', error);
+    alert('Failed to send record to doctor.');
+  }
+};
 </script>
 
 <template>
@@ -1670,9 +1694,22 @@ const delayedAction = (callback, delay) => {
           <span @click="openEditModal(patient)" class="cursor-pointer confinement-details">
             {{ patient.name }} - {{ patient.time }} 
           </span>
-          <button @click="confirmAction('delete')" class="p-1 .text-white bg-red-500 rounded ">
-            <Icon icon="fluent:delete-28-regular" />
-          </button>
+          <div class="flex items-center">
+            <!-- Send to Doctor Button -->
+            <button 
+              @click="sendToDoctor(patient)" 
+              class="p-1 mr-1 text-white bg-green-500 rounded hover:bg-green-600" 
+              :class="{ 'opacity-50 cursor-not-allowed': patient.doctorShow }"
+              :title="patient.doctorShow ? 'Already sent to doctor' : 'Send to doctor'"
+              :disabled="patient.doctorShow"
+            >
+              <Icon icon="mdi:arrow-right" />
+            </button>
+            <!-- Delete Button -->
+            <button @click="confirmAction('delete')" class="p-1 text-white bg-red-500 rounded hover:bg-red-600">
+              <Icon icon="fluent:delete-28-regular" />
+            </button>
+          </div>
         </li>
       </ul>
     </div>

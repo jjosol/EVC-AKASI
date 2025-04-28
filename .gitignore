@@ -5,3 +5,8 @@ Akasi/Backend/src/backup/backup.service.ts
 Akasi/Backend/src/backup/google-drive.service.ts
 /node_modules/@puppeteer
 /node_modules
+Akasi/Backend/prisma/migrations/20250425065449_newewest/migration.sql
+Akasi/Backend/prisma/migrations/20250428034732_newester/migration.sql
+/Akasi/Backend/prisma/migrations
+Akasi/Backend/prisma/migrations/migration_lock.toml
+Akasi/Backend/prisma/migrations/migration_lock.toml

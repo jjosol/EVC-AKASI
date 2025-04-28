@@ -136,6 +136,16 @@ export const updateConsultationWithMedication = async (consultation_id: number) 
 };
 
 /**
+ * Updates the doctorShow field for a consultation record
+ * @param {number} consultation_id - ID of the consultation to update
+ * @param {boolean} doctorShow - Whether to show the consultation to the doctor
+ * @returns {Promise<ConsultationRecord>} Updated consultation record
+ */
+export const updateDoctorShow = async (consultation_id: number, doctorShow: boolean = true) => {
+  return put(`${BASE_URL}/${consultation_id}`, { doctorShow });
+};
+
+/**
  * Validates medication start and end dates
  * @param {string|Date} startDate - Medication start date
  * @param {string|Date} endDate - Medication end date
