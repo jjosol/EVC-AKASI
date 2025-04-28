@@ -21,8 +21,8 @@
           />
         </div>
         
-        <!-- Quantity -->
-        <div>
+        <!-- Quantity (OTC only) -->
+        <div v-if="medicine.otc !== false">
           <label class="block mb-1 text-sm font-medium text-gray-700">Quantity</label>
           <input 
             type="number" 
@@ -87,6 +87,12 @@
             :disabled="isViewOnly"
           ></textarea>
         </div>
+        <!-- Prescription Upload (RX only) -->
+        <div v-if="medicine.otc === false">
+          <label class="block mb-1 text-sm font-medium text-gray-700">Upload Prescription</label>
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png" @change="onPrescriptionUpload" :disabled="isViewOnly" />
+          <span v-if="prescriptionFileName" class="text-xs text-green-700">{{ prescriptionFileName }}</span>
+        </div>
       </div>
       
       <!-- Action Buttons -->
@@ -99,8 +105,9 @@
         </button>
         <button 
           v-if="!isViewOnly"
-          @click="$emit('save', medicine)" 
+          @click="handleSave"
           class="px-4 py-2 text-white bg-green-500 rounded-md hover:bg-green-600"
+          :disabled="medicine.otc === false && !prescriptionFile"
         >
           Save
         </button>
@@ -110,7 +117,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 const props = defineProps({
   show: Boolean,
@@ -125,7 +132,8 @@ const props = defineProps({
       endDate: new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0],
       remarks: '',
       index: null,
-      originalQuantity: 1
+      originalQuantity: 1,
+      otc: true
     })
   },
   isViewOnly: {
@@ -135,4 +143,32 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['cancel', 'save']);
+
+const prescriptionFile = ref(null);
+const prescriptionFileName = ref('');
+
+const onPrescriptionUpload = (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    prescriptionFile.value = file;
+    prescriptionFileName.value = file.name;
+  }
+};
+
+const handleSave = () => {
+  // Attach prescription file to medicine if RX
+  if (props.medicine.otc === false) {
+    emit('save', { ...props.medicine, prescriptionFile: prescriptionFile.value });
+  } else {
+    emit('save', props.medicine);
+  }
+};
+
+// If editing, show existing file name if present
+watch(() => props.medicine.prescriptionFile, (file) => {
+  if (file && typeof file === 'object') {
+    prescriptionFileName.value = file.name;
+    prescriptionFile.value = file;
+  }
+}, { immediate: true });
 </script>
