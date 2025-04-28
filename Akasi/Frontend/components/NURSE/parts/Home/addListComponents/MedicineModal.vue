@@ -136,10 +136,7 @@ const handleAddMedicine = (medicine) => {
     medicine.showPrescriptionUpload = true;
     return;
   }
-  // Decrease only the display value, not DB
-  if (medicine.displayCount >= medicine.requestedQuantity) {
-    medicine.displayCount -= medicine.requestedQuantity;
-  }
+  // Only emit, do NOT decrease displayCount here (handled in detail modal)
   emit('add-medicine', medicine);
   medicine.showPrescriptionUpload = false;
 };

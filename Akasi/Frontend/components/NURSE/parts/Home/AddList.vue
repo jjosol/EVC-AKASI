@@ -203,7 +203,53 @@ const createConsultationRecord = async (person) => {
     console.log('Consultation data:', consultationData);
 
     // Use the service function instead of direct fetch
-    return await consultationRecordService.createConsultationRecord(consultationData);
+    const newConsultation = await consultationRecordService.createConsultationRecord(consultationData);
+    const consultationId = newConsultation.consultation_id;
+
+    // Save each medicine to medAdministration only after consultation is created
+    if (selectedPerson.value.medicines && consultationId) {
+      for (const medicine of selectedPerson.value.medicines) {
+        // Prepare the payload
+        const medPayload = {
+          consultation_id: consultationId,
+          patient_id: selectedPerson.value.clientId,
+          nurse_id: currentUser.value.admin_id,
+          med_id: medicine.med_id,
+          medName: medicine.name,
+          count: Number(medicine.quantity),
+          schedule: medicine.schedule || '',
+          // Convert to ISO string for backend/Prisma
+          start_date: medicine.startDate ? new Date(medicine.startDate).toISOString() : undefined,
+          end_date: medicine.endDate ? new Date(medicine.endDate).toISOString() : undefined,
+          date: new Date().toISOString(),
+          patient_name: selectedPerson.value.name,
+          remarks: medicine.remarks || '',
+        };
+        // List of required fields
+        const requiredFields = [
+          'consultation_id', 'patient_id', 'nurse_id', 'med_id', 'medName', 'count', 'schedule', 'start_date', 'end_date', 'date', 'patient_name'
+        ];
+        // Check for missing fields
+        const missingFields = requiredFields.filter(field => {
+          return medPayload[field] === undefined || medPayload[field] === null || medPayload[field] === '';
+        });
+        // Log the payload and missing fields for debugging
+        console.log('Med administration payload:', JSON.stringify(medPayload, null, 2));
+        if (missingFields.length > 0) {
+          console.error('Skipping med administration record due to missing fields:', missingFields, medPayload);
+          continue;
+        }
+        try {
+          await consultationRecordService.createMedAdministrationRecord(medPayload);
+        } catch (err) {
+          console.error('Error creating med administration:', err, medPayload);
+        }
+      }
+    }
+
+    // Close modal and refresh list
+    showEditModal.value = false;
+    await fetchPatients();
   } catch (error) {
     console.error('Error creating consultation record:', error);
     throw error;
@@ -396,23 +442,44 @@ const savePerson = async () => {
     const newConsultation = await consultationRecordService.createConsultationRecord(consultationData);
     const consultationId = newConsultation.consultation_id;
 
-    // Save each medicine to medAdministration
+    // Save each medicine to medAdministration only after consultation is created
     if (selectedPerson.value.medicines && consultationId) {
       for (const medicine of selectedPerson.value.medicines) {
-        await consultationRecordService.createMedAdministrationRecord({
+        // Prepare the payload
+        const medPayload = {
           consultation_id: consultationId,
-          patient_id: selectedPerson.value.clientId,  // Changed from client_id to patient_id
-          nurse_id: currentUser.value.admin_id,       // Changed from admin_id to nurse_id
+          patient_id: selectedPerson.value.clientId,
+          nurse_id: currentUser.value.admin_id,
           med_id: medicine.med_id,
           medName: medicine.name,
           count: Number(medicine.quantity),
           schedule: medicine.schedule || '',
-          start_date: medicine.startDate,
-          end_date: medicine.endDate,
+          // Convert to ISO string for backend/Prisma
+          start_date: medicine.startDate ? new Date(medicine.startDate).toISOString() : undefined,
+          end_date: medicine.endDate ? new Date(medicine.endDate).toISOString() : undefined,
           date: new Date().toISOString(),
-          patient_name: selectedPerson.value.name,    // Changed from patient to patient_name
+          patient_name: selectedPerson.value.name,
           remarks: medicine.remarks || '',
+        };
+        // List of required fields
+        const requiredFields = [
+          'consultation_id', 'patient_id', 'nurse_id', 'med_id', 'medName', 'count', 'schedule', 'start_date', 'end_date', 'date', 'patient_name'
+        ];
+        // Check for missing fields
+        const missingFields = requiredFields.filter(field => {
+          return medPayload[field] === undefined || medPayload[field] === null || medPayload[field] === '';
         });
+        // Log the payload and missing fields for debugging
+        console.log('Med administration payload:', JSON.stringify(medPayload, null, 2));
+        if (missingFields.length > 0) {
+          console.error('Skipping med administration record due to missing fields:', missingFields, medPayload);
+          continue;
+        }
+        try {
+          await consultationRecordService.createMedAdministrationRecord(medPayload);
+        } catch (err) {
+          console.error('Error creating med administration:', err, medPayload);
+        }
       }
     }
 
@@ -1528,7 +1595,7 @@ const todayFormatted = computed(() => {
   return today.toISOString().split('T')[0]; // Format as YYYY-MM-DD
 });
 
-// Update the saveMedicineDetails function to include date validation
+// Update the saveMedicineDetails function to include date validation and debug logs
 const saveMedicineDetails = async () => {
   try {
     const medicine = selectedMedicine.value;
@@ -1560,18 +1627,17 @@ const saveMedicineDetails = async () => {
       throw new Error('Valid quantity is required');
     }
 
+    // Convert dates to ISO string for consistency
+    const isoStart = medicine.startDate ? new Date(medicine.startDate).toISOString() : undefined;
+    const isoEnd = medicine.endDate ? new Date(medicine.endDate).toISOString() : undefined;
+    console.log('Saving medicine details:', {
+      ...medicine,
+      startDate: isoStart,
+      endDate: isoEnd
+    });
     // If editing an existing medicine
     if (medicine.index !== undefined) {
-      const oldQty = selectedPerson.value.medicines[medicine.index].quantity || 0;
-      const newQty = medicine.quantity;
-      const qtyDiff = newQty - oldQty;
-      
-      if (qtyDiff !== 0) {
-        pendingMedicineQuantities.value[medicine.med_id] = 
-          (pendingMedicineQuantities.value[medicine.med_id] || 0) + qtyDiff;
-      }
-      
-      selectedPerson.value.medicines[medicine.index] = { ...medicine };
+      selectedPerson.value.medicines[medicine.index] = { ...medicine, startDate: isoStart, endDate: isoEnd };
     } else {
       // For new medicine, find the original medicine in allMedicines to update the display count
       const medicineGroups = Object.values(groupedMedicines.value).flat();
@@ -1585,8 +1651,8 @@ const saveMedicineDetails = async () => {
           med_id: medicine.med_id,
           name: medicine.name,
           quantity: Number(medicine.quantity),
-          startDate: medicine.startDate,
-          endDate: medicine.endDate,
+          startDate: isoStart,
+          endDate: isoEnd,
           schedule: medicine.schedule || '',
           remarks: medicine.remarks || ''
         };
@@ -2117,6 +2183,7 @@ const sendToDoctor = async (patient) => {
     @save="saveDiagnosis"
     :save-disabled="!newDisease.name || !newDisease.category_id"
   >
+  
     <div class="space-y-4">
       <!-- Diagnosis Name -->
       <div>
@@ -2155,13 +2222,15 @@ const sendToDoctor = async (patient) => {
     <div class="w-full max-w-4xl p-8 bg-white rounded-lg shadow-lg max-h-[80vh] overflow-y-auto">
       <!-- Header -->
       <div class="flex items-center justify-between mb-6">
-        <h2 class="text-2xl font-semibold text-gray-800">Manage Diagnoses & Categories</h2>
+        <h2 class="text2xl font-semibold text-gray-800">Manage Diagnoses & Categories</h2>
         <button @click="closeManageModal" class="text-gray-500 hover:text-gray-700">
           <Icon icon="mdi:close" class="w-6 h-6" />
         </button>
       </div>
 
       <!-- Tab navigation -->
+       
+
       <div class="flex mb-6 border-b">
         <button @click="activeManageTab = 'diagnoses'" class="px-4 py-2 -mb-px font-medium"
           :class="activeManageTab === 'diagnoses' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-600'">
@@ -2171,7 +2240,6 @@ const sendToDoctor = async (patient) => {
           :class="activeManageTab === 'categories' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600'">
           Categories
         </button>
-```vue
       </div>
 
       <!-- Diagnoses Tab -->
@@ -2374,14 +2442,6 @@ textarea {
 }
 .marquee:hover {
   animation: scroll-left 10s linear infinite;
-}
-@keyframes scroll-left {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(-100%);
-  }
 }
 .confinement-item {
   display: flex;

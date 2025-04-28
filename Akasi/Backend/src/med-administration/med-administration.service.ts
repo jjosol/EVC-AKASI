@@ -24,15 +24,16 @@ export class MedAdministrationService {
   async createMedAdministration(data: any) {
     return await this.prisma.$transaction(async (prisma) => {
       try {
+        // Debug: log incoming data for med administration
+        console.log('[MedAdministrationService] Incoming createMedAdministration payload:', JSON.stringify(data, null, 2));
         // 1. Check if consultation exists
         const consultation = await prisma.consultation_records.findUnique({
           where: { consultation_id: data.consultation_id },
         });
-
         if (!consultation) {
+          console.error('[MedAdministrationService] Consultation record not found for ID:', data.consultation_id);
           throw new BadRequestException('Consultation record not found');
         }
-
         // 2. Check medicine availability and RX/OTC status
         const medicine = await prisma.medicine.findFirst({
           where: {
@@ -40,24 +41,21 @@ export class MedAdministrationService {
             medName: data.medName,
           },
         });
-
         if (!medicine) {
+          console.error('[MedAdministrationService] Medicine not found in inventory:', data.med_id, data.medName);
           throw new BadRequestException('Medicine not found in inventory');
         }
-
         // RX/OTC validation
-        if (medicine.otc === false) { // RX
-          // Check for prescription file (assume data.prescriptionFile or data.prescription_file)
+        if (medicine.otc === false) {
           if (!data.prescriptionFile && !data.prescription_file) {
-            // Instead of dispensing, return a special error or flag for manual review
+            console.warn('[MedAdministrationService] RX medicine requires prescription:', data.med_id, data.medName);
             throw new BadRequestException('Prescription required for RX medicine. Record will be sent for doctor review.');
           }
         }
-
         if (medicine.count < data.count) {
+          console.error('[MedAdministrationService] Insufficient inventory for', data.med_id, data.medName, 'Available:', medicine.count, 'Requested:', data.count);
           throw new BadRequestException(`Insufficient inventory. Available: ${medicine.count}`);
         }
-
         // 3. Use medicineService.reduceInventory with nurse_id (only if not flagged for review)
         await this.medicineService.reduceInventory(
           data.med_id,
@@ -66,9 +64,8 @@ export class MedAdministrationService {
           `Dispensed to ${data.patient_name} in consultation #${data.consultation_id}`,
           data.nurse_id // Pass the nurse_id
         );
-
         // 4. Create new med administration record
-        return await prisma.medAdministration.create({
+        const created = await prisma.medAdministration.create({
           data: {
             consultation_id: data.consultation_id,
             patient_id: data.patient_id,
@@ -86,7 +83,10 @@ export class MedAdministrationService {
             intervention: data.intervention || null
           },
         });
+        console.log('[MedAdministrationService] Created medAdministration record:', created);
+        return created;
       } catch (error) {
+        console.error('[MedAdministrationService] Error in createMedAdministration:', error);
         throw new BadRequestException(error.message);
       }
     });

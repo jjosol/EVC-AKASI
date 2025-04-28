@@ -15,8 +15,8 @@ export class MedAdministrationController {
   async create(@Body() data: any) {
     try {
       if (
-        !data.client_id ||
-        !data.admin_id ||
+        !data.patient_id ||
+        !data.nurse_id ||
         !data.med_id ||
         !data.medName ||
         !data.consultation_id
