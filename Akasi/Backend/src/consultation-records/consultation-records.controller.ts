@@ -167,4 +167,36 @@ export class ConsultationRecordsController {
   ) {
     return this.getPatientConsultations(clientId, req);
   }
+
+  // New endpoint to update medical data for a consultation
+  @Put(':id/medical-data')
+  async updateMedicalData(
+    @Param('id', ParseIntPipe) consultation_id: number,
+    @Body() medicalData: any
+  ) {
+    try {
+      return await this.consultationRecordsService.updateMedicalData(consultation_id, medicalData);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(`Failed to update medical data: ${error.message}`);
+    }
+  }
+
+  // New endpoint to notify nurse about updated medical record
+  @Post(':id/notify-nurse')
+  async notifyNurseAboutMedicalRecord(
+    @Param('id', ParseIntPipe) consultation_id: number,
+    @Body() notificationData: any
+  ) {
+    try {
+      return await this.consultationRecordsService.notifyNurseAboutMedicalRecord(consultation_id, notificationData);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(`Failed to notify nurse: ${error.message}`);
+    }
+  }
 }

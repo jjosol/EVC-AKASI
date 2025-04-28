@@ -108,6 +108,13 @@ model consultation_records {
   doctorShow         Boolean  @default(false)  // Controls visibility on the doctor side
   healthRecord          HealthRecord?
 
+  // New fields for doctor's medical data
+  medical_data        Json?    // JSON field to store all vital signs and notes
+  doctor_reviewed     Boolean  @default(false) // Flag to indicate doctor has reviewed and provided data
+  doctor_review_date  DateTime? // When the doctor provided medical data
+  nurse_notified      Boolean  @default(false) // Flag to indicate nurse has been notified
+  nurse_notification_date DateTime? // When the nurse was notified
+
   // Relations
   nurse              nurse                    @relation(fields: [nurse_id], references: [nurse_id], onDelete: NoAction, onUpdate: NoAction)
   patient            patient                  @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction)

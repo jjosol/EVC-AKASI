@@ -309,7 +309,9 @@ const fetchPatients = async () => {
         intervention: record.intervention,
         action: record.action,
         disposition: record.disposition,
-        doctorShow: record.doctorShow || false
+        doctorShow: record.doctorShow || false,
+        doctor_reviewed: record.doctor_reviewed || false,
+        nurse_notified: record.nurse_notified || false
       }));
   } catch (error) {
     console.error('Error fetching patients:', error.message);
@@ -1688,8 +1690,21 @@ const delayedAction = (callback, delay) => {
  */
 const sendToDoctor = async (patient) => {
   try {
-    // Update the doctorShow field to true
-    await consultationRecordService.updateDoctorShow(patient.consultation_id, true);
+    if (patient.doctor_reviewed) {
+      // If doctor has reviewed, don't allow sending again
+      return;
+    }
+    
+    // Ensure we have the required fields for the API
+    if (!patient.id) {
+      throw new Error('Patient ID is required');
+    }
+    
+    // Update the doctorShow field to true with the required fields
+    await consultationRecordService.updateDoctorShow(patient.consultation_id, true, {
+      patient_id: patient.id, // Add the patient_id field
+      patient_name: patient.name // Add the patient_name field
+    });
     
     // Update the local record
     const index = patients.value.findIndex(p => p.consultation_id === patient.consultation_id);
@@ -1786,6 +1801,7 @@ const hasNonOTCMedicines = computed(() => {
           <div class="flex items-center">
             <!-- Send to Doctor Button -->
             <button 
+              v-if="!patient.doctor_reviewed"
               @click="sendToDoctor(patient)" 
               class="p-1 mr-1 text-white bg-green-500 rounded hover:bg-green-600" 
               :class="{ 'opacity-50 cursor-not-allowed': patient.doctorShow }"
@@ -1793,6 +1809,14 @@ const hasNonOTCMedicines = computed(() => {
               :disabled="patient.doctorShow"
             >
               <Icon icon="mdi:arrow-right" class="w-5 h-5" />
+            </button>
+            <!-- Doctor Reviewed Indicator -->
+            <button 
+              v-else 
+              class="p-1 mr-1 text-white bg-blue-500 rounded cursor-not-allowed"
+              title="Doctor has reviewed this record"
+            >
+              <Icon icon="mdi:arrow-left" class="w-5 h-5" />
             </button>
             <!-- Delete Button -->
             <button @click="confirmAction('delete')" class="p-1 text-white bg-red-500 rounded hover:bg-red-600">

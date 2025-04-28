@@ -455,4 +455,90 @@ export class ConsultationRecordsService {
   async getClientConsultations(clientId: number) {
     return this.getPatientConsultations(clientId);
   }
+
+  /**
+   * Updates medical data for a consultation record
+   * @param consultation_id - ID of the consultation to update
+   * @param medicalData - Medical data including measurements and doctor's notes
+   * @returns Updated consultation record
+   */
+  async updateMedicalData(consultation_id: number, medicalData: any) {
+    try {
+      // Check if consultation exists
+      const consultation = await this.prisma.consultation_records.findUnique({
+        where: { consultation_id }
+      });
+
+      if (!consultation) {
+        throw new NotFoundException(`Consultation with ID ${consultation_id} not found`);
+      }
+
+      // Format the data for storage
+      const { medical_data, doctor_reviewed } = medicalData;
+
+      // Update the consultation record with medical data
+      const updatedRecord = await this.prisma.consultation_records.update({
+        where: { consultation_id },
+        data: {
+          medical_data: medical_data ?? {},
+          doctor_reviewed: doctor_reviewed ?? true,
+          doctor_review_date: new Date()
+        }
+      });
+
+      // Return the updated record
+      return this.getConsultationRecord(consultation_id);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(`Failed to update medical data: ${error.message}`);
+    }
+  }
+
+  /**
+   * Creates a notification for the nurse about a medical record update
+   * @param consultation_id - ID of the consultation that was updated
+   * @param notificationData - Data for the notification
+   * @returns Notification data
+   */
+  async notifyNurseAboutMedicalRecord(consultation_id: number, notificationData: any) {
+    try {
+      // Check if consultation exists
+      const consultation = await this.prisma.consultation_records.findUnique({
+        where: { consultation_id },
+        include: {
+          nurse: true,
+          patient: true
+        }
+      });
+
+      if (!consultation) {
+        throw new NotFoundException(`Consultation with ID ${consultation_id} not found`);
+      }
+
+      // Update the consultation to mark it as shared with the nurse
+      await this.prisma.consultation_records.update({
+        where: { consultation_id },
+        data: {
+          nurse_notified: true,
+          nurse_notification_date: new Date()
+        }
+      });
+
+      // If the application has a notification system, create a notification
+      // For this example, we'll just return a success message
+      return {
+        success: true,
+        message: `Nurse ${consultation.nurse?.name || 'Unknown'} has been notified about the medical record update for patient ${consultation.patient_name}`,
+        timestamp: new Date(),
+        consultation_id
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(`Failed to notify nurse: ${error.message}`);
+    }
+  }
 }

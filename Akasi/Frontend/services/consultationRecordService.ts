@@ -46,6 +46,16 @@ interface MedicationAdministration {
   intervention?: string;
 }
 
+interface MedicalData {
+  temperature?: string;
+  weight?: string;
+  height?: string;
+  blood_pressure?: string;
+  heart_rate?: string;
+  diagnosis?: string;
+  treatment?: string;
+}
+
 interface ChiefComplaint {
   chiefcomplaint_id?: number;
   consultation_id: number;
@@ -139,10 +149,14 @@ export const updateConsultationWithMedication = async (consultation_id: number) 
  * Updates the doctorShow field for a consultation record
  * @param {number} consultation_id - ID of the consultation to update
  * @param {boolean} doctorShow - Whether to show the consultation to the doctor
+ * @param {Object} patientData - Patient data required by the API
  * @returns {Promise<ConsultationRecord>} Updated consultation record
  */
-export const updateDoctorShow = async (consultation_id: number, doctorShow: boolean = true) => {
-  return put(`${BASE_URL}/${consultation_id}`, { doctorShow });
+export const updateDoctorShow = async (consultation_id: number, doctorShow: boolean = true, patientData = {}) => {
+  return put(`${BASE_URL}/${consultation_id}`, { 
+    doctorShow,
+    ...patientData // Spread the patient data which should include patient_id and patient_name
+  });
 };
 
 /**
@@ -471,4 +485,49 @@ export const deleteChiefComplaint = async (chiefcomplaint_id: number) => {
  */
 export const deleteAllChiefComplaints = async (consultation_id: number) => {
   return del(`${CHIEF_COMPLAINT_URL}/consultation/${consultation_id}`);
+};
+
+/**
+ * Updates the medical data for a consultation record (doctor's evaluation)
+ * @param {number} consultation_id - ID of the consultation to update
+ * @param {MedicalData} medicalData - Medical data to save
+ * @returns {Promise<any>} Updated consultation record with medical data
+ */
+export const updateConsultationMedicalData = async (consultation_id: number, medicalData: MedicalData) => {
+  try {
+    // Format the data payload for the API
+    const payload = {
+      medical_data: {
+        ...medicalData,
+        updated_at: new Date().toISOString()
+      },
+      doctor_reviewed: true
+    };
+    
+    // Call the API to update the consultation record
+    return put(`${BASE_URL}/${consultation_id}/medical-data`, payload);
+  } catch (error) {
+    console.error('Error updating medical data:', error);
+    throw error;
+  }
+};
+
+/**
+ * Notifies the nurse about a new medical record from the doctor
+ * @param {number} consultation_id - ID of the consultation that was updated
+ * @returns {Promise<any>} Notification result
+ */
+export const notifyNurseAboutMedicalRecord = async (consultation_id: number) => {
+  try {
+    // This endpoint would notify the nurse about the updated record
+    return post(`${BASE_URL}/${consultation_id}/notify-nurse`, {
+      message: 'New medical record available',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    // Even if notification fails, we don't want to block the UI flow
+    console.warn('Failed to notify nurse, but medical record was saved:', error);
+    // Return a resolved promise so the UI flow continues
+    return Promise.resolve({ success: false, message: 'Notification failed but record was saved' });
+  }
 };

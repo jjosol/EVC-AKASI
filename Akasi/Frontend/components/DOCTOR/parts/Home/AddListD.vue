@@ -8,13 +8,14 @@ import * as consultationRecordService from '~/services/consultationRecordService
 import { Icon } from '@iconify/vue';
 
 // Import all the components
-// import ConfirmationModal from '~/components/SHARED/parts/confirmationModal.vue';
+import ConfirmationModal from '~/components/SHARED/parts/confirmationModal.vue';
 import EditModal from './addListComponents/EditModalD.vue';
 import MedicineModal from './addListComponents/MedicineModalD.vue';
 import MedicineDetailModal from './addListComponents/MedicineDetailModalD.vue';
 import AddDiagnosisModal from './addListComponents/AddDiagnosisModalD.vue';
 import AddCategoryModal from './addListComponents/AddCategoryModalD.vue';
 import StatusModal from './addListComponents/StatusModalD.vue';
+import ConsultationDetailModal from './addListComponents/ConsultationDetailModal.vue';
 
 // Properly initialize the profile composable
 const { profile, loading: profileLoading, fetchProfile } = useProfile();
@@ -1682,6 +1683,19 @@ const delayedAction = (callback, delay) => {
     callback();
   }, delay);
 };
+
+// Add state for consultation detail modal
+const showConsultationDetailModal = ref(false);
+const selectedConsultation = ref(null);
+
+/**
+ * Opens the consultation detail modal with the selected patient's data
+ * @param {Object} patient - Patient to view/edit
+ */
+const openConsultationDetailModal = (patient) => {
+  selectedConsultation.value = { ...patient };
+  showConsultationDetailModal.value = true;
+};
 </script>
 
 <template>
@@ -1715,11 +1729,17 @@ const delayedAction = (callback, delay) => {
             <div 
               v-for="patient in patients" 
               :key="patient.consultation_id" 
-              class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md"
+              class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md cursor-pointer transition-all"
+              @click="openConsultationDetailModal(patient)"
             >
               <h4 class="text-lg font-bold text-[#2f4a71]">{{ patient.name }}</h4>
               <p class="text-sm text-gray-600">Grade {{ patient.grade }}-{{ patient.section }}</p>
               <p class="text-sm text-gray-600">Category: {{ patient.category }}</p>
+              <div class="mt-2 flex items-center">
+                <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                  {{ patient.time }}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -1730,6 +1750,15 @@ const delayedAction = (callback, delay) => {
         </div>
       </div>
     </div>
+    
+    <!-- Consultation Detail Modal -->
+    <ConsultationDetailModal
+      v-if="showConsultationDetailModal"
+      :show="showConsultationDetailModal"
+      :consultation="selectedConsultation"
+      @close="showConsultationDetailModal = false"
+      @save="fetchPatients"
+    />
   </div>
 </template>
 
