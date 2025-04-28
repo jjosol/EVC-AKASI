@@ -4,6 +4,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { GoogleDriveService } from './google-drive.service';
 import { Cron, SchedulerRegistry } from '@nestjs/schedule';
+import AdmZip from 'adm-zip';
+import archiver from 'archiver';
 
 @Injectable()
 export class BackupService {
@@ -16,7 +18,7 @@ export class BackupService {
     time: '00:00', // HH:MM format
     driveFolderId: '', // Google Drive folder ID
     retention: 7, // Number of backups to keep
-    includeFiles: true // Whether to include uploaded files in backup
+    includeUploads: true // Whether to include uploaded files in backup
   };
   private autoBackupConfigPath = path.join(process.cwd(), 'auto-backup-config.json');
   private cronExpression: string;
@@ -156,12 +158,29 @@ export class BackupService {
   }
 
   // Create a backup with all available models
-  async createBackupAll(options?: { gradeLevel?: number, division?: string }) {
+  async createBackupAll(options?: { 
+    gradeLevel?: number; 
+    division?: string;
+    includeUploads?: boolean;
+    customDestination?: string;
+  }) {
     try {
       if (options?.gradeLevel || options?.division) {
         this.logger.log(`Starting selective backup: ${options.gradeLevel ? `Grade ${options.gradeLevel}` : ''}${options.division ? ` Division: ${options.division}` : ''}`);
       } else {
         this.logger.log('Starting full backup of all models');
+      }
+      
+      const includeUploads = options?.includeUploads !== undefined ? options.includeUploads : this.autoBackupConfig.includeUploads;
+      const customDestination = options?.customDestination;
+      
+      if (customDestination) {
+        this.logger.log(`Using custom backup destination: ${customDestination}`);
+        // Ensure the custom destination directory exists
+        if (!fs.existsSync(customDestination)) {
+          fs.mkdirSync(customDestination, { recursive: true });
+          this.logger.log(`Created custom destination directory: ${customDestination}`);
+        }
       }
       
       // Get all available models from Prisma
@@ -184,7 +203,28 @@ export class BackupService {
       
       this.logger.log(`Found ${prismaModels.length} models to backup`);
       
-      return this.createBackup(prismaModels, options);
+      // Create the main database backup
+      const dbData = await this.createBackup(
+        prismaModels, 
+        { 
+          gradeLevel: options?.gradeLevel, 
+          division: options?.division,
+          customDestination,
+          includeUploads
+        }
+      );
+      
+      // Create an integrated backup (single ZIP file with database + uploads)
+      if (includeUploads) {
+        // Pass the backup options to createIntegratedBackup
+        return await this.createIntegratedBackup(dbData, {
+          customDestination,
+          gradeLevel: options?.gradeLevel,
+          division: options?.division
+        });
+      }
+      
+      return dbData;
     } catch (error) {
       this.logger.error('Error creating full backup', error);
       throw new InternalServerErrorException(`Failed to create full backup: ${error.message}`);
@@ -297,7 +337,12 @@ export class BackupService {
     }
   }
 
-  async createBackup(models: string[], options?: { gradeLevel?: number, division?: string }) {
+  async createBackup(models: string[], options?: { 
+    gradeLevel?: number, 
+    division?: string, 
+    customDestination?: string,
+    includeUploads?: boolean 
+  }) {
     try {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       let filename = `backup-${timestamp}.json`;
@@ -446,7 +491,7 @@ export class BackupService {
         models: models.filter(m => data[m] !== undefined),
         recordCounts: {},
         errors: errors,
-        includesFiles: this.autoBackupConfig.includeFiles,
+        includesFiles: this.autoBackupConfig.includeUploads,
         selective: options ? {
           gradeLevel: options.gradeLevel,
           division: options.division
@@ -480,13 +525,72 @@ export class BackupService {
     }
   }
 
+  // Create an integrated backup (database + files) in a single ZIP archive
+  private async createIntegratedBackup(dbData: any, options?: {
+    customDestination?: string;
+    gradeLevel?: number;
+    division?: string;
+    schoolYear?: string;
+  }): Promise<any> {
+    const fs = require('fs');
+    const path = require('path');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    let zipFilename = `backup-${timestamp}.zip`;
+    if (options?.gradeLevel) {
+      zipFilename = `backup-grade${options.gradeLevel}-${timestamp}.zip`;
+    } else if (options?.division) {
+      zipFilename = `backup-${options.division.replace(/\s+/g, '-')}-${timestamp}.zip`;
+    } else if (options?.schoolYear) {
+      zipFilename = `backup-schoolyear-${options.schoolYear}-${timestamp}.zip`;
+    }
+    const destinationDir = options?.customDestination || this.backupDir;
+    if (!fs.existsSync(destinationDir)) {
+      fs.mkdirSync(destinationDir, { recursive: true });
+    }
+    const zipPath = path.join(destinationDir, zipFilename);
+    // Write temp JSON
+    const tempJsonPath = path.join(process.cwd(), 'temp-db-backup.json');
+    fs.writeFileSync(tempJsonPath, JSON.stringify(dbData, null, 2));
+    // Create ZIP
+    const output = fs.createWriteStream(zipPath);
+    const archive = require('archiver')('zip', { zlib: { level: 9 } });
+    archive.pipe(output);
+    archive.file(tempJsonPath, { name: 'database-backup.json' });
+    // Only include the relevant uploads folder
+    const uploadsDir = path.join(process.cwd(), 'uploads');
+    if (options?.schoolYear) {
+      const yearDir = path.join(uploadsDir, options.schoolYear);
+      if (fs.existsSync(yearDir)) {
+        archive.directory(yearDir, `uploads/${options.schoolYear}`);
+      }
+    } else {
+      if (fs.existsSync(uploadsDir)) archive.directory(uploadsDir, 'uploads');
+    }
+    // Do NOT include uploaded_files anymore
+    await archive.finalize();
+    await new Promise((resolve, reject) => {
+      output.on('close', resolve);
+      output.on('error', reject);
+    });
+    if (fs.existsSync(tempJsonPath)) fs.unlinkSync(tempJsonPath);
+    const stats = fs.statSync(zipPath);
+    return {
+      success: true,
+      filename: zipFilename,
+      path: zipPath,
+      size: stats.size,
+      integratedBackup: true
+    };
+  }
+
   async listBackups() {
     try {
       const files = fs.readdirSync(this.backupDir);
       
       const backupsList = await Promise.all(
         files
-          .filter(file => file.endsWith('.json'))
+          .filter(file => file.endsWith('.json') || file.endsWith('.zip'))
+          .filter(file => !file.endsWith('-uploads.zip')) // Skip the old-style uploads backup files
           .map(async file => {
             const filePath = path.join(this.backupDir, file);
             const stats = fs.statSync(filePath);
@@ -494,9 +598,16 @@ export class BackupService {
             // Try to extract metadata from backup file
             let models = [];
             try {
-              const fileContent = fs.readFileSync(filePath, 'utf8');
-              const data = JSON.parse(fileContent);
-              models = data._metadata?.models || Object.keys(data).filter(key => key !== '_metadata');
+              if (file.endsWith('.json')) {
+                const fileContent = fs.readFileSync(filePath, 'utf8');
+                const data = JSON.parse(fileContent);
+                models = data._metadata?.models || Object.keys(data).filter(key => key !== '_metadata');
+              }
+              else if (file.endsWith('.zip')) {
+                // For ZIP files, we can't easily extract metadata without extracting the file
+                // Just mark it as an integrated backup
+                models = ['integrated_backup'];
+              }
             } catch (error) {
               console.error(`Error parsing backup file ${file}:`, error);
             }
@@ -505,7 +616,8 @@ export class BackupService {
               filename: file,
               date: stats.mtime,
               size: stats.size,
-              models
+              models,
+              isIntegrated: file.endsWith('.zip')
             };
           })
       );
@@ -560,36 +672,37 @@ export class BackupService {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
-    
-    if (file.mimetype !== 'application/json' && !file.originalname.endsWith('.json')) {
-      throw new BadRequestException('Invalid file format. Only JSON files are accepted.');
-    }
-    
+    const fs = require('fs');
+    const path = require('path');
     try {
-      console.log('Processing uploaded file:', file.path);
-      
-      // With disk storage, file is already on disk at file.path
-      // No need to write it again, just use the path directly
-      const result = await this.restoreBackup(file.path);
-      
-      // Optionally clean up the uploaded file
-      try {
+      if (file.mimetype.includes('zip') || file.originalname.endsWith('.zip')) {
+        // Extract ZIP
+        const AdmZip = require('adm-zip');
+        const extractPath = path.join(process.cwd(), 'temp-extract-' + Date.now());
+        const zip = new AdmZip(file.path);
+        zip.extractAllTo(extractPath, true);
+        // Find JSON
+        const jsonPath = path.join(extractPath, 'database-backup.json');
+        if (!fs.existsSync(jsonPath)) throw new BadRequestException('No database-backup.json found in ZIP');
+        // Restore DB
+        const result = await this.restoreBackup(jsonPath);
+        // Restore uploads
+        const uploadsDir = path.join(extractPath, 'uploads');
+        if (fs.existsSync(uploadsDir)) await this.copyDirectory(uploadsDir, path.join(process.cwd(), 'uploads'));
+        // Cleanup
         fs.unlinkSync(file.path);
-      } catch (error) {
-        console.warn('Failed to delete temp file:', error);
+        this.deleteDirectory(extractPath);
+        return { ...result, uploadFilesRestored: true };
       }
-      
+      // Fallback: JSON only
+      if (file.mimetype !== 'application/json' && !file.originalname.endsWith('.json')) {
+        throw new BadRequestException('Invalid file format. Only JSON or ZIP files are accepted.');
+      }
+      const result = await this.restoreBackup(file.path);
+      fs.unlinkSync(file.path);
       return result;
     } catch (error) {
-      console.error('Error in restoreFromUpload:', error);
-      // Clean up the file in case of error
-      try {
-        if (file.path && fs.existsSync(file.path)) {
-          fs.unlinkSync(file.path);
-        }
-      } catch (cleanupError) {
-        console.warn('Failed to delete temp file during error cleanup:', cleanupError);
-      }
+      if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
       throw error;
     }
   }
@@ -1086,34 +1199,137 @@ export class BackupService {
     }
   }
 
-  async exportToDrive(filename: string, folderId?: string) {
-    const backup = await this.getBackupFile(filename);
-    
+  async exportToDrive(filename: string, driveFolderId: string) {
     try {
-      // Upload the file to Google Drive
-      const result = await this.googleDriveService.uploadFile(
-        backup.path,
-        filename,
-        folderId
-      );
-      
+      const { path: backupPath } = await this.getBackupFile(filename);
+      if (!backupPath) {
+        throw new NotFoundException(`Backup file ${filename} not found`);
+      }
+      this.logger.log(`Exporting backup ${filename} to Google Drive folder: ${driveFolderId}`);
+      const result = await this.googleDriveService.uploadFileToDrive(backupPath, driveFolderId);
+      this.logger.log(`Backup exported successfully. Drive file ID: ${result.driveFileId}`);
       return {
         success: true,
         filename,
-        driveFileId: result.fileId,
-        driveLink: result.webViewLink,
-        message: 'Backup exported to Google Drive successfully',
+        driveFileId: result.driveFileId,
+        driveLink: result.driveLink,
+        message: 'Backup exported to Google Drive successfully'
       };
     } catch (error) {
-      throw new BadRequestException(`Failed to export to Google Drive: ${error.message}`);
+      this.logger.error(`Error exporting backup to Google Drive: ${error.message}`, error.stack);
+      throw new Error(`Failed to export backup to Google Drive: ${error.message}`);
     }
   }
 
   async listDriveFolders() {
-    return this.googleDriveService.listFolders();
+    try {
+      return await this.googleDriveService.listFolders();
+    } catch (error) {
+      this.logger.error('Error listing Drive folders:', error);
+      throw new Error(`Failed to list Google Drive folders: ${error.message}`);
+    }
   }
 
-  async createDriveFolder(folderName: string) {
-    return this.googleDriveService.createFolder(folderName);
+  async createDriveFolder(name: string) {
+    try {
+      return await this.googleDriveService.createFolder(name);
+    } catch (error) {
+      this.logger.error('Error creating Drive folder:', error);
+      throw new Error(`Failed to create Google Drive folder: ${error.message}`);
+    }
+  }
+
+  // Backup uploaded files to a zip file
+  private async backupUploadFiles(relatedFilename: string, customDestination?: string): Promise<any> {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const archiver = require('archiver');
+      
+      // Get the base name of the backup file without .json extension
+      const baseFilename = relatedFilename.replace('.json', '');
+      
+      // Create a zip file name with the same timestamp as the related backup
+      const zipFilename = `${baseFilename}-uploads.zip`;
+      
+      // Determine where to save the zip file (custom destination or default backup dir)
+      const destinationDir = customDestination || this.backupDir;
+      const zipPath = path.join(destinationDir, zipFilename);
+      
+      this.logger.log(`Creating uploads backup at: ${zipPath}`);
+      
+      // Set up the zip file
+      const output = fs.createWriteStream(zipPath);
+      const archive = archiver('zip', {
+        zlib: { level: 9 } // Maximum compression
+      });
+      
+      // Pipe the zip data to the file
+      archive.pipe(output);
+      
+      // Add the uploads folder to the zip
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      archive.directory(uploadsDir, 'uploads');
+      
+      // Finalize the zip and wait for completion
+      await archive.finalize();
+      
+      return new Promise<any>((resolve, reject) => {
+        output.on('close', () => {
+          const stats = fs.statSync(zipPath);
+          this.logger.log(`Uploads backup created successfully. Size: ${this.formatBytes(stats.size)}`);
+          resolve({
+            success: true,
+            filename: zipFilename,
+            path: zipPath,
+            size: stats.size
+          });
+        });
+        
+        output.on('error', (err) => {
+          this.logger.error(`Error creating uploads backup: ${err.message}`);
+          reject(err);
+        });
+      });
+    } catch (error) {
+      this.logger.error(`Error backing up uploads: ${error.message}`, error.stack);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+  
+  // Helper function to format file size in a human-readable format
+  private formatBytes(bytes: number, decimals = 2) {
+    if (bytes === 0) return '0 Bytes';
+    
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
+  }
+
+  private async copyDirectory(src: string, dest: string) {
+    const fs = require('fs-extra');
+    await fs.copy(src, dest);
+  }
+
+  private async deleteDirectory(dir: string) {
+    const fs = require('fs-extra');
+    await fs.remove(dir);
+  }
+
+  // Add a new method for selective backup by school year
+  async createSchoolYearBackup(schoolYear: string, options?: { customDestination?: string }) {
+    this.logger.log(`Starting selective backup for school year: ${schoolYear}`);
+    // Get all available models from Prisma
+    const prismaModels = Object.keys(this.prisma)
+      .filter(key => typeof this.prisma[key] === 'object' && this.prisma[key] !== null && !key.startsWith('_'));
+    // Optionally, filter patient and related records by schoolYear if you have a field for that (not shown in schema)
+    // For now, just backup all DB data and only the uploads/<schoolYear> folder
+    const dbData = await this.createBackup(prismaModels, {});
+    return await this.createIntegratedBackup(dbData, { schoolYear, customDestination: options?.customDestination });
   }
 }

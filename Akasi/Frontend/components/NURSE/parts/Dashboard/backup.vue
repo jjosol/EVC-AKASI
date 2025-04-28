@@ -31,23 +31,68 @@
         <p class="mb-4 text-gray-600">Create a backup of your entire database or selected patient groups.</p>
         
         <div class="flex flex-col space-y-4">
-          <div class="flex gap-4 mb-2">
-            <button 
-              @click="createFullBackupHandler" 
-              class="px-4 py-2 text-white transition-colors rounded bg-[#2f4a71] hover:bg-[#1d3050] disabled:bg-gray-400 disabled:cursor-not-allowed"
-              :disabled="isBackingUp || !isOnline"
-            >
-              <span v-if="isBackingUp">Creating Backup...</span>
-              <span v-else>Create Full Backup</span>
-            </button>
+          <!-- Backup Options -->
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <div class="flex items-center mb-3">
+                <input 
+                  type="checkbox" 
+                  id="includeUploads" 
+                  v-model="backupOptions.includeUploads" 
+                  class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label for="includeUploads" class="ml-2 text-sm font-medium text-gray-700">
+                  Include uploaded files
+                </label>
+              </div>
+              
+              <div class="mt-3">
+                <label class="block mb-2 text-sm font-medium text-gray-700" for="customDestination">
+                  Custom Backup Location (optional)
+                </label>
+                <div class="flex gap-2">
+                  <input
+                    type="text"
+                    id="customDestination"
+                    v-model="backupOptions.customDestination"
+                    placeholder="C:/Backups"
+                    class="w-full px-3 py-2 text-sm leading-tight text-gray-700 border rounded focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    @click="openDirectoryDialog"
+                  />
+                  <button
+                    @click="openDirectoryDialog"
+                    class="px-3 py-1 text-white bg-gray-500 rounded hover:bg-gray-600"
+                    title="Browse for folder"
+                  >
+                    <Icon icon="mdi:folder-open" />
+                  </button>
+                </div>
+                <p class="mt-1 text-xs text-gray-500">
+                  Leave empty to use the default server backup location
+                </p>
+              </div>
+            </div>
             
-            <button 
-              @click="showSelectiveBackupModal = true"
-              class="px-4 py-2 text-white transition-colors rounded bg-[#4a71a0] hover:bg-[#3a5175] disabled:bg-gray-400 disabled:cursor-not-allowed"
-              :disabled="isBackingUp || !isOnline"
-            >
-              Selective Backup
-            </button>
+            <div class="flex flex-col justify-end">
+              <div class="flex gap-2">
+                <button 
+                  @click="createFullBackupHandler" 
+                  class="px-4 py-2 text-white transition-colors rounded bg-[#2f4a71] hover:bg-[#1d3050] disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  :disabled="isBackingUp || !isOnline"
+                >
+                  <span v-if="isBackingUp">Creating Backup...</span>
+                  <span v-else>Create Full Backup</span>
+                </button>
+                
+                <button 
+                  @click="showSelectiveBackupModal = true"
+                  class="px-4 py-2 text-white transition-colors rounded bg-[#4a71a0] hover:bg-[#3a5175] disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  :disabled="isBackingUp || !isOnline"
+                >
+                  Selective Backup
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -92,7 +137,7 @@
             type="file"
             id="backupFile"
             @change="handleFileUpload"
-            accept=".json"
+            accept=".zip"
             class="w-full p-2 border rounded"
           >
         </div>
@@ -337,6 +382,10 @@
                   <input type="radio" v-model="selectiveBackupType" value="division" class="mr-2">
                   Specific Division
                 </label>
+                <label class="flex items-center">
+                  <input type="radio" v-model="selectiveBackupType" value="schoolyear" class="mr-2">
+                  Specific School Year
+                </label>
               </div>
             </div>
             
@@ -364,6 +413,20 @@
                 class="w-full p-2 border rounded"
               />
             </div>
+
+            <!-- School Year Selection -->
+            <div v-if="selectiveBackupType === 'schoolyear'" class="mb-4">
+              <label class="block mb-2 text-sm font-medium text-gray-700">Select School Year</label>
+              <select 
+                v-model="selectedSchoolYear"
+                class="w-full p-2 border rounded"
+              >
+                <option value="">-- Select a school year --</option>
+                <option v-for="year in availableSchoolYears" :key="year" :value="year">
+                  {{ year }}
+                </option>
+              </select>
+            </div>
           </div>
         </div>
         
@@ -380,6 +443,7 @@
             :disabled="isSelectiveBackupLoading || 
                      (selectiveBackupType === 'grade' && !selectedGradeLevel) || 
                      (selectiveBackupType === 'division' && !selectedDivision) || 
+                     (selectiveBackupType === 'schoolyear' && !selectedSchoolYear) || 
                      !isOnline"
           >
             Create Backup
@@ -405,7 +469,8 @@ import {
   createFullBackup,
   getAutoBackupConfig,
   updateAutoBackupConfig as updateAutoBackupConfigService,
-  runBackupNow as runBackupNowService
+  runBackupNow as runBackupNowService,
+  showDirectoryPicker
 } from '../../../../services/dashboardServices';
 import { useBackupEvents } from '../../../../composables/useBackupEvents';
 
@@ -431,6 +496,12 @@ const restoreMethod = ref('server');
 const selectedServerBackup = ref('');
 const confirmRestore = ref(false);
 const isBackupRunning = ref(false);
+
+// Backup options
+const backupOptions = ref({
+  includeUploads: true,
+  customDestination: ''
+});
 
 // Computed properties
 const canRestore = computed(() => {
@@ -507,20 +578,16 @@ const fetchBackups = async () => {
       // If offline, use cached backups from localStorage if available
       const cachedBackups = localStorage.getItem('cachedBackups');
       if (cachedBackups) {
-        backups.value = JSON.parse(cachedBackups);
+        backups.value = JSON.parse(cachedBackups).filter(b => b.filename.endsWith('.zip'));
         return;
       }
       throw new Error('No cached backup data available while offline');
     }
-    
     isLoading.value = true;
     loadingMessage.value = 'Loading backups...';
-    
-    backups.value = await listBackupsService();
-    
+    backups.value = (await listBackupsService()).filter(b => b.filename.endsWith('.zip'));
     // Cache the backups in localStorage
     localStorage.setItem('cachedBackups', JSON.stringify(backups.value));
-    
   } catch (error) {
     if (!isOnline.value) {
       errorMessage.value = 'You are currently offline. Backup list is unavailable.';
@@ -562,6 +629,18 @@ const loadAutoConfig = async () => {
   }
 };
 
+// Directory dialog handler for custom backup location
+const openDirectoryDialog = async () => {
+  try {
+    const result = await showDirectoryPicker();
+    if (result) {
+      backupOptions.value.customDestination = result;
+    }
+  } catch (error) {
+    console.error('Error opening directory dialog:', error);
+  }
+};
+
 // Methods for manual backup
 const createFullBackupHandler = async () => {
   if (!isOnline.value) {
@@ -572,9 +651,26 @@ const createFullBackupHandler = async () => {
   try {
     isBackingUp.value = true;
     loadingMessage.value = 'Creating full system backup...';
-    const result = await createFullBackup();
     
-    successMessage.value = `Backup created successfully! Filename: ${result.filename}`;
+    // Pass the backup options to the service
+    const result = await createFullBackup({
+      includeUploads: backupOptions.value.includeUploads,
+      customDestination: backupOptions.value.customDestination || undefined
+    });
+    
+    let successMsg = `Backup created successfully! Filename: ${result.filename}`;
+    
+    // If uploads were backed up, add that information
+    if (result.uploadsBackup && result.uploadsBackup.success) {
+      successMsg += ` and uploads backup: ${result.uploadsBackup.filename}`;
+    }
+    
+    // If using custom destination, mention it
+    if (backupOptions.value.customDestination) {
+      successMsg += ` (saved to ${backupOptions.value.customDestination})`;
+    }
+    
+    successMessage.value = successMsg;
     await fetchBackups();
   } catch (error) {
     console.error('Error creating backup:', error);
@@ -663,14 +759,12 @@ const handleFileUpload = (event) => {
     uploadedFile.value = null;
     return;
   }
-  
-  if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
-    errorMessage.value = 'Please upload a valid JSON backup file';
+  if (file.type !== 'application/zip' && !file.name.endsWith('.zip')) {
+    errorMessage.value = 'Please upload a valid ZIP backup file';
     uploadedFile.value = null;
     event.target.value = '';
     return;
   }
-  
   uploadedFile.value = file;
   errorMessage.value = '';
 };
@@ -889,15 +983,17 @@ const showSelectiveBackupModal = ref(false);
 const selectiveBackupType = ref('grade');
 const selectedGradeLevel = ref('');
 const selectedDivision = ref('');
+const selectedSchoolYear = ref('');
 const isSelectiveBackupLoading = ref(false);
-const availableGrades = ref([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+const availableGrades = ref([7, 8, 9, 10, 11, 12]);
+const availableSchoolYears = ref(['2024-2025']);
 
-// Selective backup functions
 const closeSelectiveBackupModal = () => {
   showSelectiveBackupModal.value = false;
   selectiveBackupType.value = 'grade';
   selectedGradeLevel.value = '';
   selectedDivision.value = '';
+  selectedSchoolYear.value = '';
 };
 
 const createSelectiveBackup = async () => {
@@ -905,11 +1001,9 @@ const createSelectiveBackup = async () => {
     errorMessage.value = "Can't create backups while offline. Please reconnect to the internet.";
     return;
   }
-  
   try {
     isSelectiveBackupLoading.value = true;
     loadingMessage.value = 'Creating selective backup...';
-    
     let result;
     if (selectiveBackupType.value === 'grade') {
       if (!selectedGradeLevel.value) {
@@ -917,14 +1011,19 @@ const createSelectiveBackup = async () => {
         return;
       }
       result = await createGradeBackup(Number(selectedGradeLevel.value));
-    } else {
+    } else if (selectiveBackupType.value === 'division') {
       if (!selectedDivision.value) {
         errorMessage.value = 'Please enter a division name';
         return;
       }
       result = await createDivisionBackup(selectedDivision.value);
+    } else if (selectiveBackupType.value === 'schoolyear') {
+      if (!selectedSchoolYear.value) {
+        errorMessage.value = 'Please select a school year';
+        return;
+      }
+      result = await createSchoolYearBackup(selectedSchoolYear.value);
     }
-    
     successMessage.value = `Selective backup created successfully! Filename: ${result.filename}`;
     await fetchBackups();
     closeSelectiveBackupModal();

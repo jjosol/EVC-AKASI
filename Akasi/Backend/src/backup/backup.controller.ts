@@ -9,8 +9,11 @@ export class BackupController {
   constructor(private readonly backupService: BackupService) {}
 
   @Post('create-all')
-  async createBackupAll() {
-    return this.backupService.createBackupAll();
+  async createBackupAll(@Body() options?: { 
+    includeUploads?: boolean, 
+    customDestination?: string 
+  }) {
+    return this.backupService.createBackupAll(options);
   }
 
   @Post('create-grade')
@@ -21,6 +24,12 @@ export class BackupController {
   @Post('create-division')
   async createDivisionBackup(@Body() body: { division: string }) {
     return this.backupService.createBackupAll({ division: body.division });
+  }
+
+  @Post('create-schoolyear')
+  async createSchoolYearBackup(@Body() body: { schoolYear: string, customDestination?: string }) {
+    if (!body.schoolYear) throw new BadRequestException('schoolYear is required');
+    return this.backupService.createSchoolYearBackup(body.schoolYear, { customDestination: body.customDestination });
   }
 
   @Get('auto-config')

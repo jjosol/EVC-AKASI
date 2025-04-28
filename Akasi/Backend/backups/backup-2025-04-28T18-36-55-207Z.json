@@ -1,0 +1,341 @@
+{
+  "doctor": [],
+  "nurse": [
+    {
+      "nurse_id": 1,
+      "username": "nurse",
+      "password": "$2b$10$F5p.fsPJjt878GKw.7N/zeWQWZGMj7E2gqyi.o8FDzO38BkVH2/3q",
+      "gmail": "jjosol@evc.pshs.edu.ph",
+      "name": "John Josol"
+    }
+  ],
+  "patient": [
+    {
+      "patient_id": 1,
+      "username": "patient",
+      "password": "$2b$10$jXQD429dQBaBMzcw3UCjI.HLP.uvddKv4Vdy9vRs9uIQEwGiGZgFe",
+      "name": "John J. Josol",
+      "gmail": "John J. Josol",
+      "age": 19,
+      "gender": "Male",
+      "type": "Student",
+      "civil_status": "single",
+      "address": "Brgy.Bagong Lipunan Carigara, Leyte",
+      "division": null,
+      "position": null,
+      "grade": 12,
+      "section": "A",
+      "category": "intern",
+      "status": "pending"
+    }
+  ],
+  "appointment": [],
+  "consultation_records": [],
+  "consultation_diagnosis": [],
+  "diagnosis": [],
+  "diagnosis_category": [],
+  "medAdministration": [
+    {
+      "med_administration_id": 1,
+      "consultation_id": 15,
+      "patient_id": 1,
+      "nurse_id": 1,
+      "doctor_id": null,
+      "med_id": 13,
+      "medName": "TEST",
+      "date": "2025-04-28T02:44:46.000Z",
+      "patient_name": "John J. Josol",
+      "count": 10,
+      "schedule": "As needed",
+      "start_date": "2025-04-28T00:00:00.000Z",
+      "end_date": "2025-05-10T00:00:00.000Z",
+      "remarks": "ok",
+      "intervention": null
+    },
+    {
+      "med_administration_id": 2,
+      "consultation_id": 17,
+      "patient_id": 1,
+      "nurse_id": 1,
+      "doctor_id": null,
+      "med_id": 11,
+      "medName": "OTC",
+      "date": "2025-04-28T03:01:22.000Z",
+      "patient_name": "John J. Josol",
+      "count": 1,
+      "schedule": "As needed",
+      "start_date": "2025-04-28T00:00:00.000Z",
+      "end_date": "2025-05-02T00:00:00.000Z",
+      "remarks": null,
+      "intervention": null
+    },
+    {
+      "med_administration_id": 3,
+      "consultation_id": 18,
+      "patient_id": 1,
+      "nurse_id": 1,
+      "doctor_id": null,
+      "med_id": 11,
+      "medName": "OTC",
+      "date": "2025-04-28T03:16:48.000Z",
+      "patient_name": "John J. Josol",
+      "count": 20,
+      "schedule": "At bedtime",
+      "start_date": "2025-04-28T00:00:00.000Z",
+      "end_date": "2025-05-10T00:00:00.000Z",
+      "remarks": "da hsj",
+      "intervention": null
+    }
+  ],
+  "medicine": [
+    {
+      "medicine_id": 12,
+      "medName": "RX",
+      "medCategory_id": 6,
+      "expiration": "2025-04-26T00:00:00.000Z",
+      "count": 100,
+      "otc": false
+    },
+    {
+      "medicine_id": 11,
+      "medName": "OTC",
+      "medCategory_id": 6,
+      "expiration": "2025-04-30T00:00:00.000Z",
+      "count": 29,
+      "otc": true
+    },
+    {
+      "medicine_id": 13,
+      "medName": "TEST",
+      "medCategory_id": 6,
+      "expiration": "2025-05-02T00:00:00.000Z",
+      "count": 89,
+      "otc": true
+    },
+    {
+      "medicine_id": 14,
+      "medName": "HDHDHH",
+      "medCategory_id": 6,
+      "expiration": "2025-05-09T00:00:00.000Z",
+      "count": 200,
+      "otc": false
+    }
+  ],
+  "medicineCategory": [
+    {
+      "medCategory_id": 6,
+      "name": "TESTING"
+    }
+  ],
+  "prescription": [],
+  "equipment": [],
+  "equipmentCategory": [
+    {
+      "equipCategory_id": 3,
+      "name": "General"
+    }
+  ],
+  "dental_certificates": [
+    {
+      "patient_id": 1,
+      "grade": 12,
+      "date": "2025-04-26T00:00:00.000Z",
+      "file_path": "2024-2025/dental-certificates/g12/1745684747068_1.jpg",
+      "file_name": "20230205-193022-jpg",
+      "mime_type": "image/jpeg",
+      "file_size": 2691008,
+      "dental_id": 18,
+      "status": "pending",
+      "notes": null
+    }
+  ],
+  "medical_certificates": [
+    {
+      "patient_id": 1,
+      "grade": 7,
+      "date": "2025-04-25T00:00:00.000Z",
+      "file_path": "C:\\Users\\Acer\\Documents\\Github\\EVC-CMS\\Akasi\\Backend\\uploads\\general\\2025\\04\\unknown\\Supplemental-Form-2025-pdf-1745551549538-867985118.pdf",
+      "file_name": "Supplemental-Form-2025.pdf",
+      "mime_type": "application/pdf",
+      "file_size": 214378,
+      "medical_id": 2,
+      "status": "pending",
+      "notes": null
+    }
+  ],
+  "opthal_certificates": [],
+  "physical_exam": [
+    {
+      "patient_id": 1,
+      "grade": 7,
+      "date": "2025-04-26T00:00:00.000Z",
+      "file_path": "2024-2025/physical-exam/g7/1745687712758_1.jpg",
+      "file_name": "20230529-183949-jpg",
+      "mime_type": "image/jpeg",
+      "file_size": 1302564,
+      "physical_id": 2,
+      "status": "pending",
+      "notes": null
+    }
+  ],
+  "medical_consent": [],
+  "dental_consent": [],
+  "dental_history": [],
+  "hh_pds": [],
+  "laboratory": [],
+  "hsu_bulletin": [],
+  "hsu_bulletin_files": [],
+  "chiefcomplaint": [],
+  "editsMedicine": [
+    {
+      "edit_id": 12,
+      "med_id": 12,
+      "medName": "RX",
+      "date": "2025-04-20T20:07:08.000Z",
+      "cause": "Initial inventory",
+      "addSubCount": 100,
+      "runningTotal": 100,
+      "category_id": 6,
+      "nurse_id": 1
+    },
+    {
+      "edit_id": 11,
+      "med_id": 11,
+      "medName": "OTC",
+      "date": "2025-04-20T19:36:25.000Z",
+      "cause": "Initial inventory",
+      "addSubCount": 50,
+      "runningTotal": 50,
+      "category_id": 6,
+      "nurse_id": 1
+    },
+    {
+      "edit_id": 13,
+      "med_id": 13,
+      "medName": "TEST",
+      "date": "2025-04-27T12:26:10.000Z",
+      "cause": "Initial inventory",
+      "addSubCount": 100,
+      "runningTotal": 100,
+      "category_id": 6,
+      "nurse_id": 1
+    },
+    {
+      "edit_id": 14,
+      "med_id": 13,
+      "medName": "TEST",
+      "date": "2025-04-28T02:44:46.000Z",
+      "cause": "Dispensed to John J. Josol in consultation #15",
+      "addSubCount": -10,
+      "runningTotal": 89,
+      "category_id": 6,
+      "nurse_id": 1
+    },
+    {
+      "edit_id": 15,
+      "med_id": 11,
+      "medName": "OTC",
+      "date": "2025-04-28T03:01:22.000Z",
+      "cause": "Dispensed to John J. Josol in consultation #17",
+      "addSubCount": -1,
+      "runningTotal": 49,
+      "category_id": 6,
+      "nurse_id": 1
+    },
+    {
+      "edit_id": 16,
+      "med_id": 11,
+      "medName": "OTC",
+      "date": "2025-04-28T03:16:48.000Z",
+      "cause": "Dispensed to John J. Josol in consultation #18",
+      "addSubCount": -20,
+      "runningTotal": 29,
+      "category_id": 6,
+      "nurse_id": 1
+    },
+    {
+      "edit_id": 17,
+      "med_id": 14,
+      "medName": "HDHDHH",
+      "date": "2025-04-28T03:17:11.000Z",
+      "cause": "Initial inventory",
+      "addSubCount": 200,
+      "runningTotal": 200,
+      "category_id": 6,
+      "nurse_id": 1
+    }
+  ],
+  "editsEquipment": [],
+  "healthRecord": [],
+  "_metadata": {
+    "version": "1.2",
+    "timestamp": "2025-04-28T18:36:55.403Z",
+    "models": [
+      "doctor",
+      "nurse",
+      "patient",
+      "appointment",
+      "consultation_records",
+      "consultation_diagnosis",
+      "diagnosis",
+      "diagnosis_category",
+      "medAdministration",
+      "medicine",
+      "medicineCategory",
+      "prescription",
+      "equipment",
+      "equipmentCategory",
+      "dental_certificates",
+      "medical_certificates",
+      "opthal_certificates",
+      "physical_exam",
+      "medical_consent",
+      "dental_consent",
+      "dental_history",
+      "hh_pds",
+      "laboratory",
+      "hsu_bulletin",
+      "hsu_bulletin_files",
+      "chiefcomplaint",
+      "editsMedicine",
+      "editsEquipment",
+      "healthRecord"
+    ],
+    "recordCounts": {
+      "doctor": 0,
+      "nurse": 1,
+      "patient": 1,
+      "appointment": 0,
+      "consultation_records": 0,
+      "consultation_diagnosis": 0,
+      "diagnosis": 0,
+      "diagnosis_category": 0,
+      "medAdministration": 3,
+      "medicine": 4,
+      "medicineCategory": 1,
+      "prescription": 0,
+      "equipment": 0,
+      "equipmentCategory": 1,
+      "dental_certificates": 1,
+      "medical_certificates": 1,
+      "opthal_certificates": 0,
+      "physical_exam": 1,
+      "medical_consent": 0,
+      "dental_consent": 0,
+      "dental_history": 0,
+      "hh_pds": 0,
+      "laboratory": 0,
+      "hsu_bulletin": 0,
+      "hsu_bulletin_files": 0,
+      "chiefcomplaint": 0,
+      "editsMedicine": 7,
+      "editsEquipment": 0,
+      "healthRecord": 0
+    },
+    "errors": [
+      "$metrics: this.prisma[modelName].findMany is not a function",
+      "$parent: this.prisma[modelName].findMany is not a function"
+    ],
+    "selective": {}
+  }
+}

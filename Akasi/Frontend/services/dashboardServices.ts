@@ -1,8 +1,18 @@
+// Add TypeScript interface for window.electron
+declare global {
+  interface Window {
+    electron?: {
+      showDirectoryPicker: () => Promise<string | null>;
+    };
+    showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>;
+  }
+}
+
 import { get, post, put, del, uploadFile } from './apiService.js';
 
 // Base URLs for API endpoints
 const DOCTOR_URL = '/doctor';
-const PATIENT_URL = '/patient'; 
+const PATIENT_URL = '/patients';  // Changed from '/patient' to '/patients' to match backend controller
 const NURSE_URL = '/nurse'; 
 const BACKUP_URL = '/backup'; 
 
@@ -17,7 +27,13 @@ export const createDoctorAccount = async (doctorData: {
   gmail: string;
   name: string;
 }) => {
-  return await post(DOCTOR_URL, doctorData);
+  try {
+    console.log('Creating doctor with data:', JSON.stringify(doctorData, null, 2));
+    return await post(DOCTOR_URL, doctorData);
+  } catch (error) {
+    console.error('Doctor creation failed with details:', error);
+    throw error;
+  }
 };
 
 export const updateDoctorAccount = async (
@@ -48,14 +64,15 @@ export const createPatientAccount = async (patientData: {
   gmail: string;
   age: number;
   gender: string;
-  type: string; // 'student', 'faculty', 'staff'
+  type: string; // 'student', 'faculty', 'staff', 'other'
   civil_status: string; // 'single', 'married', 'widowed', 'separated'
   address: string;
   division?: string;
   position?: string;
   grade?: number;
   section?: string;
-  category?: string; // Additional category info
+  category?: string; // Additional category info (Intern, Extern)
+  status?: string; // 'pending', 'complete', 'ongoing', 'rejected'
 }) => {
   try {
     console.log('Creating patient with data:', JSON.stringify(patientData, null, 2));
@@ -211,8 +228,11 @@ export const createDriveFolder = async (folderName: string) => {
 };
 
 // Full backup functionality
-export const createFullBackup = async () => {
-  return await post(`${BACKUP_URL}/create-all`, {});
+export const createFullBackup = async (options?: { 
+  includeUploads?: boolean,
+  customDestination?: string 
+}) => {
+  return await post(`${BACKUP_URL}/create-all`, options || {});
 };
 
 export const getAutoBackupConfig = async () => {
@@ -244,4 +264,39 @@ export const createGradeBackup = async (gradeLevel: number) => {
 
 export const createDivisionBackup = async (division: string) => {
   return await post(`${BACKUP_URL}/create-division`, { division });
+};
+
+// Add FileSystem Access API types
+interface FileSystemDirectoryHandle {
+  name: string;
+  kind: 'directory';
+}
+
+// Function to show directory selector dialog
+export const showDirectoryPicker = async (): Promise<string | null> => {
+  try {
+    // Try modern File System Access API first (supported in Chrome, Edge)
+    if ('showDirectoryPicker' in window) {
+      try {
+        const directoryHandle = await (window as any).showDirectoryPicker();
+        return directoryHandle.name; // Return the folder name
+      } catch (err) {
+        // User canceled or browser denied permission
+        console.log('Directory picker was canceled or denied:', err);
+        return null;
+      }
+    }
+    // Fall back to Electron if available
+    else if (window.electron && window.electron.showDirectoryPicker) {
+      return await window.electron.showDirectoryPicker();
+    }
+    // No native directory picker available - show a message
+    else {
+      alert('Your browser doesn\'t support directory selection. Please type the path manually.');
+      return null;
+    }
+  } catch (error) {
+    console.error('Error showing directory picker:', error);
+    return null;
+  }
 };

@@ -33,19 +33,22 @@ const adminAccounts = ref([]);  // Nurse accounts
 const clientAccounts = ref([]);  // Patient accounts
 const managerAccounts = ref([]);  // Doctor accounts
 
-// New account form
+// New account form with all fields from the schema
 const newAccount = ref({
   username: '',
   password: '',
   gmail: '',
-  // Additional client fields
   name: '',
   age: null,
   gender: '',
-  category: '',
-  type: '', // Add this line
+  type: '', // 'student', 'faculty', 'staff', 'other'
+  civil_status: '', // 'single', 'married', 'widowed', 'separated'
+  address: '',
+  division: '',
+  position: '',
   grade: null,
-  section: ''
+  section: '',
+  category: ''
 });
 
 // Error handling
@@ -384,10 +387,14 @@ const resetForm = () => {
     name: '',
     age: null,
     gender: '',
-    category: '',
     type: '', // Reset type field
+    civil_status: '', // Reset civil_status field
+    address: '',
+    division: '',
+    position: '',
     grade: null,
-    section: ''
+    section: '',
+    category: ''
   };
   errorMessage.value = '';
 };
@@ -1142,7 +1149,7 @@ const downloadSampleTemplate = () => {
     
     <!-- Create Account Modal -->
     <div v-if="showCreateModal" class="fixed inset-0 z-50 w-full h-full overflow-y-auto bg-gray-600 bg-opacity-50">
-      <div class="relative p-5 mx-auto bg-white border rounded-md shadow-lg top-20 w-96">
+      <div class="relative max-w-3xl p-5 mx-auto bg-white border rounded-md shadow-lg top-20">
         <div class="mt-3">
           <h3 class="text-lg font-medium leading-6 text-center text-gray-900">
             Create {{ activeTab === 'nurse' ? 'Nurse' : activeTab === 'clients' ? 'Client' : 'Manager' }} Account
@@ -1154,66 +1161,69 @@ const downloadSampleTemplate = () => {
           </div>
           
           <form class="mt-4 text-left" @submit.prevent="createAccount(activeTab === 'clients', activeTab === 'managers')">
-            <!-- Username -->
-            <div class="mb-4">
-              <label class="block mb-2 text-sm font-bold text-gray-700" for="username">
-                Username*
-              </label>
-              <input
-                id="username"
-                type="text"
-                v-model="newAccount.username"
-                class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
-                required
-              />
-            </div>
-            
-            <!-- Password -->
-            <div class="mb-4">
-              <label class="block mb-2 text-sm font-bold text-gray-700" for="password">
-                Password*
-              </label>
-              <input
-                id="password"
-                type="password"
-                v-model="newAccount.password"
-                class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
-                required
-              />
-            </div>
-            
-            <!-- Email -->
-            <div class="mb-4">
-              <label class="block mb-2 text-sm font-bold text-gray-700" for="gmail">
-                Email*
-              </label>
-              <input
-                id="gmail"
-                type="email"
-                v-model="newAccount.gmail"
-                class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
-                required
-              />
-            </div>
-            
-            <!-- Client-specific fields -->
-            <template v-if="activeTab === 'clients'">
-              <!-- Name -->
-              <div class="mb-4">
+            <!-- Common fields for all account types in 2 columns -->
+            <div class="grid grid-cols-2 gap-4">
+              <!-- Username -->
+              <div>
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="username">
+                  Username*
+                </label>
+                <input
+                  id="username"
+                  type="text"
+                  v-model="newAccount.username"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                  required
+                />
+              </div>
+              
+              <!-- Password -->
+              <div>
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="password">
+                  Password*
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  v-model="newAccount.password"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                  required
+                />
+              </div>
+              
+              <!-- Email -->
+              <div>
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="gmail">
+                  Email*
+                </label>
+                <input
+                  id="gmail"
+                  type="email"
+                  v-model="newAccount.gmail"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                  required
+                />
+              </div>
+              
+              <!-- Name (common but required for clients) -->
+              <div>
                 <label class="block mb-2 text-sm font-bold text-gray-700" for="name">
-                  Full Name*
+                  Full Name{{ activeTab === 'clients' ? '*' : '' }}
                 </label>
                 <input
                   id="name"
                   type="text"
                   v-model="newAccount.name"
                   class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
-                  required
+                  :required="activeTab === 'clients'"
                 />
               </div>
-              
+            </div>
+            
+            <!-- Client-specific fields in 2 columns -->
+            <div v-if="activeTab === 'clients'" class="grid grid-cols-2 gap-4 mt-4">
               <!-- Age -->
-              <div class="mb-4">
+              <div>
                 <label class="block mb-2 text-sm font-bold text-gray-700" for="age">
                   Age*
                 </label>
@@ -1228,7 +1238,7 @@ const downloadSampleTemplate = () => {
               </div>
               
               <!-- Gender -->
-              <div class="mb-4">
+              <div>
                 <label class="block mb-2 text-sm font-bold text-gray-700" for="gender">
                   Gender*
                 </label>
@@ -1243,27 +1253,42 @@ const downloadSampleTemplate = () => {
                   <option value="Female">Female</option>
                 </select>
               </div>
-              
-              <!-- Category -->
-              <div class="mb-4">
-                <label class="block mb-2 text-sm font-bold text-gray-700" for="category">
-                  Category*
+
+              <!-- Civil Status -->
+              <div>
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="civil_status">
+                  Civil Status*
                 </label>
                 <select
-                  id="category"
-                  v-model="newAccount.category"
+                  id="civil_status"
+                  v-model="newAccount.civil_status"
                   class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
                   required
                 >
-                  <option value="">Select Category</option>
-                  <option value="Student">Student</option>
-                  <option value="Faculty">Faculty</option>
-                  <option value="Staff">Staff</option>
+                  <option value="">Select Civil Status</option>
+                  <option value="single">Single</option>
+                  <option value="married">Married</option>
+                  <option value="widowed">Widowed</option>
+                  <option value="separated">Separated</option>
                 </select>
               </div>
+
+              <!-- Address -->
+              <div>
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="address">
+                  Address*
+                </label>
+                <input
+                  id="address"
+                  type="text"
+                  v-model="newAccount.address"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                  required
+                />
+              </div>
               
-              <!-- Type -->
-              <div class="mb-4">
+              <!-- Type (Student/Faculty/Staff/Other) -->
+              <div>
                 <label class="block mb-2 text-sm font-bold text-gray-700" for="type">
                   Type*
                 </label>
@@ -1274,13 +1299,58 @@ const downloadSampleTemplate = () => {
                   required
                 >
                   <option value="">Select Type</option>
-                  <option value="Dormer">Dormer</option>
+                  <option value="student">Student</option>
+                  <option value="faculty">Faculty</option>
+                  <option value="staff">Staff</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              
+              <!-- Category (Intern/Extern) -->
+              <div>
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="category">
+                  Category*
+                </label>
+                <select
+                  id="category"
+                  v-model="newAccount.category"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                  required
+                >
+                  <option value="">Select Category</option>
+                  <option value="Intern">Intern</option>
                   <option value="Extern">Extern</option>
                 </select>
               </div>
               
-              <!-- Grade -->
-              <div class="mb-4">
+              <!-- Division (conditional based on type) -->
+              <div v-if="newAccount.type === 'faculty' || newAccount.type === 'staff'">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="division">
+                  Division
+                </label>
+                <input
+                  id="division"
+                  type="text"
+                  v-model="newAccount.division"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                />
+              </div>
+              
+              <!-- Position (conditional based on type) -->
+              <div v-if="newAccount.type === 'faculty' || newAccount.type === 'staff'">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="position">
+                  Position
+                </label>
+                <input
+                  id="position"
+                  type="text"
+                  v-model="newAccount.position"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                />
+              </div>
+              
+              <!-- Grade (conditional based on type) -->
+              <div v-if="newAccount.type === 'student'">
                 <label class="block mb-2 text-sm font-bold text-gray-700" for="grade">
                   Grade
                 </label>
@@ -1295,7 +1365,7 @@ const downloadSampleTemplate = () => {
               </div>
               
               <!-- Section -->
-              <div class="mb-4">
+              <div>
                 <label class="block mb-2 text-sm font-bold text-gray-700" for="section">
                   Section*
                 </label>
@@ -1307,7 +1377,7 @@ const downloadSampleTemplate = () => {
                   required
                 />
               </div>
-            </template>
+            </div>
             
             <div class="flex items-center justify-between mt-6">
               <button
@@ -1433,25 +1503,40 @@ const downloadSampleTemplate = () => {
                 </select>
               </div>
               
-              <!-- Category -->
+              <!-- Civil Status -->
               <div class="mb-4">
-                <label class="block mb-2 text-sm font-bold text-gray-700" for="edit-category">
-                  Category*
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="edit-civil_status">
+                  Civil Status*
                 </label>
                 <select
-                  id="edit-category"
-                  v-model="selectedAccount.category"
+                  id="edit_civil_status"
+                  v-model="selectedAccount.civil_status"
                   class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
                   required
                 >
-                  <option value="">Select Category</option>
-                  <option value="Student">Student</option>
-                  <option value="Faculty">Faculty</option>
-                  <option value="Staff">Staff</option>
+                  <option value="">Select Civil Status</option>
+                  <option value="single">Single</option>
+                  <option value="married">Married</option>
+                  <option value="widowed">Widowed</option>
+                  <option value="separated">Separated</option>
                 </select>
               </div>
+
+              <!-- Address -->
+              <div class="mb-4">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="edit-address">
+                  Address*
+                </label>
+                <input
+                  id="edit-address"
+                  type="text"
+                  v-model="selectedAccount.address"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                  required
+                />
+              </div>
               
-              <!-- Type -->
+              <!-- Type (Student/Faculty/Staff/Other) -->
               <div class="mb-4">
                 <label class="block mb-2 text-sm font-bold text-gray-700" for="edit-type">
                   Type*
@@ -1463,13 +1548,41 @@ const downloadSampleTemplate = () => {
                   required
                 >
                   <option value="">Select Type</option>
-                  <option value="Dormer">Dormer</option>
-                  <option value="Extern">Extern</option>
+                  <option value="student">Student</option>
+                  <option value="faculty">Faculty</option>
+                  <option value="staff">Staff</option>
+                  <option value="other">Other</option>
                 </select>
               </div>
               
-              <!-- Grade -->
-              <div class="mb-4">
+              <!-- Division (conditional based on type) -->
+              <div class="mb-4" v-if="selectedAccount.type === 'faculty' || selectedAccount.type === 'staff'">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="edit-division">
+                  Division
+                </label>
+                <input
+                  id="edit-division"
+                  type="text"
+                  v-model="selectedAccount.division"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                />
+              </div>
+              
+              <!-- Position (conditional based on type) -->
+              <div class="mb-4" v-if="selectedAccount.type === 'faculty' || selectedAccount.type === 'staff'">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="edit-position">
+                  Position
+                </label>
+                <input
+                  id="edit-position"
+                  type="text"
+                  v-model="selectedAccount.position"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                />
+              </div>
+              
+              <!-- Grade (conditional based on type) -->
+              <div class="mb-4" v-if="selectedAccount.type === 'student'">
                 <label class="block mb-2 text-sm font-bold text-gray-700" for="edit-grade">
                   Grade
                 </label>
@@ -1495,6 +1608,23 @@ const downloadSampleTemplate = () => {
                   class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
                   required
                 />
+              </div>
+
+              <!-- Category (Intern/Extern) -->
+              <div class="mb-4">
+                <label class="block mb-2 text-sm font-bold text-gray-700" for="edit-category">
+                  Category*
+                </label>
+                <select
+                  id="edit-category"
+                  v-model="selectedAccount.category"
+                  class="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+                  required
+                >
+                  <option value="">Select Category</option>
+                  <option value="Intern">Intern</option>
+                  <option value="Extern">Extern</option>
+                </select>
               </div>
             </template>
             
