@@ -18,6 +18,7 @@ export interface ConsultationRecordCreateInput {
     confined: boolean;
     medAdministration: boolean;
     diagnosis_ids?: number[]; // Optional field for diagnosis IDs
+    doctorShow?: boolean; // Whether to show the record on the doctor side
 }
 
 // For updating consultation records
@@ -36,6 +37,7 @@ export interface ConsultationRecordUpdateInput {
     intervention?: string;
     confined?: boolean;
     medAdministration?: boolean;
+    doctorShow?: boolean; // Whether to show the record on the doctor side
 }
 
 // For retrieving a consultation record
@@ -56,6 +58,7 @@ export interface ConsultationRecordResponse {
     intervention: string;
     confined: boolean;
     medAdministration: boolean;
+    doctorShow: boolean; // Whether the record is shown on the doctor side
     diagnoses?: any[];
     medAdministrations?: any[];
     nurse?: any;

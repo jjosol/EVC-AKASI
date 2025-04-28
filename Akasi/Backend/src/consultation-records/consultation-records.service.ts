@@ -67,6 +67,7 @@ export class ConsultationRecordsService {
           intervention: consultationData.intervention || '',
           action: consultationData.action || '',
           disposition: consultationData.disposition || '',
+          doctorShow: consultationData.doctorShow || false,
         }
       });
 
@@ -128,29 +129,6 @@ export class ConsultationRecordsService {
         throw error;
       }
       throw new Error(`Error updating consultation record: ${error.message}`);
-    }
-  }
-  
-  // Method to toggle doctorShow status
-  async toggleDoctorShow(consultation_id: number, doctorShow: boolean) {
-    try {
-      const existingRecord = await this.getConsultationRecord(consultation_id);
-      
-      if (!existingRecord) {
-        throw new NotFoundException(`Consultation record with ID ${consultation_id} not found`);
-      }
-      
-      const consultationRecord = await this.prisma.consultation_records.update({
-        where: { consultation_id },
-        data: { doctorShow },
-      });
-      
-      return consultationRecord;
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new Error(`Error toggling doctorShow: ${error.message}`);
     }
   }
 

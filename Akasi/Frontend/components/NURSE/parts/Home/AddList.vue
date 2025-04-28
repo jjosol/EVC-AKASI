@@ -197,7 +197,8 @@ const createConsultationRecord = async (person) => {
         .filter(c => c.disease_id)
         .map(c => c.disease_id),
       action: selectedPerson.value.action || '',
-      disposition: selectedPerson.value.disposition || ''
+      disposition: selectedPerson.value.disposition || '',
+      doctorShow: hasNonOTCMedicines.value // Automatically set doctorShow if non-OTC medicines are included
     };
     // Debug: log consultationData before sending
     console.log('Consultation data:', consultationData);
@@ -433,7 +434,8 @@ const savePerson = async () => {
         .filter(c => c.disease_id)
         .map(c => c.disease_id),
       action: selectedPerson.value.action || '',
-      disposition: selectedPerson.value.disposition || ''
+      disposition: selectedPerson.value.disposition || '',
+      doctorShow: hasNonOTCMedicines.value // Automatically set doctorShow if non-OTC medicines are included
     };
     // Debug: log consultationData before sending
     console.log('Consultation data:', consultationData);
@@ -1680,27 +1682,48 @@ const delayedAction = (callback, delay) => {
 };
 
 /**
- * Sends consultation record to doctor
- * @param {Object} patient - Patient record
+ * Sends a consultation record to the doctor's view
+ * @param {Object} patient - Patient whose record to send
+ * @returns {Promise<void>}
  */
 const sendToDoctor = async (patient) => {
   try {
-    if (patient.doctorShow) {
-      alert('This record has already been sent to the doctor.');
-      return;
+    // Update the doctorShow field to true
+    await consultationRecordService.updateDoctorShow(patient.consultation_id, true);
+    
+    // Update the local record
+    const index = patients.value.findIndex(p => p.consultation_id === patient.consultation_id);
+    if (index !== -1) {
+      patients.value[index].doctorShow = true;
     }
-
-    await consultationRecordService.updateConsultationRecord(patient.consultation_id, {
-      doctorShow: true
-    });
-
-    patient.doctorShow = true;
-    alert('Record sent to doctor successfully!');
+    
+    // Show success message
+    alert('Record sent to doctor successfully');
   } catch (error) {
     console.error('Error sending record to doctor:', error);
-    alert('Failed to send record to doctor.');
+    alert('Error sending record to doctor: ' + error.message);
   }
 };
+
+// Add computed property to detect if any non-OTC medicines are included
+const hasNonOTCMedicines = computed(() => {
+  if (!selectedPerson.value?.medicines || selectedPerson.value.medicines.length === 0) {
+    return false;
+  }
+
+  // Check if any non-deleted medicine is non-OTC
+  return selectedPerson.value.medicines.some(med => {
+    // Skip medicines marked for deletion
+    if (med.markedForDeletion) return false;
+    
+    // Find the medicine in the inventory to check if it's OTC
+    const medicineGroups = Object.values(groupedMedicines.value).flat();
+    const foundMedicine = medicineGroups.find(m => m.med_id === med.med_id);
+    
+    // If medicine is found and it's not OTC, return true
+    return foundMedicine && foundMedicine.otc === false;
+  });
+});
 </script>
 
 <template>
@@ -1756,7 +1779,7 @@ const sendToDoctor = async (patient) => {
         />
       </div>
       <ul class="mt-4 overflow-y-auto max-h-60">
-        <li v-for="(patient, index) in patients" :key="patient.consultationId" class="flex items-center justify-between mb-2 text-lg confinement-item text-[#2f4a71]">
+        <li v-for="(patient, index) in patients" :key="patient.consultation_id" class="flex items-center justify-between mb-2 text-lg confinement-item text-[#2f4a71]">
           <span @click="openEditModal(patient)" class="cursor-pointer confinement-details">
             {{ patient.name }} - {{ patient.time }} 
           </span>
@@ -1769,11 +1792,11 @@ const sendToDoctor = async (patient) => {
               :title="patient.doctorShow ? 'Already sent to doctor' : 'Send to doctor'"
               :disabled="patient.doctorShow"
             >
-              <Icon icon="mdi:arrow-right" />
+              <Icon icon="mdi:arrow-right" class="w-5 h-5" />
             </button>
             <!-- Delete Button -->
             <button @click="confirmAction('delete')" class="p-1 text-white bg-red-500 rounded hover:bg-red-600">
-              <Icon icon="fluent:delete-28-regular" />
+              <Icon icon="fluent:delete-28-regular" class="w-5 h-5" />
             </button>
           </div>
         </li>
@@ -1869,6 +1892,7 @@ const sendToDoctor = async (patient) => {
   :is-view-only="isViewOnly"
   :current-page="currentModalPage"
   :total-pages="2"
+  :has-non-OTC-medicines="hasNonOTCMedicines"
   @cancel="cancelEdit"
   @save="confirmAction('consultation')"
   @next-page="currentModalPage = 2"

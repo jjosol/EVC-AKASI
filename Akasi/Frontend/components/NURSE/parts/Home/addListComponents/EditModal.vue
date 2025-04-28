@@ -39,7 +39,7 @@
             @click="$emit('save')"
             class="px-4 py-2 text-white bg-green-500 rounded-md hover:bg-green-600"
           >
-            Save
+            {{ hasNonOTCMedicines ? 'Send to Doctor' : 'Save' }}
           </button>
         </div>
       </div>
@@ -48,6 +48,8 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
+
 const props = defineProps({
   show: Boolean,
   isViewOnly: {
@@ -61,6 +63,14 @@ const props = defineProps({
   totalPages: {
     type: Number,
     default: 2
+  },
+  medicines: {
+    type: Array,
+    default: () => []
+  },
+  hasNonOTCMedicines: {
+    type: Boolean,
+    default: false
   }
 });
 
