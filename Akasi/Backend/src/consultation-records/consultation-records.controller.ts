@@ -88,6 +88,29 @@ export class ConsultationRecordsController {
       throw new BadRequestException(error.message);
     }
   }
+
+  // Standard DELETE endpoint following REST conventions
+  @Delete(':id')
+  async deleteConsultationRecordStandard(@Param('id', ParseIntPipe) consultation_id: number) {
+    try {
+      console.log(`Received standard DELETE request for ID: ${consultation_id}`);
+
+      const existingRecord = await this.consultationRecordsService.getConsultationRecord(consultation_id);
+      if (!existingRecord) {
+        throw new NotFoundException(`Consultation record with ID ${consultation_id} not found`);
+      }
+
+      await this.consultationRecordsService.deleteConsultationRecord(consultation_id);
+      return { message: `Consultation record with ID ${consultation_id} has been deleted` };
+    } catch (error) {
+      console.error('Delete consultation error (standard endpoint):', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(error.message);
+    }
+  }
+
   @Delete(':id/delete')
   async deleteConsultationRecord(@Param('id', ParseIntPipe) consultation_id: number) {
     try {

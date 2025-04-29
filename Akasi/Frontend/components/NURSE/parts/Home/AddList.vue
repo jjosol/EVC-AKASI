@@ -5,6 +5,7 @@ import moment from 'moment-timezone';
 import { useProfile } from '~/composables/useProfile'
 import { useAppointmentsByDate } from '~/composables/useAppointmentsByDate';
 import * as consultationRecordService from '~/services/consultationRecordService';
+import { fetchInventory } from '~/services/medicineService';
 import { Icon } from '@iconify/vue';
 
 // Import all the components
@@ -185,7 +186,6 @@ const createConsultationRecord = async (person) => {
       patient_occupation:
         selectedPerson.value.occupation ||
         `${selectedPerson.value.grade}-${selectedPerson.value.section}`,
-      doctor: currentUser.value.name,
       complaint: selectedPerson.value.complaints.length > 0 ? selectedPerson.value.complaints.map(c => c.text).join(', ') : null,
       remarks: selectedPerson.value.remarks || '',
       confined: Boolean(selectedPerson.value.confined),
@@ -265,15 +265,15 @@ const fetchPeople = async () => {
   try {
     const data = await consultationRecordService.fetchPeople();
     allPeople.value = data.map((patient) => ({
-      clientId: patient.patient_id, // Keep clientId for backward compatibility
+      clientId: patient.patient_id,
       name: patient.name,
       section: patient.section || 'N/A',
       grade: patient.grade || 'N/A',
       age: patient.age || 0,
       sex: patient.gender || 'N/A',
       type: patient.type || 'N/A',
-      category: patient.category || 'N/A',
-      occupation: patient.position || 'N/A',
+      category: patient.type?.toLowerCase() === 'student' ? patient.category : patient.division || 'N/A',
+      occupation: patient.type || 'N/A'
     }));
   } catch (error) {
     console.error('Error fetching people:', error.message);
@@ -288,7 +288,6 @@ const fetchPatients = async () => {
   try {
     const data = await consultationRecordService.fetchConsultationRecords();
     
-    // Use moment.js for consistent timezone handling
     const currentDate = moment(props.currentDay.date).tz("Asia/Manila");
     
     patients.value = data
@@ -300,7 +299,10 @@ const fetchPatients = async () => {
         id: record.patient_id,
         consultation_id: record.consultation_id,
         name: record.patient_name,
-        occupation: record.patient_occupation || 'N/A',
+        occupation: record.patient?.type || 'N/A',
+        category: record.patient?.type?.toLowerCase() === 'student' 
+          ? record.patient?.category 
+          : record.patient?.division || 'N/A',
         time: moment(record.date).tz("Asia/Manila").format('hh:mm A'),
         complaint: record.complaint,
         remarks: record.remarks,
@@ -355,6 +357,73 @@ watch(
  * Handles both new records and updates
  * @returns {Promise<void>}
  */
+const savePerson = async () => {
+  try {
+    if (!selectedPerson.value?.clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    // Filter out any empty complaints before saving
+    if (selectedPerson.value.complaints) {
+      selectedPerson.value.complaints = selectedPerson.value.complaints.filter(
+        complaint => complaint.text && complaint.text.trim() !== ''
+      );
+    }
+
+    // Ensure complaints is defined as an array and not empty
+    if (
+      !Array.isArray(selectedPerson.value.complaints) ||
+      !selectedPerson.value.complaints.length
+    ) {
+      throw new Error('At least one complaint is required');
+    }
+
+    // Prepare consultation data
+    const selectedDateTime = new Date(props.currentDay.date);
+    const now = new Date();
+    selectedDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+
+    const consultationData = {
+      patient_id: selectedPerson.value.clientId,
+      nurse_id: currentUser.value.admin_id,
+      nurse_name: currentUser.value.name,
+      date: selectedDateTime.toISOString(),
+      patient_name: selectedPerson.value.name,
+      patient_occupation: selectedPerson.value.occupation || `${selectedPerson.value.grade}-${selectedPerson.value.section}`,
+      complaint: selectedPerson.value.complaints.length > 0 ? selectedPerson.value.complaints.map(c => c.text).join(', ') : null,
+      remarks: selectedPerson.value.remarks || '',
+      confined: Boolean(selectedPerson.value.confined),
+      medAdministration: Boolean(selectedPerson.value.medicationAdministration),
+      fatality: Boolean(selectedPerson.value.fatality),
+      intervention: selectedPerson.value.intervention || '',
+      action: selectedPerson.value.action || '',
+      disposition: selectedPerson.value.disposition || '',
+      doctorShow: hasNonOTCMedicines.value,
+      medical_data: {
+        patientType: selectedPerson.value.occupation || 'Student',
+        patientCategory: selectedPerson.value.category || 'N/A',
+        patientGrade: selectedPerson.value.grade || null,
+        patientSection: selectedPerson.value.section || null,
+        patientAge: selectedPerson.value.age || null,
+        patientGender: selectedPerson.value.sex || null,
+        created_at: new Date().toISOString()
+      }
+    };
+
+    // Debug: log consultationData before sending
+    console.log('Consultation data:', consultationData);
+
+    // Use the service function instead of direct fetch
+    const newConsultation = await consultationRecordService.createConsultationRecord(consultationData);
+    const consultationId = newConsultation.consultation_id;
+    
+    // Continue with the rest of the function...
+    // ...existing code for handling medicines...
+  } catch (error) {
+    console.error('Error creating consultation record:', error);
+    throw error;
+  }
+};
 
 // Watch for date changes when on appointments tab
 watch(() => props.currentDay, () => {
@@ -389,162 +458,6 @@ console.log(patients)
  * Handles both new records and updates
  * @returns {Promise<void>}
  */
-const savePerson = async () => {
-  try {
-    if (!selectedPerson.value?.clientId) {
-      throw new Error('Client ID is required');
-    }
-
-    // Filter out any empty complaints before saving
-    if (selectedPerson.value.complaints) {
-      selectedPerson.value.complaints = selectedPerson.value.complaints.filter(
-        complaint => complaint.text && complaint.text.trim() !== ''
-      );
-    }
-
-    // Ensure complaints is defined as an array and not empty
-    if (
-      !Array.isArray(selectedPerson.value.complaints) ||
-      !selectedPerson.value.complaints.length
-    ) {
-      throw new Error('At least one complaint is required');
-    }
-
-    // Prepare consultation data
-    const selectedDateTime = new Date(props.currentDay.date);
-    const now = new Date();
-    selectedDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
-
-    const consultationData = {
-      patient_id: selectedPerson.value.clientId, // FIX: use patient_id
-      nurse_id: currentUser.value.admin_id,     // FIX: use nurse_id
-      nurse_name: currentUser.value.name, // Ensure nurse_name is set
-      date: selectedDateTime.toISOString(),
-      patient_name: selectedPerson.value.name,
-      patient_occupation:
-        selectedPerson.value.occupation ||
-        `${selectedPerson.value.grade}-${selectedPerson.value.section}`,
-      doctor: currentUser.value.name,
-      complaint: selectedPerson.value.complaints.length > 0 ? selectedPerson.value.complaints.map(c => c.text).join(', ') : null,
-      remarks: selectedPerson.value.remarks || '',
-      confined: Boolean(selectedPerson.value.confined),
-      medAdministration: Boolean(selectedPerson.value.medicationAdministration),
-      fatality: Boolean(selectedPerson.value.fatality),
-      intervention: selectedPerson.value.intervention || '',
-      // Include diagnosis_ids array if present
-      diagnosis_ids: selectedPerson.value.complaints
-        .filter(c => c.disease_id)
-        .map(c => c.disease_id),
-      action: selectedPerson.value.action || '',
-      disposition: selectedPerson.value.disposition || '',
-      doctorShow: hasNonOTCMedicines.value // Automatically set doctorShow if non-OTC medicines are included
-    };
-    // Debug: log consultationData before sending
-    console.log('Consultation data:', consultationData);
-
-    // Use the service function instead of direct fetch
-    const newConsultation = await consultationRecordService.createConsultationRecord(consultationData);
-    const consultationId = newConsultation.consultation_id;
-
-    // Save each medicine to medAdministration only after consultation is created
-    if (selectedPerson.value.medicines && consultationId) {
-      for (const medicine of selectedPerson.value.medicines) {
-        // Prepare the payload
-        const medPayload = {
-          consultation_id: consultationId,
-          patient_id: selectedPerson.value.clientId,
-          nurse_id: currentUser.value.admin_id,
-          med_id: medicine.med_id,
-          medName: medicine.name,
-          count: Number(medicine.quantity),
-          schedule: medicine.schedule || '',
-          // Convert to ISO string for backend/Prisma
-          start_date: medicine.startDate ? new Date(medicine.startDate).toISOString() : undefined,
-          end_date: medicine.endDate ? new Date(medicine.endDate).toISOString() : undefined,
-          date: new Date().toISOString(),
-          patient_name: selectedPerson.value.name,
-          remarks: medicine.remarks || '',
-        };
-        // List of required fields
-        const requiredFields = [
-          'consultation_id', 'patient_id', 'nurse_id', 'med_id', 'medName', 'count', 'schedule', 'start_date', 'end_date', 'date', 'patient_name'
-        ];
-        // Check for missing fields
-        const missingFields = requiredFields.filter(field => {
-          return medPayload[field] === undefined || medPayload[field] === null || medPayload[field] === '';
-        });
-        // Log the payload and missing fields for debugging
-        console.log('Med administration payload:', JSON.stringify(medPayload, null, 2));
-        if (missingFields.length > 0) {
-          console.error('Skipping med administration record due to missing fields:', missingFields, medPayload);
-          continue;
-        }
-        try {
-          await consultationRecordService.createMedAdministrationRecord(medPayload);
-        } catch (err) {
-          console.error('Error creating med administration:', err, medPayload);
-        }
-      }
-    }
-
-    // Close modal and refresh list
-    showEditModal.value = false;
-    await fetchPatients();
-  } catch (error) {
-    console.error('Error creating consultation record:', error);
-    throw error;
-  }
-};
-
-/**
- * Fetches medicine inventory from API
- * @returns {Promise<void>}
- */
-/**
- * Fetches inventory items using the inventoryService
- * @returns {Promise<void>}
- */
-/**
- * Fetches inventory items using the consultationRecordService
- */
- const fetchInventory = async () => {
-  try {
-    // Use the correct service function
-    const data = await consultationRecordService.fetchInventory();
-    console.log("Fetched inventory data:", data);
-    allMedicines.value = data || [];
-  } catch (error) {
-    console.error('Error fetching inventory:', error);
-    allMedicines.value = [];
-  }
-};
-
-// Add this function to prepare a medicine for the detail modal
-const prepareAddMedicine = (medicine) => {
-  // Set up the medicine to be added in the detail modal
-  selectedMedicine.value = {
-    med_id: medicine.med_id,
-    name: medicine.name,
-    quantity: medicine.requestedQuantity,
-    schedule: '',
-    startDate: todayFormatted.value,
-    endDate: todayFormatted.value,
-    remarks: '',
-    originalQuantity: medicine.requestedQuantity
-  };
-  
-  // Clear view-only mode and open the modal
-  isViewOnly.value = false;
-  showMedicineDetailModal.value = true;
-};
-
-//Appointments
-// Add new function to fetch appointments for selected date
-const fetchAppointmentsForSelectedDate = async () => {
-  if (props.currentDay && props.currentDay.date) {
-    await fetchAppointmentsByDate(props.currentDay.date);
-  }
-};
 
 // Watch for date changes when on appointments tab
 watch(() => props.currentDay, () => {
@@ -565,7 +478,7 @@ onMounted(() => {
   fetchPeople();
   fetchPatients();
   fetchRecordCount();
-  fetchInventory(); 
+  fetchInventory();
   fetchProfile(); 
 
   if (activeTab.value === 'tab2') {
@@ -697,70 +610,31 @@ const openEditModal = async (patient) => {
     const consultationRecord = await fetchConsultationRecord(patient.consultation_id);
     selectedConsultationRecord.value = consultationRecord;
 
-    let clientCategory = 'N/A';
-    let clientGrade = 'N/A';
-    let clientSection = 'N/A';
-    let clientOccupation = 'N/A';
+    // Fetch patient details to get the most up-to-date information
+    const clientData = await consultationRecordService.fetchPatientById(patient.id);
 
-    try {
-      const clientData = await consultationRecordService.fetchPatientById(patient.id);
-      if (clientData) {
-        clientCategory = clientData.category || 'N/A';
-        clientGrade = clientData.grade || 'N/A';
-        clientSection = clientData.section || 'N/A';
-        clientOccupation = clientData.position || 'N/A';
-      }
-    } catch (clientError) {
-      console.error('Error fetching patient details:', clientError);
-    }
-
-    // Fetch medication administration records
-    const medAdminRecords = await consultationRecordService.fetchMedAdministrationRecords(patient.consultation_id);
-
-    // Map the med admin records to match the expected format
-    const mappedMedicines = medAdminRecords.map(record => ({
-      med_id: record.med_id,
-      med_administration_id: record.med_administration_id, // Use the new PK
-      consultation_id: record.consultation_id,
-      name: record.medName,
-      quantity: record.count,
-      schedule: record.schedule,
-      startDate: new Date(record.start_date).toISOString().split('T')[0],
-      endDate: new Date(record.end_date).toISOString().split('T')[0],
-      remarks: record.remarks
-    }));
-
-    // Handle existing diagnoses if available in the consultationRecord
-    let diagnosisComplaints = [];
-    if (consultationRecord.diagnoses && consultationRecord.diagnoses.length > 0) {
-      diagnosisComplaints = consultationRecord.diagnoses.map(diag => ({
-        id: generateId(),
-        text: diag.diagnosis.name,
-        disease_id: diag.diagnosis_id,
-        category: diag.diagnosis.category?.name || ''
-      }));
-    } else if (consultationRecord.complaint) {
-      // Fallback to the old way of splitting complaint text
-      diagnosisComplaints = consultationRecord.complaint.split(', ').map(text => ({
-        id: generateId(),
-        text: text.trim()
-      }));
-    }
+    // Set category based on patient type
+    const displayCategory = clientData.type?.toLowerCase() === 'student' 
+      ? clientData.category 
+      : clientData.division;
 
     selectedPerson.value = {
       ...patient,
       clientId: patient.id,
-      category: clientCategory, // Add category
-      grade: clientGrade, // Add grade
-      section: clientSection, // Add section
-      occupation: clientOccupation, // Add occupation
-      complaints: diagnosisComplaints,
+      category: displayCategory || 'N/A',
+      grade: clientData.grade || 'N/A',
+      section: clientData.section || 'N/A',
+      occupation: clientData.type || 'N/A',
+      complaints: consultationRecord.diagnoses?.map(diag => ({
+        id: generateId(),
+        text: diag.diagnosis.name,
+        disease_id: diag.diagnosis_id,
+        category: diag.diagnosis.category?.name || ''
+      })) || [],
       remarks: consultationRecord.remarks,
       confined: consultationRecord.confined,
       medicationAdministration: consultationRecord.medAdministration,
-      fatality: consultationRecord.fatality,
       intervention: consultationRecord.intervention,
-      medicines: mappedMedicines, // Add the medicines array
       action: consultationRecord.action || '',
       disposition: consultationRecord.disposition || '',
       nurse_followup: consultationRecord.nurse_followup || ''
@@ -770,7 +644,7 @@ const openEditModal = async (patient) => {
     const hasBeenReviewed = patient.doctor_reviewed || 
                           (consultationRecord.doctor_diagnosis && consultationRecord.doctor_diagnosis.trim() !== '');
 
-    // Set initial page to first page when opening (regardless of review status)
+    // Set initial page to first page when opening
     currentModalPage.value = 1;
     
     // Open the edit modal
@@ -788,13 +662,23 @@ const openEditModal = async (patient) => {
  */
 const deleteConsultationRecord = async (consultation_id) => {
   try {
+    console.log('Deleting consultation record:', consultation_id);
     await consultationRecordService.deleteConsultationRecord(consultation_id);
-    await fetchPatients();
+    await fetchPatients(); // Refresh the list
+    showConfirmationModal.value = false; // Close the confirmation modal
     emit('consultation-deleted');
   } catch (error) {
     console.error('Error deleting consultation record:', error);
-    alert('Failed to delete consultation record');
+    alert('Failed to delete consultation record: ' + error.message);
   }
+};
+
+// Add this new method for delete confirmation
+const confirmDelete = (consultation_id) => {
+  selectedConsultationRecord.value = { consultation_id };
+  confirmationMessage.value = 'Are you sure you want to delete this consultation record? This action cannot be undone.';
+  showConfirmationModal.value = true;
+  pendingSaveAction.value = 'delete';
 };
 
 /**
@@ -1827,7 +1711,10 @@ const hasNonOTCMedicines = computed(() => {
               <Icon icon="mdi:arrow-left" class="w-5 h-5" />
             </button>
             <!-- Delete Button -->
-            <button @click="confirmAction('delete')" class="p-1 text-white bg-red-500 rounded hover:bg-red-600">
+            <button 
+              @click="confirmDelete(patient.consultation_id)" 
+              class="p-1 text-white bg-red-500 rounded hover:bg-red-600"
+            >
               <Icon icon="fluent:delete-28-regular" class="w-5 h-5" />
             </button>
           </div>

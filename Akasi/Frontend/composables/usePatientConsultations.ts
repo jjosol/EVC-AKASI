@@ -27,6 +27,9 @@ interface Consultation {
   medications?: Medication[];
   nurseName?: string;
   doctorName?: string;
+  patient_type: string;
+  patient_occupation: string;
+  category: string;
 }
 
 export function usePatientConsultations() {
@@ -82,7 +85,10 @@ export function usePatientConsultations() {
           remarks: record.remarks,
           disposition: record.disposition,
           diagnoses: record.diagnoses?.map((d: any) => d.name).join(', ') || null,
-          medications: record.medications || []
+          medications: record.medications || [],
+          patient_type: record.patient_type || 'Unknown',
+          patient_occupation: record.patient_occupation || 'Unknown',
+          category: record.category || ''  // This will contain division for faculty/staff or category for students
         };
       });
 

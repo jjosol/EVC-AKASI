@@ -172,8 +172,8 @@ watch(() => props.consultation, (newConsultation) => {
               <p class="font-medium">{{ consultation.name }}</p>
             </div>
             <div>
-              <p class="text-sm text-gray-500">Category</p>
-              <p class="font-medium">{{ consultation.category }}</p>
+              <p class="text-sm text-gray-500">Type</p>
+              <p class="font-medium">{{ consultation.type }}</p>
             </div>
             <div v-if="consultation.grade">
               <p class="text-sm text-gray-500">Grade/Section</p>
@@ -425,8 +425,8 @@ watch(() => props.consultation, (newConsultation) => {
               <p class="font-medium">{{ consultation.name }}</p>
             </div>
             <div>
-              <p class="text-sm text-gray-500">Category</p>
-              <p class="font-medium">{{ consultation.category }}</p>
+              <p class="text-sm text-gray-500">Type</p>
+              <p class="font-medium">{{ consultation.type }}</p>
             </div>
             <div v-if="consultation.grade">
               <p class="text-sm text-gray-500">Grade/Section</p>

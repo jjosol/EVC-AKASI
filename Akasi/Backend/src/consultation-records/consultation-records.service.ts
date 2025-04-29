@@ -49,17 +49,40 @@ export class ConsultationRecordsService {
     try {
       const { diagnosis_ids, ...consultationData } = data;
 
+      // Fetch the patient details to get their type, grade, and section
+      const patientDetails = await this.prisma.patient.findUnique({
+        where: { patient_id: consultationData.patient_id }
+      });
+
+      if (!patientDetails) {
+        throw new NotFoundException(`Patient with ID ${consultationData.patient_id} not found`);
+      }
+
+      // Get the patient's details from the database
+      const patientType = patientDetails.type || 'Unknown';
+      const patientDivision = patientDetails.division || '';
+      const patientCategory = patientDetails.category || '';
+      const patientGrade = patientDetails.grade || null;
+      const patientSection = patientDetails.section || null;
+      const patientAge = patientDetails.age || null;
+      const patientGender = patientDetails.gender || 'Unknown';
+
+      // Set the category field based on patient type
+      const displayCategory = patientType.toLowerCase() === 'student' 
+        ? patientCategory // For students, show their category (Intern/Extern)
+        : patientDivision; // For faculty/staff, show their division
+
+      console.log(`Creating consultation for patient: ${consultationData.patient_name}, Type: ${patientType}, Category/Division: ${displayCategory}, Age: ${patientAge}, Gender: ${patientGender}, Grade: ${patientGrade}, Section: ${patientSection}`);
+
       // Create the consultation record using the properly formatted data
       const record = await this.prisma.consultation_records.create({
         data: {
           patient_id: consultationData.patient_id,
           nurse_id: consultationData.nurse_id,
-          doctor_id: consultationData.doctor_id || null,
+          nurse_name: consultationData.nurse_name,
           date: new Date(consultationData.date),
           patient_name: consultationData.patient_name,
-          patient_occupation: consultationData.patient_occupation,
-          nurse_name: consultationData.nurse_name,
-          doctor_name: consultationData.doctor_name || null,
+          patient_occupation: patientType, // Store the actual patient type
           complaint: consultationData.complaint || '',
           remarks: consultationData.remarks || '',
           confined: consultationData.confined || false,
@@ -68,6 +91,16 @@ export class ConsultationRecordsService {
           action: consultationData.action || '',
           disposition: consultationData.disposition || '',
           doctorShow: consultationData.doctorShow || false,
+          // Store the patient's details in medical_data
+          medical_data: {
+            patientType,
+            patientCategory: displayCategory, // Store the appropriate category/division
+            patientGrade,
+            patientSection,
+            patientAge,
+            patientGender,
+            created_at: new Date().toISOString()
+          }
         }
       });
 
@@ -148,6 +181,17 @@ export class ConsultationRecordsService {
       const record = await this.prisma.consultation_records.findUnique({
         where: { consultation_id },
         include: {
+          patient: {
+            select: {
+              type: true,
+              division: true,
+              category: true,
+              age: true,
+              gender: true,
+              grade: true,
+              section: true
+            }
+          },
           diagnosis: {
             include: {
               diagnosis: {
@@ -167,7 +211,27 @@ export class ConsultationRecordsService {
         throw new NotFoundException(`Consultation record with ID ${consultation_id} not found`);
       }
 
-      return record;
+      // Determine the display category based on patient type
+      const displayCategory = record.patient?.type?.toLowerCase() === 'student'
+        ? record.patient.category // For students, show their category (Intern/Extern)
+        : record.patient.division; // For faculty/staff, show their division
+
+      // Include patient information in the medical_data
+      const medical_data = {
+        ...(typeof record.medical_data === 'object' ? record.medical_data : {}),
+        patientType: record.patient?.type || null,
+        patientCategory: displayCategory || null, // Store the appropriate category/division
+        patientAge: record.patient?.age || null,
+        patientGender: record.patient?.gender || null,
+        patientGrade: record.patient?.grade || null,
+        patientSection: record.patient?.section || null
+      };
+
+      return {
+        ...record,
+        patient_occupation: record.patient?.type || 'Unknown', // Use actual patient type
+        medical_data
+      };
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -228,6 +292,23 @@ export class ConsultationRecordsService {
   async deleteConsultationRecord(consultation_id: number) {
     return await this.prisma.$transaction(async (prisma) => {
       try {
+        // Get the consultation record first to check if it exists and log details
+        const consultationRecord = await prisma.consultation_records.findUnique({
+          where: { consultation_id },
+          include: {
+            diagnosis: true,
+            medAdministrations: true,
+            prescriptions: true
+          }
+        });
+
+        if (!consultationRecord) {
+          throw new NotFoundException(`Consultation record with ID ${consultation_id} not found`);
+        }
+
+        // Log deletion attempt with more context, especially if doctor-reviewed
+        console.log(`Attempting to delete consultation ${consultation_id}. Doctor reviewed: ${consultationRecord.doctor_reviewed}`);
+
         // First, delete associated diagnosis links
         await prisma.consultation_diagnosis.deleteMany({
           where: { consultation_id }
@@ -306,6 +387,16 @@ export class ConsultationRecordsService {
         } catch (prescriptionError) {
           console.error("Error deleting prescriptions:", prescriptionError.message);
           // Continue deletion process even if prescription deletion fails
+        }
+
+        // Delete any chief complaints if they exist
+        try {
+          await prisma.chiefcomplaint.deleteMany({
+            where: { consultation_id }
+          });
+        } catch (chiefComplaintError) {
+          console.error("Error deleting chief complaints:", chiefComplaintError.message);
+          // Continue deletion process
         }
 
         // Finally delete the consultation record
@@ -424,6 +515,17 @@ export class ConsultationRecordsService {
           patient_id: patientIdInt,
         },
         include: {
+          patient: {
+            select: {
+              type: true,
+              division: true,
+              category: true,
+              age: true,
+              gender: true,
+              grade: true,
+              section: true
+            }
+          },
           diagnosis: {
             include: {
               diagnosis: true
@@ -438,35 +540,42 @@ export class ConsultationRecordsService {
         },
       });
 
-      return consultations.map(record => ({
-        id: record.consultation_id,
-        date: record.date,
-        nurse_name: record.nurse_name,
-        doctor_name: record.doctor_name,
-        complaint: record.complaint,
-        remarks: record.remarks,
-        action: record.action,
-        disposition: record.disposition,
-        intervention: record.intervention,
-        confined: record.confined,
-        medAdministration: record.medAdministration,
-        // Use diagnoses_text if available, otherwise generate it from relations
-        diagnoses: record.diagnosis_text || 
-                   record.diagnosis?.map(d => d.diagnosis?.name).filter(Boolean).join(', ') || 
-                   record.complaint,
-        // Include medication administration details
-        medications: record.medAdministrations?.map(med => ({
-          id: med.med_administration_id,
-          name: med.medName,
-          count: med.count,
-          schedule: med.schedule,
-          startDate: med.start_date,
-          endDate: med.end_date,
-          remarks: med.remarks
-        })) || [],
-        nurseName: record.nurse?.name || 'Unknown',
-        doctorName: record.doctor?.name || null
-      }));
+      return consultations.map(record => {
+        // Determine display category based on patient type
+        const displayCategory = record.patient?.type?.toLowerCase() === 'student'
+          ? record.patient.category // For students, show their category (Intern/Extern)
+          : record.patient.division; // For faculty/staff, show their division
+
+        return {
+          id: record.consultation_id,
+          date: record.date,
+          nurse_name: record.nurse_name,
+          doctor_name: record.doctor_name,
+          complaint: record.complaint,
+          remarks: record.remarks,
+          action: record.action,
+          disposition: record.disposition,
+          intervention: record.intervention,
+          confined: record.confined,
+          medAdministration: record.medAdministration,
+          patient_type: record.patient?.type || 'Unknown',
+          category: displayCategory || '',
+          diagnoses: record.diagnosis_text || 
+                     record.diagnosis?.map(d => d.diagnosis?.name).filter(Boolean).join(', ') || 
+                     record.complaint,
+          medications: record.medAdministrations?.map(med => ({
+            id: med.med_administration_id,
+            name: med.medName,
+            count: med.count,
+            schedule: med.schedule,
+            startDate: med.start_date,
+            endDate: med.end_date,
+            remarks: med.remarks
+          })) || [],
+          nurseName: record.nurse?.name || 'Unknown',
+          doctorName: record.doctor?.name || null
+        };
+      });
     } catch (error) {
       console.error('Error fetching patient consultations:', error);
       throw new Error('Failed to fetch consultation records');
@@ -515,6 +624,7 @@ export class ConsultationRecordsService {
           weight: parsedMedicalData.weight ? parseFloat(parsedMedicalData.weight as string) : null,
           height: parsedMedicalData.height ? parseFloat(parsedMedicalData.height as string) : null,
           blood_pressure: parsedMedicalData.blood_pressure as string || null,
+          heart_rate: parsedMedicalData.heart_rate ? parseInt(parsedMedicalData.heart_rate as string, 10) : null,
           instructions: parsedMedicalData.treatment as string || null,
           
           // Also store the complete data as JSON

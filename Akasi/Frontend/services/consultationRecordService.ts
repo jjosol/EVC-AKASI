@@ -8,6 +8,15 @@ const DIAGNOSIS_URL = '/diagnoses'; // Updated to use diagnoses (plural) instead
 const APPOINTMENT_URL = '/add-appointment'; // Added appointment URL
 const CHIEF_COMPLAINT_URL = '/chief-complaint'; // Added chief complaint URL
 
+// Define types for patient data
+interface PatientData {
+  type: string;
+  division?: string;
+  category?: string;
+  grade?: number;
+  section?: string;
+}
+
 // Define interfaces for type safety
 interface ConsultationRecord {
   consultation_id?: number;
@@ -26,6 +35,13 @@ interface ConsultationRecord {
   confined: boolean;
   medAdministration: boolean;
   disposition: string;
+  patient?: PatientData;  // Add patient data to include type, division, and category
+  medical_data?: {
+    patientType?: string;
+    patientCategory?: string;
+    patientGrade?: number;
+    patientSection?: string;
+  };
 }
 
 interface MedicationAdministration {
@@ -63,11 +79,28 @@ interface ChiefComplaint {
 }
 
 /**
+ * Formats patient category based on type
+ * @param {PatientData | undefined} patient - Patient data
+ * @returns {string} Formatted category
+ */
+const formatPatientCategory = (patient: PatientData | undefined): string => {
+  if (!patient || !patient.type) return 'N/A';
+  return patient.type.toLowerCase() === 'student'
+    ? patient.category || 'N/A'
+    : patient.division || 'N/A';
+};
+
+/**
  * Fetches all consultation records
  * @returns {Promise<ConsultationRecord[]>} List of consultations
  */
 export const fetchConsultationRecords = async () => {
-  return get(BASE_URL);
+  const records = await get(BASE_URL);
+  return records.map((record: ConsultationRecord) => ({
+    ...record,
+    patient_occupation: record.patient?.type || 'N/A',
+    category: formatPatientCategory(record.patient)
+  }));
 };
 
 /**
@@ -133,7 +166,14 @@ export const createConsultationRecord = async (data: ConsultationRecord) => {
  * @returns {Promise<any>} Result of deletion operation
  */
 export const deleteConsultationRecord = async (consultation_id: number) => {
-  return del(`${BASE_URL}/${consultation_id}/delete`);
+  try {
+    const result = await del(`${BASE_URL}/${consultation_id}`);
+    console.log('Delete consultation result:', result);
+    return result;
+  } catch (error) {
+    console.error('Error deleting consultation:', error);
+    throw error;
+  }
 };
 
 /**
@@ -539,7 +579,7 @@ export const notifyNurseAboutMedicalRecord = async (consultation_id: number) => 
  * @param {any} consultationRecord - Consultation record object
  * @returns {Object} Object containing all available medical data
  */
-export const extractMedicalData = (consultationRecord) => {
+export const extractMedicalData = (consultationRecord: any) => {
   // Default empty values
   const defaultData = {
     temperature: null,
@@ -548,7 +588,12 @@ export const extractMedicalData = (consultationRecord) => {
     blood_pressure: null,
     heart_rate: null,
     diagnosis: null,
-    treatment: null
+    treatment: null,
+    patientType: null,
+    patientGrade: null,
+    patientSection: null,
+    patientAge: null,
+    patientGender: null
   };
 
   // If no record, return defaults
@@ -562,6 +607,7 @@ export const extractMedicalData = (consultationRecord) => {
     weight: consultationRecord.weight,
     height: consultationRecord.height,
     blood_pressure: consultationRecord.blood_pressure,
+    heart_rate: consultationRecord.heart_rate,
     treatment: consultationRecord.instructions,
   };
 
@@ -581,9 +627,15 @@ export const extractMedicalData = (consultationRecord) => {
         weight: directData.weight ?? medicalData.weight ?? null,
         height: directData.height ?? medicalData.height ?? null,
         blood_pressure: directData.blood_pressure ?? medicalData.blood_pressure ?? null,
-        heart_rate: medicalData.heart_rate ?? null,
+        heart_rate: directData.heart_rate ?? medicalData.heart_rate ?? null,
         diagnosis: medicalData.diagnosis ?? consultationRecord.complaint ?? null,
-        treatment: directData.treatment ?? medicalData.treatment ?? null
+        treatment: directData.treatment ?? medicalData.treatment ?? null,
+        // Add patient details from medical_data
+        patientType: medicalData.patientType ?? null,
+        patientGrade: medicalData.patientGrade ?? null,
+        patientSection: medicalData.patientSection ?? null, 
+        patientAge: medicalData.patientAge ?? null,
+        patientGender: medicalData.patientGender ?? null
       };
     } catch (error) {
       console.error('Error parsing medical_data:', error);

@@ -1,5 +1,16 @@
 // src/consultation-records/consultation-records.types.ts
 
+// Medical data structure
+export interface MedicalData {
+    patientType: string;
+    patientCategory?: string;
+    patientGrade?: number | null;
+    patientSection?: string | null;
+    patientAge?: number | null;
+    patientGender?: string | null;
+    created_at: string;
+}
+
 // Input for creating a consultation record
 export interface ConsultationRecordCreateInput {
     patient_id: number;
@@ -19,6 +30,7 @@ export interface ConsultationRecordCreateInput {
     medAdministration: boolean;
     diagnosis_ids?: number[]; // Optional field for diagnosis IDs
     doctorShow?: boolean; // Whether to show the record on the doctor side
+    medical_data?: MedicalData; // Add medical data field
 }
 
 // For updating consultation records
@@ -37,7 +49,8 @@ export interface ConsultationRecordUpdateInput {
     intervention?: string;
     confined?: boolean;
     medAdministration?: boolean;
-    doctorShow?: boolean; // Whether to show the record on the doctor side
+    doctorShow?: boolean;
+    medical_data?: MedicalData; // Add medical data field
 }
 
 // For retrieving a consultation record
@@ -58,7 +71,8 @@ export interface ConsultationRecordResponse {
     intervention: string;
     confined: boolean;
     medAdministration: boolean;
-    doctorShow: boolean; // Whether the record is shown on the doctor side
+    doctorShow: boolean;
+    medical_data?: MedicalData; // Add medical data field
     diagnoses?: any[];
     medAdministrations?: any[];
     nurse?: any;

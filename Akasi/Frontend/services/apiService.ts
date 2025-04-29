@@ -87,28 +87,27 @@ export async function put(endpoint: string, data: any) {
 }
 
 export async function del(endpoint: string) {
-  const token = localStorage.getItem('token'); // Change from 'authToken' to 'token'
+  const token = localStorage.getItem('token');
   
   try {
     const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${token}`
+        'authorization': `Bearer ${token}`,  // lowercase to match common API conventions
+        'Content-Type': 'application/json'   // add content-type header
       }
     });
     
     if (!response.ok) {
-      // Clone the response to use it twice
-      const clonedResponse = response.clone();
-      
-      // Try to parse error message from JSON response
+      const errorText = await response.text();
+      let errorMessage;
       try {
-        const errorData = await clonedResponse.json();
-        throw new Error(errorData.message || `DELETE ${endpoint} failed: ${response.statusText}`);
-      } catch (jsonError) {
-        // If JSON parsing fails, fall back to statusText
-        throw new Error(`DELETE ${endpoint} failed: ${response.statusText}`);
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.message;
+      } catch (e) {
+        errorMessage = errorText;
       }
+      throw new Error(errorMessage || `DELETE ${endpoint} failed: ${response.statusText}`);
     }
     
     const text = await response.text();
