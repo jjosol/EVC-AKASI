@@ -762,10 +762,18 @@ const openEditModal = async (patient) => {
       intervention: consultationRecord.intervention,
       medicines: mappedMedicines, // Add the medicines array
       action: consultationRecord.action || '',
-      disposition: consultationRecord.disposition || ''
+      disposition: consultationRecord.disposition || '',
+      nurse_followup: consultationRecord.nurse_followup || ''
     };
 
-    currentModalPage.value = 1; // Reset to first page when opening
+    // Check if the record has been reviewed by a doctor
+    const hasBeenReviewed = patient.doctor_reviewed || 
+                          (consultationRecord.doctor_diagnosis && consultationRecord.doctor_diagnosis.trim() !== '');
+
+    // Set initial page and determine total pages based on review status
+    currentModalPage.value = hasBeenReviewed ? 3 : 1; // Set to third page if reviewed
+    
+    // Open the edit modal
     showEditModal.value = true;
   } catch (error) {
     console.error('Error opening edit modal:', error);
@@ -1915,12 +1923,12 @@ const hasNonOTCMedicines = computed(() => {
   :show="showEditModal"
   :is-view-only="isViewOnly"
   :current-page="currentModalPage"
-  :total-pages="2"
+  :total-pages="3"
   :has-non-OTC-medicines="hasNonOTCMedicines"
   @cancel="cancelEdit"
   @save="confirmAction('consultation')"
-  @next-page="currentModalPage = 2"
-  @prev-page="currentModalPage = 1"
+  @next-page="currentModalPage++"
+  @prev-page="currentModalPage--"
 >
   <!-- Content from original modal -->
   <!-- Page 1: Patient Details, Diagnosis, Remarks, Medicines -->
@@ -2131,11 +2139,11 @@ const hasNonOTCMedicines = computed(() => {
     </div>
   </div>
   
-  <!-- Page 2: Action's Taken and Disposition -->
+  <!-- Page 2: Actions Taken and Disposition -->
   <div v-else-if="currentModalPage === 2" class="flex-grow overflow-y-auto">
     <div class="pt-4 mb-4">
       <div class="mb-6">
-        <label for="action" class="block text-sm font-semibold text-gray-600">Action's Taken</label>
+        <label for="action" class="block text-sm font-semibold text-gray-600">Actions Taken</label>
         <textarea
           id="action"
           v-model="selectedPerson.action"
@@ -2159,6 +2167,68 @@ const hasNonOTCMedicines = computed(() => {
       </div>
     </div>
   </div>
+
+  <!-- Page 3: Doctor's Feedback -->
+  <div v-else-if="currentModalPage === 3" class="flex-grow overflow-y-auto">
+    <div class="pt-4 mb-4">
+      <!-- Patient Demographics Section -->
+      <div class="p-4 mb-6 bg-gray-50 border border-gray-200 rounded-lg">
+        <h3 class="mb-3 text-lg font-semibold text-gray-700">Patient Demographics</h3>
+        <div class="grid grid-cols-2 gap-4">
+          <!-- Patient Information -->
+          <div class="col-span-2 p-3 bg-white border rounded-md">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block mb-1 text-sm font-medium text-gray-700">Age</label>
+                <div class="p-2 border rounded">{{ selectedPerson?.age || 'N/A' }}</div>
+              </div>
+              <div>
+                <label class="block mb-1 text-sm font-medium text-gray-700">Gender</label>
+                <div class="p-2 border rounded">{{ selectedPerson?.sex || 'N/A' }}</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Vital Signs -->
+          <div>
+            <label class="block mb-1 text-sm font-medium text-gray-700">Height</label>
+            <div class="p-2 border rounded">{{ selectedConsultationRecord?.height || 'Not recorded' }} cm</div>
+          </div>
+          <div>
+            <label class="block mb-1 text-sm font-medium text-gray-700">Weight</label>
+            <div class="p-2 border rounded">{{ selectedConsultationRecord?.weight || 'Not recorded' }} kg</div>
+          </div>
+          <div>
+            <label class="block mb-1 text-sm font-medium text-gray-700">Blood Pressure</label>
+            <div class="p-2 border rounded">{{ selectedConsultationRecord?.blood_pressure || 'Not recorded' }}</div>
+          </div>
+          <div>
+            <label class="block mb-1 text-sm font-medium text-gray-700">Heart Rate</label>
+            <div class="p-2 border rounded">{{ selectedConsultationRecord?.heart_rate || 'Not recorded' }} bpm</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Doctor's Feedback Section -->
+      <div class="p-4 mb-6 bg-blue-50 border border-blue-200 rounded-lg">
+        <h3 class="mb-3 text-lg font-semibold text-blue-800">Doctor's Feedback</h3>
+        <div class="mb-4">
+          <label class="block mb-1 text-sm font-medium text-gray-700">Doctor's Diagnosis</label>
+          <div class="p-3 bg-white border rounded-md">
+            {{ selectedConsultationRecord?.doctor_diagnosis || 'No diagnosis provided' }}
+          </div>
+        </div>
+        
+        <div>
+          <label class="block mb-1 text-sm font-medium text-gray-700">Treatment Plan</label>
+          <div class="p-3 bg-white border rounded-md">
+            {{ selectedConsultationRecord?.doctor_treatment || 'No treatment plan provided' }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </EditModal>
 
 
