@@ -478,20 +478,6 @@ onMounted(() => {
   fetchPeople();
   fetchPatients();
   fetchRecordCount();
-  fetchInventory();
-  fetchProfile(); 
-
-  if (activeTab.value === 'tab2') {
-    fetchAppointmentsForSelectedDate();
-  }
-});
-console.log(patients)
-
-// fetch data when mounted
-onMounted(() => {
-  fetchPeople();
-  fetchPatients();
-  fetchRecordCount();
   fetchInventory(); // This should be called
   fetchDiseases();
   fetchDiseaseCategories();
@@ -751,8 +737,8 @@ const quantity = ref(1); // Add a ref for quantity
       quantity: Number(medicine.requestedQuantity),
       startDate: todayFormatted.value,
       endDate: todayFormatted.value,
-      schedule: '',
-      remarks: ''
+      schedule: medicine.schedule || '',
+      remarks: medicine.remarks || ''
     };
     
     // Initialize medicines array if it doesn't exist
@@ -1438,52 +1424,7 @@ const getStatusClass = (status) => {
   }
 };
 
-// Add this after the other refs at the top level of your script
-const pendingMedicineQuantities = ref({}); // Track quantities that are "reserved" but not yet committed to DB
 
-/**
- * Shows confirmation modal for actions that need confirmation
- */
-const confirmAction = (action) => {
-  pendingSaveAction.value = action;
-  
-  if (action === 'consultation') {
-    confirmationMessage.value = 'Are you sure you want to save this consultation record? This action cannot be undone once saved.';
-  } else {
-    confirmationMessage.value = 'Are you sure you want to proceed with this action?';
-  }
-  
-  showConfirmationModal.value = true;
-};
-
-/**
- * Handle confirmation from the modal
- */
-const handleConfirm = async () => {
-  try {
-    if (pendingSaveAction.value === 'consultation') {
-      await savePerson();
-    } else if (pendingSaveAction.value === 'medicine') {
-      await saveMedicineDetails();
-    } else if (pendingSaveAction.value === 'delete' && selectedConsultationRecord.value) {
-      await deleteConsultationRecord(selectedConsultationRecord.value.consultation_id);
-    }
-  } catch (error) {
-    console.error('Error processing confirmed action:', error);
-  } finally {
-    // Always clean up the modal state
-    showConfirmationModal.value = false;
-    pendingSaveAction.value = null;
-  }
-};
-
-/**
- * Handle cancellation from the modal
- */
-const handleCancel = () => {
-  showConfirmationModal.value = false;
-  pendingSaveAction.value = null;
-};
 
 // Add this computed property after your other computed properties
 const todayFormatted = computed(() => {
@@ -1631,6 +1572,17 @@ const hasNonOTCMedicines = computed(() => {
     return foundMedicine && foundMedicine.otc === false;
   });
 });
+
+// Chief complaint single value
+const chiefComplaint = ref({ value: '', details: '' });
+
+// Helper to get display value for chief complaint
+function getChiefComplaintValue() {
+  if (chiefComplaint.value.value === 'Injury' || chiefComplaint.value.value === 'Other') {
+    return chiefComplaint.value.value + (chiefComplaint.value.details ? ': ' + chiefComplaint.value.details : '');
+  }
+  return chiefComplaint.value.value || '';
+}
 </script>
 
 <template>
@@ -1902,41 +1854,52 @@ const hasNonOTCMedicines = computed(() => {
       </div>
     </div>
     
-    <!-- Complaint Section - Previously Diagnosis Section -->
+    <!-- Complaint Section - Revised to match form in image with checkboxes -->
     <div class="mb-4">
-      <label for="complaint" class="block text-sm font-semibold text-gray-600">Chief Complaints</label>
-      <div v-if="!isViewOnly" class="flex items-center mb-2">
-        <button 
-          @click="addComplaint" 
-          class="p-1 text-white bg-blue-600 rounded-full hover:bg-blue-700"
-          title="Add a new complaint"
-        >
-          <Icon icon="mdi:plus" class="w-4 h-4" />
-        </button>
+      <label for="complaint" class="block mb-2 text-sm font-semibold text-gray-600">Nature of Complaint:</label>
+      
+      <div class="p-4 border border-gray-300 rounded-md bg-gray-50">
+        <!-- Dropdown selector for complaints -->
+        <div class="flex flex-col space-y-3">
+          <div class="relative">
+            <select 
+              v-model="chiefComplaint.value"
+              :disabled="isViewOnly"
+              class="w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="" disabled selected>Select a complaint...</option>
+              <option value="Not feeling well">Not feeling well</option>
+              <option value="Stomachache">Stomachache</option>
+              <option value="Headache">Headache</option>
+              <option value="Toothache">Toothache</option>
+              <option value="Injury">Injury</option>
+              <option value="Other">Other</option>
+            </select>
+            <!-- Custom dropdown arrow -->
+            <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+              <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+              </svg>
+            </div>
+          </div>
+          
+          <!-- Details field for Injury or Other -->
+          <div v-if="chiefComplaint.value === 'Injury' || chiefComplaint.value === 'Other'" 
+               class="transition-all duration-300 ease-in-out">
+            <input 
+              type="text"
+              v-model="chiefComplaint.details"
+              :placeholder="chiefComplaint.value === 'Injury' ? 'Please describe the injury in detail...' : 'Please specify the complaint...' "
+              :disabled="isViewOnly"
+              class="w-full px-4 py-2 text-gray-700 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+        </div>
       </div>
       
-      <!-- Chief complaints input fields - Compact version -->
-      <div class="flex flex-wrap gap-2">
-        <div 
-          v-for="complaint in selectedPerson.complaints" 
-          :key="complaint.id" 
-          class="flex items-center overflow-hidden border border-gray-200 rounded-md bg-gray-50"
-        >
-          <input 
-            v-model="complaint.text" 
-            type="text" 
-            :disabled="isViewOnly"
-            class="px-2 py-1 text-sm bg-transparent border-none w-36 focus:outline-none focus:ring-1 focus:ring-blue-500" 
-            placeholder="Enter complaint"
-          />
-          <button 
-            v-if="!isViewOnly" 
-            @click="removeComplaint(complaint.id)" 
-            class="p-1 text-red-500 hover:text-red-700"
-          >
-            <Icon icon="mdi:close" class="w-4 h-4" />
-          </button>
-        </div>
+      <!-- Display selected complaint -->
+      <div v-if="chiefComplaint.value" class="mt-2 text-sm font-medium text-blue-600">
+        Selected: {{ getChiefComplaintValue() }}
       </div>
     </div>
 
@@ -2059,7 +2022,7 @@ const hasNonOTCMedicines = computed(() => {
   <div v-else-if="currentModalPage === 3" class="flex-grow overflow-y-auto">
     <div class="pt-4 mb-4">
       <!-- Patient Demographics Section -->
-      <div class="p-4 mb-6 bg-gray-50 border border-gray-200 rounded-lg">
+      <div class="p-4 mb-6 border border-gray-200 rounded-lg bg-gray-50">
         <h3 class="mb-3 text-lg font-semibold text-gray-700">Patient Demographics</h3>
         <div class="grid grid-cols-2 gap-4">
           <!-- Patient Information -->
@@ -2097,7 +2060,7 @@ const hasNonOTCMedicines = computed(() => {
       </div>
       
       <!-- Doctor's Feedback Section -->
-      <div class="p-4 mb-6 bg-blue-50 border border-blue-200 rounded-lg">
+      <div class="p-4 mb-6 border border-blue-200 rounded-lg bg-blue-50">
         <h3 class="mb-3 text-lg font-semibold text-blue-800">Doctor's Feedback</h3>
         <div class="mb-4">
           <label class="block mb-1 text-sm font-medium text-gray-700">Doctor's Diagnosis</label>
@@ -2461,3 +2424,4 @@ textarea {
   text-overflow: ellipsis;
 }
 </style>
+
