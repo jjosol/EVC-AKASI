@@ -57,7 +57,6 @@
                     v-model="backupOptions.customDestination"
                     placeholder="C:/Backups"
                     class="w-full px-3 py-2 text-sm leading-tight text-gray-700 border rounded focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    @click="openDirectoryDialog"
                   />
                   <button
                     @click="openDirectoryDialog"
@@ -469,8 +468,7 @@ import {
   createFullBackup,
   getAutoBackupConfig,
   updateAutoBackupConfig as updateAutoBackupConfigService,
-  runBackupNow as runBackupNowService,
-  showDirectoryPicker
+  runBackupNow as runBackupNowService
 } from '../../../../services/dashboardServices';
 import { useBackupEvents } from '../../../../composables/useBackupEvents';
 
@@ -632,9 +630,15 @@ const loadAutoConfig = async () => {
 // Directory dialog handler for custom backup location
 const openDirectoryDialog = async () => {
   try {
-    const result = await showDirectoryPicker();
-    if (result) {
-      backupOptions.value.customDestination = result;
+    // Using Electron's dialog if available (in desktop environment)
+    if (window.electron) {
+      const result = await window.electron.showDirectoryPicker();
+      if (result) {
+        backupOptions.value.customDestination = result;
+      }
+    } else {
+      // Fallback for browser environment - show a guide message
+      alert("To select a custom backup location, please enter the full path manually. Example: C:/Backups");
     }
   } catch (error) {
     console.error('Error opening directory dialog:', error);

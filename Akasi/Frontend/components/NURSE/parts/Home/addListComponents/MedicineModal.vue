@@ -1,8 +1,8 @@
 <template>
   <div v-if="show" class="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-60 z-[100]">
-    <div class="w-full max-w-3xl p-8 bg-white rounded-2xl shadow-lg">
+    <div class="w-full max-w-3xl p-8 bg-white shadow-lg rounded-2xl">
       <h2 class="mb-6 text-2xl font-bold text-gray-800">Add Medicine to Administration</h2>
-      <div class="flex items-center mb-6 gap-2">
+      <div class="flex items-center gap-2 mb-6">
         <input
           v-model="searchQuery"
           placeholder="Search medicine..."
@@ -13,9 +13,9 @@
           <Icon icon="mdi:magnify" />
         </button>
       </div>
-      <table class="w-full table-auto rounded overflow-hidden shadow-sm">
-        <thead class="bg-gray-50 border-b-2 border-gray-200">
-          <tr class="text-left text-gray-600 text-sm">
+      <table class="w-full overflow-hidden rounded shadow-sm table-auto">
+        <thead class="border-b-2 border-gray-200 bg-gray-50">
+          <tr class="text-sm text-left text-gray-600">
             <th class="p-3">Name</th>
             <th class="p-3">Expiry Date</th>
             <th class="p-3">Available</th>
@@ -55,7 +55,7 @@
                     {{ medicine.otc === true ? 'OTC' : 'RX' }}
                   </span>
                 </td>
-                <td class="p-3 w-24">
+                <td class="w-24 p-3">
                   <input
                     type="number"
                     v-model.number="medicine.requestedQuantity"
@@ -68,23 +68,16 @@
                 <td class="p-3">
                   <div class="flex flex-col items-center justify-center gap-1">
                     <button
-                      @click="handleAddMedicine(medicine)"
+                      @click="emit('add-medicine', medicine)"
                       :disabled="!canAddMedicine(medicine) || medicine.expired"
                       :class="[canAddMedicine(medicine) && !medicine.expired ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-300 text-gray-500', 'px-4 py-1 rounded font-semibold transition']"
                     >
                       Add
                     </button>
-                    <span v-if="medicine.otc === false && !medicine.prescriptionFile && !medicine.sentToDoctor" class="text-xs text-red-600 font-medium">Prescription required</span>
-                    <span v-if="medicine.expired" class="text-xs text-red-500 font-medium">Expired</span>
-                    <span v-if="!canAddMedicine(medicine) && !medicine.expired" class="text-xs text-orange-500 font-medium">
+                    <span v-if="medicine.expired" class="text-xs font-medium text-red-500">Expired</span>
+                    <span v-if="!canAddMedicine(medicine) && !medicine.expired" class="text-xs font-medium text-orange-500">
                       Debug: med_id={{medicine.med_id}}, qty={{medicine.requestedQuantity}}, displayCount={{medicine.displayCount}}
                     </span>
-                    <div v-if="medicine.otc === false && medicine.showPrescriptionUpload" class="mt-2 flex flex-col items-center gap-1">
-                      <input type="file" @change="e => handlePrescriptionUpload(e, medicine)" accept=".pdf,.jpg,.jpeg,.png" class="text-xs" />
-                      <button @click="() => handleSendToDoctor(medicine)" class="text-xs text-blue-600 underline">Send to Doctor</button>
-                      <span v-if="medicine.prescriptionFile" class="text-xs text-green-600">File attached</span>
-                      <span v-if="medicine.sentToDoctor" class="text-xs text-blue-600">Sent to doctor</span>
-                    </div>
                   </div>
                 </td>
               </tr>
@@ -93,14 +86,14 @@
         </tbody>
       </table>
       <div class="flex justify-end mt-8">
-        <button @click="$emit('cancel')" class="px-4 py-2 text-white bg-gray-500 rounded-md hover:bg-gray-600 font-semibold">Cancel</button>
+        <button @click="$emit('cancel')" class="px-4 py-2 font-semibold text-white bg-gray-500 rounded-md hover:bg-gray-600">Cancel</button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { Icon } from '@iconify/vue';
 
 const props = defineProps({
@@ -129,29 +122,6 @@ const canAddMedicine = (medicine) => {
   if (!medicine || !medicine.med_id) return false;
   const requestedQty = Number(medicine.requestedQuantity);
   return !isNaN(requestedQty) && requestedQty > 0 && requestedQty <= medicine.displayCount;
-};
-
-const handleAddMedicine = (medicine) => {
-  if (medicine.otc === false && !medicine.prescriptionFile && !medicine.sentToDoctor) {
-    medicine.showPrescriptionUpload = true;
-    return;
-  }
-  // Only emit, do NOT decrease displayCount here (handled in detail modal)
-  emit('add-medicine', medicine);
-  medicine.showPrescriptionUpload = false;
-};
-
-const handlePrescriptionUpload = (event, medicine) => {
-  const file = event.target.files[0];
-  if (file) {
-    medicine.prescriptionFile = file;
-    medicine.sentToDoctor = false;
-  }
-};
-
-const handleSendToDoctor = (medicine) => {
-  medicine.sentToDoctor = true;
-  medicine.prescriptionFile = null;
 };
 </script>
 

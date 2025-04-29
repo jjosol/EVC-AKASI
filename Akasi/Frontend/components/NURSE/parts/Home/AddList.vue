@@ -8,7 +8,7 @@ import * as consultationRecordService from '~/services/consultationRecordService
 import { Icon } from '@iconify/vue';
 
 // Import all the components
-import ConfirmationModal from '~/components/shared/parts/confirmationModal.vue';
+
 import AddModal from './addListComponents/AddModal.vue';
 import EditModal from './addListComponents/EditModal.vue';
 import MedicineModal from './addListComponents/MedicineModal.vue';
@@ -2340,7 +2340,7 @@ const hasNonOTCMedicines = computed(() => {
     <div class="w-full max-w-4xl p-8 bg-white rounded-lg shadow-lg max-h-[80vh] overflow-y-auto">
       <!-- Header -->
       <div class="flex items-center justify-between mb-6">
-        <h2 class="text2xl font-semibold text-gray-800">Manage Diagnoses & Categories</h2>
+        <h2 class="font-semibold text-gray-800 text2xl">Manage Diagnoses & Categories</h2>
         <button @click="closeManageModal" class="text-gray-500 hover:text-gray-700">
           <Icon icon="mdi:close" class="w-6 h-6" />
         </button>

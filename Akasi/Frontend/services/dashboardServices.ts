@@ -1,13 +1,3 @@
-// Add TypeScript interface for window.electron
-declare global {
-  interface Window {
-    electron?: {
-      showDirectoryPicker: () => Promise<string | null>;
-    };
-    showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>;
-  }
-}
-
 import { get, post, put, del, uploadFile } from './apiService.js';
 
 // Base URLs for API endpoints
@@ -264,39 +254,4 @@ export const createGradeBackup = async (gradeLevel: number) => {
 
 export const createDivisionBackup = async (division: string) => {
   return await post(`${BACKUP_URL}/create-division`, { division });
-};
-
-// Add FileSystem Access API types
-interface FileSystemDirectoryHandle {
-  name: string;
-  kind: 'directory';
-}
-
-// Function to show directory selector dialog
-export const showDirectoryPicker = async (): Promise<string | null> => {
-  try {
-    // Try modern File System Access API first (supported in Chrome, Edge)
-    if ('showDirectoryPicker' in window) {
-      try {
-        const directoryHandle = await (window as any).showDirectoryPicker();
-        return directoryHandle.name; // Return the folder name
-      } catch (err) {
-        // User canceled or browser denied permission
-        console.log('Directory picker was canceled or denied:', err);
-        return null;
-      }
-    }
-    // Fall back to Electron if available
-    else if (window.electron && window.electron.showDirectoryPicker) {
-      return await window.electron.showDirectoryPicker();
-    }
-    // No native directory picker available - show a message
-    else {
-      alert('Your browser doesn\'t support directory selection. Please type the path manually.');
-      return null;
-    }
-  } catch (error) {
-    console.error('Error showing directory picker:', error);
-    return null;
-  }
 };

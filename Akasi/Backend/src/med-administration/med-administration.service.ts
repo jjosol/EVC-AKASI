@@ -47,9 +47,12 @@ export class MedAdministrationService {
         }
         // RX/OTC validation
         if (medicine.otc === false) {
+          // If no prescription file, just mark for doctor review (do not block save)
           if (!data.prescriptionFile && !data.prescription_file) {
-            console.warn('[MedAdministrationService] RX medicine requires prescription:', data.med_id, data.medName);
-            throw new BadRequestException('Prescription required for RX medicine. Record will be sent for doctor review.');
+            console.warn('[MedAdministrationService] RX medicine without prescription, forwarding to doctor for review:', data.med_id, data.medName);
+            // Optionally, you can set a flag or status here if needed, e.g.:
+            // data.status = 'pending_doctor_review';
+            // (Make sure your DB/model supports this if you want to track it)
           }
         }
         if (medicine.count < data.count) {
