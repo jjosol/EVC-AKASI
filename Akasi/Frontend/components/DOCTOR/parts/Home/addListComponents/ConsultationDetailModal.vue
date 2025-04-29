@@ -126,18 +126,23 @@ const saveConsultation = async () => {
 
 // Populate fields when consultation data is available
 watch(() => props.consultation, (newConsultation) => {
-  if (newConsultation && newConsultation.medical_data) {
-    const data = newConsultation.medical_data;
-    temperature.value = data.temperature || '';
-    weight.value = data.weight || '';
-    height.value = data.height || '';
-    bloodPressure.value = data.blood_pressure || '';
-    heartRate.value = data.heart_rate || '';
-    complaints.value = data.diagnosis || '';
-    treatment.value = data.treatment || '';
-  } else {
-    // Set initial values based on consultation data
-    complaints.value = props.consultation?.complaint || '';
+  if (newConsultation) {
+    // Use the helper function to extract all medical data in a consistent way
+    const medicalData = consultationRecordService.extractMedicalData(newConsultation);
+    
+    // Populate form fields with the extracted data
+    temperature.value = medicalData.temperature || '';
+    weight.value = medicalData.weight || '';
+    height.value = medicalData.height || '';
+    bloodPressure.value = medicalData.blood_pressure || '';
+    heartRate.value = medicalData.heart_rate || '';
+    complaints.value = medicalData.diagnosis || newConsultation?.complaint || '';
+    treatment.value = medicalData.treatment || '';
+
+    // If this consultation has been reviewed by a doctor before, show the nurse view directly
+    if (newConsultation.doctor_reviewed) {
+      currentPage.value = 3; // Skip to the nurse view page
+    }
   }
 }, { immediate: true });
 </script>
@@ -190,64 +195,99 @@ watch(() => props.consultation, (newConsultation) => {
             <div class="grid grid-cols-2 gap-x-6 gap-y-3">
               <!-- Temperature -->
               <div class="col-span-1">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Temperature (°C)</label>
+                <div class="flex items-center justify-between">
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Temperature (°C)</label>
+                  <span v-if="temperature" class="text-xs text-green-600 font-medium flex items-center">
+                    <Icon icon="mdi:check-circle" class="w-4 h-4 mr-1" />Completed
+                  </span>
+                </div>
                 <input
                   v-model="temperature"
                   type="text"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  class="w-full px-3 py-2 border rounded-md text-sm transition-all"
+                  :class="temperature ? 'border-green-400 bg-green-50' : 'border-gray-300'"
                   placeholder="36.5"
                 />
               </div>
               
               <!-- Blood Pressure -->
               <div class="col-span-1">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Blood Pressure (mmHg)</label>
+                <div class="flex items-center justify-between">
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Blood Pressure (mmHg)</label>
+                  <span v-if="bloodPressure" class="text-xs text-green-600 font-medium flex items-center">
+                    <Icon icon="mdi:check-circle" class="w-4 h-4 mr-1" />Completed
+                  </span>
+                </div>
                 <input
                   v-model="bloodPressure"
                   type="text"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  class="w-full px-3 py-2 border rounded-md text-sm transition-all"
+                  :class="bloodPressure ? 'border-green-400 bg-green-50' : 'border-gray-300'"
                   placeholder="120/80"
                 />
               </div>
               
               <!-- Weight -->
               <div class="col-span-1">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
+                <div class="flex items-center justify-between">
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
+                  <span v-if="weight" class="text-xs text-green-600 font-medium flex items-center">
+                    <Icon icon="mdi:check-circle" class="w-4 h-4 mr-1" />Completed
+                  </span>
+                </div>
                 <input
                   v-model="weight"
                   type="number"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  class="w-full px-3 py-2 border rounded-md text-sm transition-all"
+                  :class="weight ? 'border-green-400 bg-green-50' : 'border-gray-300'"
                   placeholder="60"
                 />
               </div>
               
               <!-- Heart Rate -->
               <div class="col-span-1">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Heart Rate (BPM)</label>
+                <div class="flex items-center justify-between">
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Heart Rate (BPM)</label>
+                  <span v-if="heartRate" class="text-xs text-green-600 font-medium flex items-center">
+                    <Icon icon="mdi:check-circle" class="w-4 h-4 mr-1" />Completed
+                  </span>
+                </div>
                 <input
                   v-model="heartRate"
                   type="number"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  class="w-full px-3 py-2 border rounded-md text-sm transition-all"
+                  :class="heartRate ? 'border-green-400 bg-green-50' : 'border-gray-300'"
                   placeholder="80"
                 />
               </div>
               
               <!-- Height -->
               <div class="col-span-1">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Height (cm)</label>
+                <div class="flex items-center justify-between">
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Height (cm)</label>
+                  <span v-if="height" class="text-xs text-green-600 font-medium flex items-center">
+                    <Icon icon="mdi:check-circle" class="w-4 h-4 mr-1" />Completed
+                  </span>
+                </div>
                 <input
                   v-model="height"
                   type="number"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  class="w-full px-3 py-2 border rounded-md text-sm transition-all"
+                  :class="height ? 'border-green-400 bg-green-50' : 'border-gray-300'"
                   placeholder="170"
                 />
               </div>
               
               <!-- BMI (calculated) -->
               <div class="col-span-1" v-if="bmi">
-                <label class="block text-sm font-medium text-gray-700 mb-1">BMI</label>
+                <div class="flex items-center justify-between">
+                  <label class="block text-sm font-medium text-gray-700 mb-1">BMI</label>
+                  <span class="text-xs text-green-600 font-medium flex items-center">
+                    <Icon icon="mdi:check-circle" class="w-4 h-4 mr-1" />Calculated
+                  </span>
+                </div>
                 <div class="flex items-center gap-2">
-                  <span class="px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 w-full">
+                  <span class="px-3 py-2 border border-green-400 rounded-md text-sm bg-green-50 w-full">
                     {{ bmi }} - {{ bmiCategory }}
                   </span>
                 </div>
@@ -257,20 +297,32 @@ watch(() => props.consultation, (newConsultation) => {
           
           <!-- Complaints/Diagnosis - larger field -->
           <div class="mb-5">
-            <label class="block font-medium text-gray-700 mb-2">Complaints/Diagnosis</label>
+            <div class="flex items-center justify-between mb-2">
+              <label class="block font-medium text-gray-700">Complaints/Diagnosis</label>
+              <span v-if="complaints" class="text-xs text-green-600 font-medium flex items-center">
+                <Icon icon="mdi:check-circle" class="w-4 h-4 mr-1" />Completed
+              </span>
+            </div>
             <textarea
               v-model="complaints"
-              class="w-full h-32 px-3 py-2 border border-gray-300 rounded-md text-sm resize-none"
+              class="w-full h-32 px-3 py-2 border rounded-md text-sm resize-none transition-all"
+              :class="complaints ? 'border-green-400 bg-green-50' : 'border-gray-300'"
               placeholder="Enter patient complaints and diagnosis"
             ></textarea>
           </div>
           
           <!-- Treatment/Instructions - larger field -->
           <div class="mb-5">
-            <label class="block font-medium text-gray-700 mb-2">Treatment/Instructions</label>
+            <div class="flex items-center justify-between mb-2">
+              <label class="block font-medium text-gray-700">Treatment/Instructions</label>
+              <span v-if="treatment" class="text-xs text-green-600 font-medium flex items-center">
+                <Icon icon="mdi:check-circle" class="w-4 h-4 mr-1" />Completed
+              </span>
+            </div>
             <textarea
               v-model="treatment"
-              class="w-full h-32 px-3 py-2 border border-gray-300 rounded-md text-sm resize-none"
+              class="w-full h-32 px-3 py-2 border rounded-md text-sm resize-none transition-all"
+              :class="treatment ? 'border-green-400 bg-green-50' : 'border-gray-300'"
               placeholder="Enter treatment plan and instructions"
             ></textarea>
           </div>
@@ -329,6 +381,24 @@ watch(() => props.consultation, (newConsultation) => {
       
       <!-- Nurse View Page -->
       <div v-if="currentPage === 3" class="p-6">
+        <!-- Completion Banner -->
+        <div class="bg-green-100 border border-green-500 rounded-md p-4 mb-6">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <Icon icon="mdi:check-circle" class="h-6 w-6 text-green-600" />
+            </div>
+            <div class="ml-3">
+              <h3 class="text-lg font-medium text-green-800">
+                Medical Record Completed
+              </h3>
+              <div class="mt-2 text-sm text-green-700">
+                <p>This medical record has been completed and sent to the nurse. No further modifications can be made.</p>
+                <p class="mt-1">Completed on: {{ new Date().toLocaleString() }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
         <!-- Banner for nurse -->
         <div class="bg-blue-50 border border-blue-300 rounded-md p-4 mb-6">
           <div class="flex">

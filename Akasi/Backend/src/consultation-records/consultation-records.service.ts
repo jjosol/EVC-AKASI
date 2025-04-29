@@ -228,58 +228,69 @@ export class ConsultationRecordsService {
   async deleteConsultationRecord(consultation_id: number) {
     return await this.prisma.$transaction(async (prisma) => {
       try {
-        // First, get all medicine administration records
+        // First, delete associated diagnosis links
+        await prisma.consultation_diagnosis.deleteMany({
+          where: { consultation_id }
+        });
+
+        // Get all medicine administration records
         const medAdminRecords = await prisma.medAdministration.findMany({
           where: { consultation_id }
         });
 
         // Return quantities to inventory
         for (const record of medAdminRecords) {
-          // Get the current medicine item
-          const medicineItem = await prisma.medicine.findUnique({
-            where: {
-              medicine_id_medName: {
-                medicine_id: record.med_id,
-                medName: record.medName
+          try {
+            // Get the current medicine item (using medicine instead of inventory)
+            const medicineItem = await prisma.medicine.findUnique({
+              where: {
+                medicine_id_medName: {
+                  medicine_id: record.med_id,
+                  medName: record.medName
+                }
               }
-            }
-          });
+            });
 
-          if (!medicineItem) {
-            continue; // Skip if medicine doesn't exist anymore
+            if (!medicineItem) {
+              console.log(`Medicine ${record.medName} (ID: ${record.med_id}) not found in inventory, skipping quantity return`);
+              continue; // Skip if medicine doesn't exist anymore
+            }
+
+            // Update the medicine count
+            const updatedItem = await prisma.medicine.update({
+              where: {
+                medicine_id_medName: {
+                  medicine_id: record.med_id,
+                  medName: record.medName
+                }
+              },
+              data: {
+                count: {
+                  increment: record.count // Return quantities to inventory
+                }
+              }
+            });
+
+            // Calculate new running total
+            const newTotal = medicineItem.count + record.count;
+
+            // Log the return to inventory - Using editsMedicine (lowercase e) instead of EditsInverntory
+            await prisma.editsMedicine.create({
+              data: {
+                med_id: record.med_id,
+                medName: record.medName,
+                date: new Date(),
+                cause: `Returned to inventory (Consultation #${consultation_id} deleted)`,
+                addSubCount: record.count, // Positive for return
+                runningTotal: newTotal, // Add the running total
+                category_id: medicineItem.medCategory_id, // Use the correct category_id field from medicine
+                nurse_id: 1 // Assuming system action - replace with actual nurse ID if available
+              }
+            });
+          } catch (medicineError) {
+            console.error(`Error processing medicine ${record.medName} (ID: ${record.med_id}):`, medicineError.message);
+            // Continue with other medicines even if one fails
           }
-
-          // Update the medicine count
-          const updatedItem = await prisma.medicine.update({
-            where: {
-              medicine_id_medName: {
-                medicine_id: record.med_id,
-                medName: record.medName
-              }
-            },
-            data: {
-              count: {
-                increment: record.count // Return quantities to inventory
-              }
-            }
-          });
-
-          // Calculate new running total
-          const newTotal = medicineItem.count + record.count;
-
-          // Log the return to inventory - Changed EditsMedicine to editsMedicine (camelCase)
-          await prisma.editsMedicine.create({
-            data: {
-              med_id: record.med_id,
-              medName: record.medName,
-              date: new Date(),
-              cause: `Returned to inventory (Consultation #${consultation_id} deleted)`,
-              addSubCount: record.count, // Positive for return
-              runningTotal: newTotal, // Add the running total
-              category_id: medicineItem.medCategory_id, // Add the category ID
-              nurse_id: 1 // Assuming system action - replace with actual nurse ID if available
-            }
-          });
         }
 
         // Delete all medicine administration records
@@ -287,11 +298,22 @@ export class ConsultationRecordsService {
           where: { consultation_id }
         });
 
+        // Delete any prescriptions if they exist
+        try {
+          await prisma.prescription.deleteMany({
+            where: { consultation_id }
+          });
+        } catch (prescriptionError) {
+          console.error("Error deleting prescriptions:", prescriptionError.message);
+          // Continue deletion process even if prescription deletion fails
+        }
+
         // Finally delete the consultation record
         return await prisma.consultation_records.delete({
           where: { consultation_id }
         });
       } catch (error) {
+        console.error(`Error deleting consultation record ${consultation_id}:`, error);
         throw new Error(`Error deleting consultation record: ${error.message}`);
       }
     });
@@ -473,15 +495,36 @@ export class ConsultationRecordsService {
         throw new NotFoundException(`Consultation with ID ${consultation_id} not found`);
       }
 
-      // Format the data for storage
-      const { medical_data, doctor_reviewed } = medicalData;
+      // Extract specific fields for direct storage and also keep the complete data as JSON
+      const { medical_data } = medicalData;
+      
+      // Parse the medical data if it's provided as a string
+      let parsedMedicalData: Record<string, any> = {};
+      if (medical_data) {
+        parsedMedicalData = typeof medical_data === 'string' 
+          ? JSON.parse(medical_data) 
+          : medical_data;
+      }
 
-      // Update the consultation record with medical data
+      // Update the consultation record with both direct fields and medical_data JSON
       const updatedRecord = await this.prisma.consultation_records.update({
         where: { consultation_id },
         data: {
-          medical_data: medical_data ?? {},
-          doctor_reviewed: doctor_reviewed ?? true,
+          // Store in dedicated fields (merged from HealthRecord)
+          temperature: parsedMedicalData.temperature ? parseFloat(parsedMedicalData.temperature as string) : null,
+          weight: parsedMedicalData.weight ? parseFloat(parsedMedicalData.weight as string) : null,
+          height: parsedMedicalData.height ? parseFloat(parsedMedicalData.height as string) : null,
+          blood_pressure: parsedMedicalData.blood_pressure as string || null,
+          instructions: parsedMedicalData.treatment as string || null,
+          
+          // Also store the complete data as JSON
+          medical_data: {
+            ...parsedMedicalData,
+            updated_at: new Date().toISOString()
+          },
+          
+          // Mark as reviewed by doctor
+          doctor_reviewed: true,
           doctor_review_date: new Date()
         }
       });

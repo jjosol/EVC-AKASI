@@ -104,11 +104,18 @@ model consultation_records {
   medAdministration  Boolean
   disposition        String   @default("") @db.VarChar(500)
   diagnosis_text     String?  @db.VarChar(1000) // Stores formatted diagnosis text
-  health_record_created Boolean @default(false)
+  
+  // Merged fields from HealthRecord
+  temperature        Float?   // Temperature in Celsius
+  weight             Float?   // Weight in kg
+  height             Float?   // Height in cm
+  blood_pressure     String?  @db.VarChar(50) // Blood pressure reading (e.g., "120/80")
+  heart_rate         Int?     // Heart rate in beats per minute (BPM)
+  instructions       String?  @db.VarChar(1000) // Treatment instructions
+  
   doctorShow         Boolean  @default(false)  // Controls visibility on the doctor side
-  healthRecord          HealthRecord?
 
-  // New fields for doctor's medical data
+  // Medical data fields for doctor's input
   medical_data        Json?    // JSON field to store all vital signs and notes
   doctor_reviewed     Boolean  @default(false) // Flag to indicate doctor has reviewed and provided data
   doctor_review_date  DateTime? // When the doctor provided medical data
@@ -487,19 +494,5 @@ model chiefcomplaint {
   consultation      consultation_records @relation(fields: [consultation_id], references: [consultation_id], onDelete: Cascade)
 
   @@index([consultation_id])
-}
-
-model HealthRecord {
-  id                Int      @id @default(autoincrement())
-  consultation_id   Int      @unique
-  temperature       Float
-  weight            Float
-  height            Float
-  blood_pressure    String   @db.VarChar(50)
-  diagnosis         String   @db.VarChar(1000)
-  instructions      String   @db.VarChar(1000)
-  created_at        DateTime @default(now())
-
-  consultation      consultation_records @relation(fields: [consultation_id], references: [consultation_id])
 }
 

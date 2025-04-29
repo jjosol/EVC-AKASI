@@ -770,8 +770,8 @@ const openEditModal = async (patient) => {
     const hasBeenReviewed = patient.doctor_reviewed || 
                           (consultationRecord.doctor_diagnosis && consultationRecord.doctor_diagnosis.trim() !== '');
 
-    // Set initial page and determine total pages based on review status
-    currentModalPage.value = hasBeenReviewed ? 3 : 1; // Set to third page if reviewed
+    // Set initial page to first page when opening (regardless of review status)
+    currentModalPage.value = 1;
     
     // Open the edit modal
     showEditModal.value = true;
@@ -1923,7 +1923,7 @@ const hasNonOTCMedicines = computed(() => {
   :show="showEditModal"
   :is-view-only="isViewOnly"
   :current-page="currentModalPage"
-  :total-pages="3"
+  :total-pages="selectedPerson?.doctor_reviewed || (selectedConsultationRecord?.doctor_diagnosis && selectedConsultationRecord?.doctor_diagnosis.trim() !== '') ? 3 : 2"
   :has-non-OTC-medicines="hasNonOTCMedicines"
   @cancel="cancelEdit"
   @save="confirmAction('consultation')"
@@ -2215,14 +2215,14 @@ const hasNonOTCMedicines = computed(() => {
         <div class="mb-4">
           <label class="block mb-1 text-sm font-medium text-gray-700">Doctor's Diagnosis</label>
           <div class="p-3 bg-white border rounded-md">
-            {{ selectedConsultationRecord?.doctor_diagnosis || 'No diagnosis provided' }}
+            {{ selectedConsultationRecord?.medical_data?.diagnosis || 'No diagnosis provided' }}
           </div>
         </div>
         
         <div>
           <label class="block mb-1 text-sm font-medium text-gray-700">Treatment Plan</label>
           <div class="p-3 bg-white border rounded-md">
-            {{ selectedConsultationRecord?.doctor_treatment || 'No treatment plan provided' }}
+            {{ selectedConsultationRecord?.medical_data?.treatment || 'No treatment plan provided' }}
           </div>
         </div>
       </div>

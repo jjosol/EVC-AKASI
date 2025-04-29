@@ -531,3 +531,70 @@ export const notifyNurseAboutMedicalRecord = async (consultation_id: number) => 
     return Promise.resolve({ success: false, message: 'Notification failed but record was saved' });
   }
 };
+
+/**
+ * Extracts medical data from a consultation record
+ * This function provides a consistent way to access medical data that may be stored
+ * in different formats or locations within the consultation record
+ * @param {any} consultationRecord - Consultation record object
+ * @returns {Object} Object containing all available medical data
+ */
+export const extractMedicalData = (consultationRecord) => {
+  // Default empty values
+  const defaultData = {
+    temperature: null,
+    weight: null,
+    height: null,
+    blood_pressure: null,
+    heart_rate: null,
+    diagnosis: null,
+    treatment: null
+  };
+
+  // If no record, return defaults
+  if (!consultationRecord) {
+    return defaultData;
+  }
+
+  // First try to get data from direct fields (from merged HealthRecord)
+  const directData = {
+    temperature: consultationRecord.temperature,
+    weight: consultationRecord.weight,
+    height: consultationRecord.height,
+    blood_pressure: consultationRecord.blood_pressure,
+    treatment: consultationRecord.instructions,
+  };
+
+  // Then check if we need to supplement with data from medical_data JSON
+  if (consultationRecord.medical_data) {
+    try {
+      // If it's already a parsed object, use it directly
+      const medicalData = typeof consultationRecord.medical_data === 'object' 
+        ? consultationRecord.medical_data
+        : JSON.parse(consultationRecord.medical_data);
+        
+      return {
+        // Start with direct fields
+        ...directData,
+        // Fill in any missing values from JSON
+        temperature: directData.temperature ?? medicalData.temperature ?? null,
+        weight: directData.weight ?? medicalData.weight ?? null,
+        height: directData.height ?? medicalData.height ?? null,
+        blood_pressure: directData.blood_pressure ?? medicalData.blood_pressure ?? null,
+        heart_rate: medicalData.heart_rate ?? null,
+        diagnosis: medicalData.diagnosis ?? consultationRecord.complaint ?? null,
+        treatment: directData.treatment ?? medicalData.treatment ?? null
+      };
+    } catch (error) {
+      console.error('Error parsing medical_data:', error);
+    }
+  }
+  
+  // If medical_data JSON is not available or parsing failed,
+  // return data from direct fields with defaults for missing fields
+  return {
+    ...defaultData,
+    ...directData,
+    diagnosis: consultationRecord.complaint || null,
+  };
+};

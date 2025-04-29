@@ -258,7 +258,9 @@ const fetchPatients = async () => {
         medAdministration: record.medAdministration,
         intervention: record.intervention,
         action: record.action,
-        disposition: record.disposition
+        disposition: record.disposition,
+        doctor_reviewed: record.doctor_reviewed || false,  // Add this field to track if the doctor reviewed it
+        doctor_review_date: record.doctor_review_date || null // Add review date
       }));
   } catch (error) {
     console.error('Error fetching patients:', error.message);
@@ -1738,6 +1740,9 @@ const openConsultationDetailModal = (patient) => {
               <div class="mt-2 flex items-center">
                 <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
                   {{ patient.time }}
+                </span>
+                <span v-if="patient.doctor_reviewed" class="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                  Reviewed
                 </span>
               </div>
             </div>
