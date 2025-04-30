@@ -34,6 +34,44 @@ export class PatientService {
     }
   }
 
+  async getPatientById(id: number) {
+    try {
+      const patient = await this.prisma.patient.findUnique({
+        where: { patient_id: id },
+        select: {
+          patient_id: true,
+          name: true,
+          gmail: true,
+          age: true,
+          gender: true,
+          type: true,
+          grade: true,
+          section: true,
+          category: true,
+          status: true,
+          civil_status: true,
+          address: true,
+          division: true,
+          position: true
+        }
+      });
+
+      if (!patient) {
+        throw new HttpException('Patient not found', HttpStatus.NOT_FOUND);
+      }
+
+      return patient;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Failed to fetch patient: ' + error.message,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
   async createPatient(data: any) {
     try {
       // Check if username or email already exists

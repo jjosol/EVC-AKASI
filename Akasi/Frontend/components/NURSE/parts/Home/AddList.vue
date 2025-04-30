@@ -177,16 +177,34 @@ const createConsultationRecord = async (person) => {
     const now = new Date();
     selectedDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
     
+    // Format the complaint from chiefComplaints instead of person.complaints
+    const formattedComplaint = chiefComplaints.value
+      .filter(c => c.value)
+      .map(c => getChiefComplaintValue(c))
+      .join(', ');
+      
+    // Format actions from actionsTaken 
+    const formattedAction = actionsTaken.value
+      .filter(a => a.value)
+      .map(a => getActionDisplayValue(a))
+      .join(', ');
+      
+    // Format dispositions from dispositions
+    const formattedDisposition = dispositions.value
+      .filter(d => d.value)
+      .map(d => getDispositionDisplayValue(d))
+      .join(', ');
+    
     const consultationData = {
-      patient_id: selectedPerson.value.clientId, // FIX: use patient_id
-      nurse_id: currentUser.value.admin_id,     // FIX: use nurse_id
-      nurse_name: currentUser.value.name, // Ensure nurse_name is set
+      patient_id: selectedPerson.value.clientId,
+      nurse_id: currentUser.value.admin_id,
+      nurse_name: currentUser.value.name,
       date: selectedDateTime.toISOString(),
       patient_name: selectedPerson.value.name,
       patient_occupation:
         selectedPerson.value.occupation ||
         `${selectedPerson.value.grade}-${selectedPerson.value.section}`,
-      complaint: selectedPerson.value.complaints.length > 0 ? selectedPerson.value.complaints.map(c => c.text).join(', ') : null,
+      complaint: formattedComplaint || "No complaint specified",
       remarks: selectedPerson.value.remarks || '',
       confined: Boolean(selectedPerson.value.confined),
       medAdministration: Boolean(selectedPerson.value.medicationAdministration),
@@ -196,10 +214,11 @@ const createConsultationRecord = async (person) => {
       diagnosis_ids: selectedPerson.value.complaints
         .filter(c => c.disease_id)
         .map(c => c.disease_id),
-      action: selectedPerson.value.action || '',
-      disposition: selectedPerson.value.disposition || '',
-      doctorShow: hasNonOTCMedicines.value // Automatically set doctorShow if non-OTC medicines are included
+      action: formattedAction || '',
+      disposition: formattedDisposition || '',
+      doctorShow: hasNonOTCMedicines.value
     };
+    
     // Debug: log consultationData before sending
     console.log('Consultation data:', consultationData);
 
@@ -604,6 +623,111 @@ const openEditModal = async (patient) => {
       ? clientData.category 
       : clientData.division;
 
+    // Parse the complaint string into chief complaints array
+    chiefComplaints.value = [{ id: generateId(), value: '', details: '' }]; // Reset to default first
+    if (consultationRecord.complaint) {
+      try {
+        const complaintsArray = consultationRecord.complaint.split(', ');
+        chiefComplaints.value = complaintsArray.map(complaintText => {
+          // Check if it's an injury or other with details
+          const injuryMatch = complaintText.match(/^Injury: (.+)$/);
+          const otherMatch = complaintText.match(/^Other: (.+)$/);
+          
+          if (injuryMatch) {
+            return {
+              id: generateId(),
+              value: 'Injury',
+              details: injuryMatch[1]
+            };
+          } else if (otherMatch) {
+            return {
+              id: generateId(),
+              value: 'Other',
+              details: otherMatch[1]
+            };
+          } else {
+            return {
+              id: generateId(),
+              value: complaintText,
+              details: ''
+            };
+          }
+        });
+      } catch (error) {
+        console.error('Error parsing complaint string:', error);
+      }
+    }
+
+    // Parse the action string into actions taken array
+    actionsTaken.value = [{ id: generateId(), value: '', details: '' }]; // Reset to default first
+    if (consultationRecord.action) {
+      try {
+        const actionsArray = consultationRecord.action.split(', ');
+        actionsTaken.value = actionsArray.map(actionText => {
+          // Check if it's a special case with details
+          const headCheckedMatch = actionText.match(/^Head checked for: (.+)$/);
+          const parentNotifiedMatch = actionText.match(/^Parent\/guardian notified at: (.+)$/);
+          const otherMatch = actionText.match(/^Other: (.+)$/);
+          
+          if (headCheckedMatch) {
+            return {
+              id: generateId(),
+              value: 'Head checked for',
+              details: headCheckedMatch[1]
+            };
+          } else if (parentNotifiedMatch) {
+            return {
+              id: generateId(),
+              value: 'Parent/guardian notified at',
+              details: parentNotifiedMatch[1]
+            };
+          } else if (otherMatch) {
+            return {
+              id: generateId(),
+              value: 'Other',
+              details: otherMatch[1]
+            };
+          } else {
+            return {
+              id: generateId(),
+              value: actionText,
+              details: ''
+            };
+          }
+        });
+      } catch (error) {
+        console.error('Error parsing actions string:', error);
+      }
+    }
+
+    // Parse the disposition string into dispositions array
+    dispositions.value = [{ id: generateId(), value: '', details: '' }]; // Reset to default first
+    if (consultationRecord.disposition) {
+      try {
+        const dispositionsArray = consultationRecord.disposition.split(', ');
+        dispositions.value = dispositionsArray.map(dispositionText => {
+          // Check if it's a special case with details
+          const otherMatch = dispositionText.match(/^Other: (.+)$/);
+          
+          if (otherMatch) {
+            return {
+              id: generateId(),
+              value: 'Other',
+              details: otherMatch[1]
+            };
+          } else {
+            return {
+              id: generateId(),
+              value: dispositionText,
+              details: ''
+            };
+          }
+        });
+      } catch (error) {
+        console.error('Error parsing dispositions string:', error);
+      }
+    }
+
     selectedPerson.value = {
       ...patient,
       clientId: patient.id,
@@ -635,6 +759,12 @@ const openEditModal = async (patient) => {
     
     // Open the edit modal
     showEditModal.value = true;
+
+    console.log('Loaded record:', {
+      complaints: chiefComplaints.value,
+      actions: actionsTaken.value,
+      dispositions: dispositions.value
+    });
   } catch (error) {
     console.error('Error opening edit modal:', error);
     alert('Failed to load consultation record');
@@ -1699,13 +1829,25 @@ function isDispositionValueSelected(value, currentId) {
 watch(
   dispositions,
   (newVal) => {
-    selectedPerson.value.disposition = newVal
-      .filter(d => d.value)
-      .map(d => getDispositionDisplayValue(d))
-      .join(', ');
+    if (selectedPerson.value) {
+      const formattedDisposition = newVal
+        .filter(d => d.value)
+        .map(d => getDispositionDisplayValue(d))
+        .join(', ');
+      
+      // Update the disposition field directly rather than relying on deep reactivity
+      selectedPerson.value.disposition = formattedDisposition;
+      
+      // Add debug logging
+      console.log('Disposition updated:', {
+        dispositions: newVal,
+        formatted: formattedDisposition,
+        saved: selectedPerson.value.disposition
+      });
+    }
   },
   { deep: true }
-)
+);
 
 watch(
   () => selectedPerson.value && selectedPerson.value.disposition,
@@ -1717,6 +1859,89 @@ watch(
   }
 )
 
+/**
+ * Handles confirmation from the confirmation modal
+ */
+const handleConfirm = () => {
+  if (pendingSaveAction.value === 'delete' && selectedConsultationRecord.value) {
+    deleteConsultationRecord(selectedConsultationRecord.value.consultation_id);
+  } else if (pendingSaveAction.value === 'consultation') {
+    createConsultationRecord(selectedPerson.value);
+  }
+  
+  // Reset state
+  pendingSaveAction.value = null;
+  showConfirmationModal.value = false;
+};
+
+/**
+ * Handles cancel from the confirmation modal
+ */
+const handleCancel = () => {
+  pendingSaveAction.value = null;
+  showConfirmationModal.value = false;
+};
+
+/**
+ * Prepares to add a medicine to the current consultation
+ * @param {Object} medicine - Medicine to add
+ */
+const prepareAddMedicine = (medicine) => {
+  if (!validateMedicineData(medicine)) {
+    alert('Please select a valid medicine and quantity');
+    return;
+  }
+  
+  // Track pending quantities if not already
+  if (!pendingMedicineQuantities.value) {
+    pendingMedicineQuantities.value = {};
+  }
+  
+  // Add the medicine ID to tracking if not already
+  if (!pendingMedicineQuantities.value[medicine.med_id]) {
+    pendingMedicineQuantities.value[medicine.med_id] = 0;
+  }
+  
+  // Add the requested quantity to the pending total
+  pendingMedicineQuantities.value[medicine.med_id] += Number(medicine.requestedQuantity);
+  
+  // Check if total quantity exceeds available
+  if (pendingMedicineQuantities.value[medicine.med_id] > medicine.count) {
+    alert(`Cannot add more than ${medicine.count} units of this medicine`);
+    pendingMedicineQuantities.value[medicine.med_id] -= Number(medicine.requestedQuantity);
+    return;
+  }
+  
+  addMedicine(medicine);
+};
+
+/**
+ * Initiates the confirmation process for creating or deleting a consultation
+ * @param {string} actionType - The type of action to confirm ('consultation' or 'delete')
+ */
+const confirmAction = (actionType) => {
+  if (actionType === 'consultation') {
+    // Set the pending action
+    pendingSaveAction.value = 'consultation';
+    
+    // If we need to confirm with a dialog, show it
+    if (selectedPerson.value.confined) {
+      confirmationMessage.value = 'Are you sure you want to mark this patient as confined?';
+      showConfirmationModal.value = true;
+    } else {
+      // Otherwise proceed directly
+      handleConfirm();
+    }
+  } else if (actionType === 'delete') {
+    // Set pending action and show confirmation modal
+    pendingSaveAction.value = 'delete';
+    confirmationMessage.value = 'Are you sure you want to delete this record?';
+    showConfirmationModal.value = true;
+  }
+};
+
+// Initialize pendingMedicineQuantities for tracking quantities
+const pendingMedicineQuantities = ref({});
 </script>
 
 <template>

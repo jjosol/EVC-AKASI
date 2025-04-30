@@ -36,6 +36,22 @@ export class PatientController {
     }
   }
 
+  @Get(':id')
+  async getPatientById(@Param('id') id: string) {
+    try {
+      const patient = await this.patientService.getPatientById(parseInt(id));
+      if (!patient) {
+        throw new HttpException('Patient not found', HttpStatus.NOT_FOUND);
+      }
+      return patient;
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Error fetching patient',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   @Post()
   async createPatient(@Body() patientData: PatientDto) {
     try {
