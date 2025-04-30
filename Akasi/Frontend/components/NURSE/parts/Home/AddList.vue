@@ -1657,6 +1657,66 @@ function isActionValueSelected(value, currentId) {
   return actionsTaken.value.some(action => action.id !== currentId && action.value === value);
 }
 
+// Disposition options for student
+const dispositionOptions = [
+  'Returned to class, feeling better',
+  "Returned to class at parent's/guardian's request",
+  'Returned to class, unable to contact parent/guardian',
+  'Sent home',
+  'Teacher notified',
+  'Referral was made to health care provider',
+  'Transported to hospital',
+  'Copy of clinic pass sent home',
+  'Other'
+];
+
+// Dispositions array (like chiefComplaints)
+const dispositions = ref([{ id: generateId(), value: '', details: '' }]);
+
+function getDispositionDisplayValue(disposition) {
+  if (disposition.value === 'Other') {
+    return disposition.value + (disposition.details ? ': ' + disposition.details : '');
+  }
+  return disposition.value || '';
+}
+
+function addDisposition() {
+  dispositions.value.push({ id: generateId(), value: '', details: '' });
+}
+
+function removeDisposition(dispositionId) {
+  if (dispositions.value.length > 1) {
+    dispositions.value = dispositions.value.filter(d => d.id !== dispositionId);
+  }
+}
+
+function isDispositionValueSelected(value, currentId) {
+  if (value === 'Other') return false;
+  return dispositions.value.some(disposition => disposition.id !== currentId && disposition.value === value);
+}
+
+// Sync with selectedPerson.disposition (for saving/loading)
+watch(
+  dispositions,
+  (newVal) => {
+    selectedPerson.value.disposition = newVal
+      .filter(d => d.value)
+      .map(d => getDispositionDisplayValue(d))
+      .join(', ');
+  },
+  { deep: true }
+)
+
+watch(
+  () => selectedPerson.value && selectedPerson.value.disposition,
+  (newVal) => {
+    if (!newVal) {
+      dispositions.value = [{ id: generateId(), value: '', details: '' }];
+    }
+    // Optionally, parse string to array if needed
+  }
+)
+
 </script>
 
 <template>
@@ -2058,6 +2118,7 @@ function isActionValueSelected(value, currentId) {
         <thead class="text-sm font-semibold text-gray-600">
           <tr>
             <th class="px-2 py-3">Name</th>
+      
             <th class="px-2 py-3">Quantity</th>
             <th class="px-2 py-3">Schedule</th>
             <th class="px-2 py-3">Start - End</th>
@@ -2176,14 +2237,74 @@ function isActionValueSelected(value, currentId) {
 
       <div class="mb-4">
         <label for="disposition" class="block text-sm font-semibold text-gray-600">Disposition of the Student</label>
-        <textarea
-          id="disposition"
-          v-model="selectedPerson.disposition"
-          rows="6"
-          :disabled="isViewOnly"
-          class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Enter student disposition...">
-        </textarea>
+        <div class="p-4 border border-gray-300 rounded-md bg-gray-50">
+          <div class="flex flex-col space-y-4">
+            <div v-for="disposition in dispositions" :key="disposition.id" class="flex items-start space-x-2">
+              <div class="flex-grow">
+                <div class="relative">
+                  <select
+                    v-model="disposition.value"
+                    :disabled="isViewOnly"
+                    class="w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="" disabled selected>Select a disposition...</option>
+                    <option
+                      v-for="option in dispositionOptions"
+                      :key="option"
+                      :value="option"
+                      :disabled="isDispositionValueSelected(option, disposition.id)"
+                    >
+                      {{ option }}
+                    </option>
+                  </select>
+                  <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                    <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    </svg>
+                  </div>
+                </div>
+                <!-- Details field for Other -->
+                <div v-if="disposition.value === 'Other'" class="mt-2 transition-all duration-300 ease-in-out">
+                  <input
+                    type="text"
+                    v-model="disposition.details"
+                    placeholder="Please specify..."
+                    :disabled="isViewOnly"
+                    class="w-full px-4 py-2 text-gray-700 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              <!-- Remove button -->
+              <button
+                v-if="!isViewOnly && dispositions.length > 1"
+                @click="removeDisposition(disposition.id)"
+                class="p-2 mt-1 text-red-500 bg-white border border-red-300 rounded-md hover:bg-red-50"
+                title="Remove disposition"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            <!-- Add button -->
+            <div class="flex justify-end">
+              <button
+                v-if="!isViewOnly"
+                @click="addDisposition"
+                class="flex items-center px-4 py-2 text-white transition-colors duration-300 bg-blue-500 rounded-md hover:bg-blue-600"
+              >
+                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Add Another Disposition
+              </button>
+            </div>
+          </div>
+        </div>
+        <!-- Display selected dispositions summary -->
+        <div v-if="dispositions.some(d => d.value)" class="mt-2 text-sm font-medium text-blue-600">
+          Selected: {{ dispositions.filter(d => d.value).map(d => getDispositionDisplayValue(d)).join(', ') }}
+        </div>
       </div>
     </div>
   </div>
