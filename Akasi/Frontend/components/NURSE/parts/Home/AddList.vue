@@ -1862,16 +1862,23 @@ watch(
 /**
  * Handles confirmation from the confirmation modal
  */
-const handleConfirm = () => {
-  if (pendingSaveAction.value === 'delete' && selectedConsultationRecord.value) {
-    deleteConsultationRecord(selectedConsultationRecord.value.consultation_id);
-  } else if (pendingSaveAction.value === 'consultation') {
-    createConsultationRecord(selectedPerson.value);
+const handleConfirm = async () => {
+  try {
+    if (pendingSaveAction.value === 'delete' && selectedConsultationRecord.value) {
+      await deleteConsultationRecord(selectedConsultationRecord.value.consultation_id);
+    } else if (pendingSaveAction.value === 'consultation') {
+      await createConsultationRecord(selectedPerson.value);
+      // Close the AddModal after a successful consultation save
+      showAddModal.value = false;
+    }
+    
+    // Reset state
+    pendingSaveAction.value = null;
+    showConfirmationModal.value = false;
+  } catch (error) {
+    console.error('Error in handleConfirm:', error);
+    alert('An error occurred. Please try again.');
   }
-  
-  // Reset state
-  pendingSaveAction.value = null;
-  showConfirmationModal.value = false;
 };
 
 /**
