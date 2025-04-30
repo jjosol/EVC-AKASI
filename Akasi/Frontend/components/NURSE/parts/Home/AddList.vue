@@ -1606,6 +1606,57 @@ function isComplaintValueSelected(value, currentId) {
     complaint.id !== currentId && complaint.value === value
   );
 }
+
+// Actions Taken (like chiefComplaints)
+const actionOptions = [
+  'Student laid/sat in clinic for 20 minutes or less',
+  'Student laid/sat in clinic for 20 minutes or more',
+  'Temperature taken',
+  'Ice pack applied to affected area',
+  'Affected area cleaned',
+  'Band aid applied to affected area',
+  'Medication given',
+  'Head checked for',
+  'Parent/guardian notified at',
+  'Other'
+];
+
+const actionsTaken = ref([
+  { id: generateId(), value: '', details: '' }
+]);
+
+function getActionDisplayValue(action) {
+  if (
+    action.value === 'Head checked for' ||
+    action.value === 'Parent/guardian notified at' ||
+    action.value === 'Other'
+  ) {
+    return action.value + (action.details ? ': ' + action.details : '');
+  }
+  return action.value || '';
+}
+
+function addActionTaken() {
+  actionsTaken.value.push({ id: generateId(), value: '', details: '' });
+}
+
+function removeActionTaken(actionId) {
+  if (actionsTaken.value.length > 1) {
+    actionsTaken.value = actionsTaken.value.filter(a => a.id !== actionId);
+  }
+}
+
+function isActionValueSelected(value, currentId) {
+  // Always allow selecting these in any dropdown
+  if (
+    value === 'Other' ||
+    value === 'Head checked for' ||
+    value === 'Parent/guardian notified at'
+  )
+    return false;
+  return actionsTaken.value.some(action => action.id !== currentId && action.value === value);
+}
+
 </script>
 
 <template>
@@ -2048,15 +2099,79 @@ function isComplaintValueSelected(value, currentId) {
   <div v-else-if="currentModalPage === 2" class="flex-grow overflow-y-auto">
     <div class="pt-4 mb-4">
       <div class="mb-6">
-        <label for="action" class="block text-sm font-semibold text-gray-600">Actions Taken</label>
-        <textarea
-          id="action"
-          v-model="selectedPerson.action"
-          rows="6"
-          :disabled="isViewOnly"
-          class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Enter actions taken...">
-        </textarea>
+        <label class="block text-sm font-semibold text-gray-600">Actions Taken</label>
+        <div class="p-4 border border-gray-300 rounded-md bg-gray-50">
+          <div class="flex flex-col space-y-4">
+            <div v-for="action in actionsTaken" :key="action.id" class="flex items-start space-x-2">
+              <div class="flex-grow">
+                <div class="relative">
+                  <select
+                    v-model="action.value"
+                    :disabled="isViewOnly"
+                    class="w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="" disabled selected>Select an action...</option>
+                    <option
+                      v-for="option in actionOptions"
+                      :key="option"
+                      :value="option"
+                      :disabled="isActionValueSelected(option, action.id)"
+                    >
+                      {{ option }}
+                    </option>
+                  </select>
+                  <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                    <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    </svg>
+                  </div>
+                </div>
+                <!-- Details field for Head checked for, Parent/guardian notified at, or Other -->
+                <div v-if="['Head checked for', 'Parent/guardian notified at', 'Other'].includes(action.value)" class="mt-2 transition-all duration-300 ease-in-out">
+                  <input
+                    type="text"
+                    v-model="action.details"
+                    :placeholder="
+                      action.value === 'Head checked for' ? 'Specify what was checked for...'
+                      : action.value === 'Parent/guardian notified at' ? 'Specify time or details...'
+                      : 'Please specify...'
+                    "
+                    :disabled="isViewOnly"
+                    class="w-full px-4 py-2 text-gray-700 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              <!-- Remove button -->
+              <button
+                v-if="!isViewOnly && actionsTaken.length > 1"
+                @click="removeActionTaken(action.id)"
+                class="p-2 mt-1 text-red-500 bg-white border border-red-300 rounded-md hover:bg-red-50"
+                title="Remove action"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            <!-- Add button -->
+            <div class="flex justify-end">
+              <button
+                v-if="!isViewOnly"
+                @click="addActionTaken"
+                class="flex items-center px-4 py-2 text-white transition-colors duration-300 bg-blue-500 rounded-md hover:bg-blue-600"
+              >
+                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Add Another Action
+              </button>
+            </div>
+          </div>
+        </div>
+        <!-- Display selected actions summary -->
+        <div v-if="actionsTaken.some(a => a.value)" class="mt-2 text-sm font-medium text-blue-600">
+          Selected: {{ actionsTaken.filter(a => a.value).map(a => getActionDisplayValue(a)).join(', ') }}
+        </div>
       </div>
 
       <div class="mb-4">

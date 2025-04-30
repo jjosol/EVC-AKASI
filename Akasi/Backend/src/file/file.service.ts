@@ -52,6 +52,11 @@ export class FileService {
   }
 
   getFullUploadPath(relativePath: string): string {
+    // Handle both formats: with and without the school year prefix
+    if (!relativePath.startsWith('2024-2025')) {
+      // If path doesn't already have the school year, prepend it
+      relativePath = path.join('2024-2025', relativePath);
+    }
     return path.join(this.uploadDir, relativePath);
   }
 }

@@ -190,7 +190,9 @@ export class StorageService {
     }
     
     const filePath = path.join(yearDir, fileName);
-    const relativePath = path.join('bulletin', year, fileName).replace(/\\/g, '/');
+    // Update to prepend the currentSchoolYear to the relativePath
+    const relativePath = path.join(this.currentSchoolYear, 'bulletin', year, fileName).replace(/\\/g, '/');
+    console.log(relativePath)
 
     try {
       // Ensure directory exists
@@ -239,7 +241,8 @@ export class StorageService {
     }
     
     const filePath = path.join(yearDir, fileName);
-    const relativePath = path.join('prescriptions', year, fileName).replace(/\\/g, '/');
+    // Update to prepend the currentSchoolYear to the relativePath
+    const relativePath = path.join(this.currentSchoolYear, 'prescriptions', year, fileName).replace(/\\/g, '/');
 
     try {
       await this.ensureDirectoriesExist();
