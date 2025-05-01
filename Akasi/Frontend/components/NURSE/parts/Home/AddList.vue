@@ -5,7 +5,7 @@ import moment from 'moment-timezone';
 import { useProfile } from '~/composables/useProfile'
 import { useAppointmentsByDate } from '~/composables/useAppointmentsByDate';
 import * as consultationRecordService from '~/services/consultationRecordService';
-import { fetchInventory } from '~/services/medicineService';
+import { fetchInventoryItems } from '~/services/inventoryService';
 import { Icon } from '@iconify/vue';
 
 // Import all the components
@@ -487,7 +487,7 @@ onMounted(() => {
   fetchPeople();
   fetchPatients();
   fetchRecordCount();
-  fetchInventory(); // This should be called
+  fetchMedicines(); // load medicines into allMedicines
   fetchDiseases();
   fetchDiseaseCategories();
   
@@ -499,6 +499,16 @@ console.log(patients)
 
 // Initialize values for meds list
 const allMedicines = ref([]);
+// Fetch medicines list from inventory service
+const fetchMedicines = async () => {
+  try {
+    const data = await fetchInventoryItems();
+    allMedicines.value = data || [];
+  } catch (error) {
+    console.error('Error fetching inventory items:', error);
+    allMedicines.value = [];
+  }
+};
 
 // Add these with your other refs
 const expandedMedicines = ref(new Set());
