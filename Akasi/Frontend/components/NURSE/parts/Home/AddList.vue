@@ -458,39 +458,29 @@ watch(() => activeTab.value, (newTab) => {
   }
 });
 
-// fetch data when mounted
-onMounted(() => {
-  fetchPeople();
-  fetchPatients();
-  fetchRecordCount();
-  fetchInventory();
-  fetchProfile(); 
-
-  if (activeTab.value === 'tab2') {
-    fetchAppointmentsForSelectedDate();
-  }
-});
-console.log(patients)
-////////////////
 /**
- * Saves/updates person and consultation record
- * Handles both new records and updates
+ * Fetches appointments for the selected date
  * @returns {Promise<void>}
  */
-
-// Watch for date changes when on appointments tab
-watch(() => props.currentDay, () => {
-  if (activeTab.value === 'tab2') {
-    fetchAppointmentsForSelectedDate();
+const fetchAppointmentsForSelectedDate = async () => {
+  try {
+    // Make sure we have a valid date from the props
+    if (!props.currentDay || !props.currentDay.date) {
+      console.error('Invalid current day prop:', props.currentDay);
+      return;
+    }
+    
+    // Create a date object for the current day
+    const dateObj = props.currentDay.date;
+    
+    // Call the composable function to fetch appointments using the date object
+    await fetchAppointmentsByDate(dateObj);
+    
+    console.log('Fetched appointments:', appointments.value);
+  } catch (error) {
+    console.error('Error fetching appointments for selected date:', error);
   }
-}, { deep: true });
-
-// Watch for tab changes
-watch(() => activeTab.value, (newTab) => {
-  if (newTab === 'tab2') {
-    fetchAppointmentsForSelectedDate();
-  }
-});
+};
 
 // fetch data when mounted
 onMounted(() => {
@@ -500,8 +490,13 @@ onMounted(() => {
   fetchInventory(); // This should be called
   fetchDiseases();
   fetchDiseaseCategories();
+  
+  if (activeTab.value === 'tab2') {
+    fetchAppointmentsForSelectedDate();
+  }
 });
 console.log(patients)
+
 // Initialize values for meds list
 const allMedicines = ref([]);
 

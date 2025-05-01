@@ -83,15 +83,82 @@
                     Note: Appointments cannot be scheduled on weekends.
                   </div>
                   
-                  <!-- Complaint -->
+                  <!-- Complaint Section - Structured dropdown similar to AddList -->
                   <div class="mb-4">
-                    <label for="complaint" class="block text-sm font-semibold text-gray-600">Complaint</label>
-                    <textarea 
-                      v-model="complaint" 
-                      id="complaint"
-                      placeholder="General Complaint" 
-                      class="w-full h-32 px-4 py-2 mt-1 border border-gray-300 rounded-lg"
-                    ></textarea>
+                    <label class="block text-sm font-semibold text-gray-600">Nature of Complaint:</label>
+                    
+                    <div class="p-4 border border-gray-300 rounded-md bg-gray-50">
+                      <!-- Multiple complaint entries with + button -->
+                      <div class="flex flex-col space-y-4">
+                        <div v-for="complaint in chiefComplaints" :key="complaint.id" class="flex items-start space-x-2">
+                          <div class="flex-grow">
+                            <div class="relative">
+                              <select 
+                                v-model="complaint.value"
+                                class="w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              >
+                                <option value="" disabled selected>Select a complaint...</option>
+                                <option 
+                                  v-for="option in ['Not feeling well', 'Stomachache', 'Headache', 'Toothache', 'Injury', 'Other']" 
+                                  :key="option" 
+                                  :value="option" 
+                                  :disabled="isComplaintValueSelected(option, complaint.id)"
+                                >
+                                  {{ option }}
+                                </option>
+                              </select>
+                              <!-- Custom dropdown arrow -->
+                              <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                                <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                </svg>
+                              </div>
+                            </div>
+                            
+                            <!-- Details field for Injury or Other -->
+                            <div v-if="complaint.value === 'Injury' || complaint.value === 'Other'" 
+                                 class="mt-2 transition-all duration-300 ease-in-out">
+                              <input 
+                                type="text"
+                                v-model="complaint.details"
+                                :placeholder="complaint.value === 'Injury' ? 'Please describe the injury in detail...' : 'Please specify the complaint...' "
+                                class="w-full px-4 py-2 text-gray-700 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                            </div>
+                          </div>
+                          
+                          <!-- Remove button -->
+                          <button 
+                            v-if="chiefComplaints.length > 1" 
+                            @click="removeChiefComplaint(complaint.id)"
+                            class="p-2 mt-1 text-red-500 bg-white border border-red-300 rounded-md hover:bg-red-50"
+                            title="Remove complaint"
+                          >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                          </button>
+                        </div>
+                        
+                        <!-- Add button -->
+                        <div class="flex justify-end">
+                          <button 
+                            @click="addChiefComplaint"
+                            class="flex items-center px-4 py-2 text-white transition-colors duration-300 bg-blue-500 rounded-md hover:bg-blue-600"
+                          >
+                            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            Add Another Complaint
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <!-- Display selected complaints summary -->
+                    <div v-if="chiefComplaints.some(c => c.value)" class="mt-2 text-sm font-medium text-blue-600">
+                      Selected: {{ chiefComplaints.filter(c => c.value).map(c => getChiefComplaintValue(c)).join(', ') }}
+                    </div>
                   </div>
                   
                   <!-- Status message -->
@@ -478,8 +545,8 @@ const validateForm = () => {
     return false;
   }
   
-  if (!complaint.value || complaint.value.trim() === '') {
-    statusMessage.value = 'Please enter a complaint';
+  if (!chiefComplaints.value.some(c => c.value)) {
+    statusMessage.value = 'Please select at least one complaint';
     statusType.value = 'error';
     return false;
   }
@@ -641,7 +708,6 @@ watch(() => selectedDate.value.rawDate, (newDate) => {
 
 
 // Update the submitAppointment function
-// In AddAppointment.vue, update the submitAppointment function
 const submitAppointment = async () => {
   console.log(selectedDate.value.rawDate);
   try {
@@ -670,6 +736,14 @@ const submitAppointment = async () => {
       throw new Error('Authentication token not found');
     }
     
+    // Format complaints from the chief complaints structure
+    const formattedComplaint = chiefComplaints.value
+      .filter(c => c.value)
+      .map(c => getChiefComplaintValue(c))
+      .join(', ');
+      
+    console.log('Formatted complaint:', formattedComplaint);
+    
     // Call the API
     const response = await fetch('http://localhost:3001/add-appointment', {
       method: 'POST',
@@ -682,7 +756,7 @@ const submitAppointment = async () => {
         date: moment(dateObj).tz("Asia/Manila").format('YYYY-MM-DD'), // Format as YYYY-MM-DD
         hour: selectedHour.value,
         minute: selectedMinute.value,
-        complaint: complaint.value,
+        complaint: formattedComplaint, // Use the formatted complaint string
       })
     });
 
@@ -697,7 +771,7 @@ const submitAppointment = async () => {
     statusType.value = 'success';
     
     // Reset form
-    complaint.value = '';
+    chiefComplaints.value = [{ id: generateId(), value: '', details: '' }];
     
     // Immediately refresh available time slots for the current date
     await fetchAvailableTimeSlots(selectedDate.value.rawDate);
@@ -972,6 +1046,45 @@ onMounted(() => {
   fetchUpcomingAppointments();
   fetchAvailableTimeSlots(selectedDate.value.rawDate);
 });
+
+// After other refs
+const chiefComplaints = ref([{ id: generateId(), value: '', details: '' }]);
+
+// Helper function to generate a random ID
+function generateId() {
+  return Math.random().toString(36).substring(2, 11);
+}
+
+// Helper to get display value for chief complaint
+function getChiefComplaintValue(complaint) {
+  if (complaint.value === 'Injury' || complaint.value === 'Other') {
+    return complaint.value + (complaint.details ? ': ' + complaint.details : '');
+  }
+  return complaint.value || '';
+}
+
+// Add new chief complaint
+function addChiefComplaint() {
+  chiefComplaints.value.push({ id: generateId(), value: '', details: '' });
+}
+
+// Remove chief complaint
+function removeChiefComplaint(complaintId) {
+  if (chiefComplaints.value.length > 1) {
+    chiefComplaints.value = chiefComplaints.value.filter(c => c.id !== complaintId);
+  }
+}
+
+// Check if a complaint value is already selected in another dropdown
+function isComplaintValueSelected(value, currentId) {
+  // Always allow selecting "Injury" or "Other" in any dropdown
+  if (value === 'Injury' || value === 'Other') return false;
+  
+  // Check if the value is selected in any other dropdown
+  return chiefComplaints.value.some(complaint => 
+    complaint.id !== currentId && complaint.value === value
+  );
+}
 
 // Expose methods for parent components
 defineExpose({
