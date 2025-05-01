@@ -1944,6 +1944,156 @@ const confirmAction = (actionType) => {
 
 // Initialize pendingMedicineQuantities for tracking quantities
 const pendingMedicineQuantities = ref({});
+
+/**
+ * Opens the consultation modal with prepopulated data from an appointment
+ * @param {Object} appointment - Appointment data
+ */
+const createConsultationFromAppointment = async (appointment) => {
+  try {
+    if (!appointment || !appointment.patient_id) {
+      throw new Error('Invalid appointment data');
+    }
+
+    // Find the patient in allPeople list
+    const patientData = allPeople.value.find(person => person.clientId === appointment.patient_id);
+    
+    if (!patientData) {
+      // If not found, we need to fetch the patient data
+      const clientData = await consultationRecordService.fetchPatientById(appointment.patient_id);
+      
+      if (!clientData) {
+        throw new Error('Patient information not found');
+      }
+      
+      // Create a person object with required fields
+      const person = {
+        clientId: clientData.patient_id,
+        name: clientData.name || appointment.patient?.name || 'Unknown',
+        section: clientData.section || 'N/A',
+        grade: clientData.grade || 'N/A',
+        age: clientData.age || 0,
+        sex: clientData.gender || 'N/A',
+        type: clientData.type || 'N/A',
+        category: clientData.type?.toLowerCase() === 'student' ? clientData.category : clientData.division || 'N/A',
+        occupation: clientData.type || 'N/A'
+      };
+      
+      // Add person and open the edit modal with prepopulated complaint
+      addPerson(person);
+      
+      // Parse the complaint string from appointment and populate chief complaints
+      if (appointment.complaint) {
+        try {
+          // Reset to default first
+          chiefComplaints.value = [{ id: generateId(), value: '', details: '' }];
+          
+          const complaintsArray = appointment.complaint.split(', ');
+          chiefComplaints.value = complaintsArray.map(complaintText => {
+            // Check if it's an injury or other with details
+            const injuryMatch = complaintText.match(/^Injury: (.+)$/);
+            const otherMatch = complaintText.match(/^Other: (.+)$/);
+            
+            if (injuryMatch) {
+              return {
+                id: generateId(),
+                value: 'Injury',
+                details: injuryMatch[1]
+              };
+            } else if (otherMatch) {
+              return {
+                id: generateId(),
+                value: 'Other',
+                details: otherMatch[1]
+              };
+            } else {
+              return {
+                id: generateId(),
+                value: complaintText,
+                details: ''
+              };
+            }
+          });
+        } catch (error) {
+          console.error('Error parsing complaint string:', error);
+          // If parsing fails, just set the raw complaint as a single entry
+          chiefComplaints.value = [{
+            id: generateId(),
+            value: 'Other',
+            details: appointment.complaint
+          }];
+        }
+      }
+      
+      // Set notes from appointment as remarks if available
+      if (appointment.notes) {
+        selectedPerson.value.remarks = appointment.notes;
+      }
+      
+    } else {
+      // Use existing patient data
+      addPerson(patientData);
+      
+      // Parse the complaint string from appointment and populate chief complaints
+      if (appointment.complaint) {
+        try {
+          // Reset to default first
+          chiefComplaints.value = [{ id: generateId(), value: '', details: '' }];
+          
+          const complaintsArray = appointment.complaint.split(', ');
+          chiefComplaints.value = complaintsArray.map(complaintText => {
+            // Check if it's an injury or other with details
+            const injuryMatch = complaintText.match(/^Injury: (.+)$/);
+            const otherMatch = complaintText.match(/^Other: (.+)$/);
+            
+            if (injuryMatch) {
+              return {
+                id: generateId(),
+                value: 'Injury',
+                details: injuryMatch[1]
+              };
+            } else if (otherMatch) {
+              return {
+                id: generateId(),
+                value: 'Other',
+                details: otherMatch[1]
+              };
+            } else {
+              return {
+                id: generateId(),
+                value: complaintText,
+                details: ''
+              };
+            }
+          });
+        } catch (error) {
+          console.error('Error parsing complaint string:', error);
+          // If parsing fails, just set the raw complaint as a single entry
+          chiefComplaints.value = [{
+            id: generateId(),
+            value: 'Other',
+            details: appointment.complaint
+          }];
+        }
+      }
+      
+      // Set notes from appointment as remarks if available
+      if (appointment.notes) {
+        selectedPerson.value.remarks = appointment.notes;
+      }
+    }
+    
+    // Set view mode to editable for new consultation
+    isViewOnly.value = false;
+    
+    // Reset modal page to first page
+    currentModalPage.value = 1;
+    
+  } catch (error) {
+    console.error('Error preparing consultation from appointment:', error);
+    alert('Failed to prepare consultation: ' + error.message);
+  }
+};
 </script>
 
 <template>
@@ -2106,9 +2256,24 @@ const pendingMedicineQuantities = ref({});
               <div class="flex justify-end mt-2">
                 <button 
                   @click="openStatusModal(appointment)" 
-                  class="px-3 py-1 text-sm bg-[#2f4a71] text-white rounded hover:bg-[#8b67db]"
+                  class="px-3 py-1 mr-2 text-sm bg-[#2f4a71] text-white rounded hover:bg-[#8b67db]"
                 >
                   Manage Status
+                </button>
+                <button 
+                  @click="createConsultationFromAppointment(appointment)"
+                  :disabled="appointment.status !== 'approved'"
+                  :class="[
+                    'px-3 py-1 text-sm rounded',
+                    appointment.status === 'approved' 
+                      ? 'bg-green-600 text-white hover:bg-green-700 cursor-pointer'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                  ]"
+                  :title="appointment.status !== 'approved' ? 'Appointment must be approved first' : 'Create consultation record'"
+                  style="pointer-events: auto;"
+                  @mousedown.prevent="appointment.status !== 'approved'"
+                >
+                  Make Consultation
                 </button>
               </div>
             </div>
