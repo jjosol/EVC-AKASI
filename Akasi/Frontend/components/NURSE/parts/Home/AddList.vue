@@ -733,6 +733,30 @@ const openEditModal = async (patient) => {
       }
     }
 
+    // Fetch medication administration records
+    let medicines = [];
+    if (consultationRecord.medAdministration) {
+      try {
+        const medAdminRecords = await consultationRecordService.fetchMedAdministrationRecords(patient.consultation_id);
+        console.log('Fetched med admin records:', medAdminRecords);
+        
+        medicines = medAdminRecords.map(record => ({
+          med_id: record.med_id,
+          med_administration_id: record.med_administration_id,
+          consultation_id: record.consultation_id,
+          name: record.medName,
+          quantity: record.count,
+          schedule: record.schedule,
+          startDate: record.start_date ? new Date(record.start_date).toISOString().split('T')[0] : '',
+          endDate: record.end_date ? new Date(record.end_date).toISOString().split('T')[0] : '',
+          remarks: record.remarks || '',
+          markedForDeletion: false
+        }));
+      } catch (error) {
+        console.error('Error fetching medication administration records:', error);
+      }
+    }
+
     selectedPerson.value = {
       ...patient,
       clientId: patient.id,
@@ -752,7 +776,8 @@ const openEditModal = async (patient) => {
       intervention: consultationRecord.intervention,
       action: consultationRecord.action || '',
       disposition: consultationRecord.disposition || '',
-      nurse_followup: consultationRecord.nurse_followup || ''
+      nurse_followup: consultationRecord.nurse_followup || '',
+      medicines: medicines // Set the fetched medicines
     };
 
     // Check if the record has been reviewed by a doctor
@@ -768,7 +793,8 @@ const openEditModal = async (patient) => {
     console.log('Loaded record:', {
       complaints: chiefComplaints.value,
       actions: actionsTaken.value,
-      dispositions: dispositions.value
+      dispositions: dispositions.value,
+      medicines: medicines
     });
   } catch (error) {
     console.error('Error opening edit modal:', error);
