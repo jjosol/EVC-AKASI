@@ -1924,32 +1924,24 @@ const prepareAddMedicine = (medicine) => {
     return;
   }
   
-  addMedicine(medicine);
-};
-
-/**
- * Initiates the confirmation process for creating or deleting a consultation
- * @param {string} actionType - The type of action to confirm ('consultation' or 'delete')
- */
-const confirmAction = (actionType) => {
-  if (actionType === 'consultation') {
-    // Set the pending action
-    pendingSaveAction.value = 'consultation';
-    
-    // If we need to confirm with a dialog, show it
-    if (selectedPerson.value.confined) {
-      confirmationMessage.value = 'Are you sure you want to mark this patient as confined?';
-      showConfirmationModal.value = true;
-    } else {
-      // Otherwise proceed directly
-      handleConfirm();
-    }
-  } else if (actionType === 'delete') {
-    // Set pending action and show confirmation modal
-    pendingSaveAction.value = 'delete';
-    confirmationMessage.value = 'Are you sure you want to delete this record?';
-    showConfirmationModal.value = true;
-  }
+  // Set up the medicine to be added in the detail modal
+  selectedMedicine.value = {
+    med_id: medicine.med_id,
+    name: medicine.name,
+    quantity: medicine.requestedQuantity,
+    schedule: 'As needed', // Default schedule
+    startDate: todayFormatted.value,
+    endDate: new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0], // Default to 7 days
+    remarks: '',
+    originalQuantity: medicine.requestedQuantity,
+    otc: medicine.otc // Pass the OTC status from the medicine
+  };
+  
+  // Clear view-only mode and open the medicine detail modal
+  isViewOnly.value = false;
+  showMedicineDetailModal.value = true;
+  // Hide the medicine selection modal
+  showMedicineModal.value = false;
 };
 
 // Initialize pendingMedicineQuantities for tracking quantities
@@ -2102,6 +2094,29 @@ const createConsultationFromAppointment = async (appointment) => {
   } catch (error) {
     console.error('Error preparing consultation from appointment:', error);
     alert('Failed to prepare consultation: ' + error.message);
+  }
+};
+
+/**
+ * Initiates the confirmation process for creating or deleting a consultation
+ * @param {string} actionType - The type of action to confirm ('consultation' or 'delete')
+ */
+const confirmAction = (actionType) => {
+  if (actionType === 'consultation') {
+    // Set the pending action
+    pendingSaveAction.value = 'consultation';
+    
+    // If we need to confirm with a dialog, show it
+    if (selectedPerson.value.confined) {
+      confirmationMessage.value = 'Are you sure you want to mark this patient as confined?';
+      showConfirmationModal.value = true;
+    } else {
+      // Otherwise proceed directly
+      handleConfirm();
+    }
+  } else if (actionType === 'delete') {
+    pendingSaveAction.value = 'delete';
+    showConfirmationModal.value = true;
   }
 };
 </script>
