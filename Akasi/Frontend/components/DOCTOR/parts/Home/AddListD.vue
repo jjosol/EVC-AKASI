@@ -234,34 +234,56 @@ const fetchPeople = async () => {
 const fetchPatients = async () => {
   try {
     const data = await consultationRecordService.fetchConsultationRecords();
-    
     // Use moment.js for consistent timezone handling
     const currentDate = moment(props.currentDay.date).tz("Asia/Manila");
-    
     patients.value = data
       .filter(record => {
         const recordDate = moment(record.date).tz("Asia/Manila");
         // Only show records marked for doctor's view
         return recordDate.isSame(currentDate, 'day') && record.doctorShow === true;
       })
-      .map((record) => ({
-        id: record.patient_id,
-        consultation_id: record.consultation_id,
-        name: record.patient_name,
-        grade: record.grade || 'N/A',
-        section: record.section || 'N/A',
-        category: record.category || 'N/A',
-        time: moment(record.date).tz("Asia/Manila").format('hh:mm A'),
-        complaint: record.complaint,
-        remarks: record.remarks,
-        confined: record.confined,
-        medAdministration: record.medAdministration,
-        intervention: record.intervention,
-        action: record.action,
-        disposition: record.disposition,
-        doctor_reviewed: record.doctor_reviewed || false,  // Add this field to track if the doctor reviewed it
-        doctor_review_date: record.doctor_review_date || null // Add review date
-      }));
+      .map((record) => {
+        // Extract grade, section, category, and type from medical_data or patient
+        let grade = 'N/A';
+        let section = 'N/A';
+        let category = 'N/A';
+        let type = 'N/A';
+        if (record.medical_data) {
+          grade = record.medical_data.patientGrade || record.medical_data.grade || 'N/A';
+          section = record.medical_data.patientSection || record.medical_data.section || 'N/A';
+          category = record.medical_data.patientCategory || record.medical_data.category || 'N/A';
+          type = record.medical_data.patientType || record.medical_data.type || 'N/A';
+        } else if (record.patient) {
+          grade = record.patient.grade || 'N/A';
+          section = record.patient.section || 'N/A';
+          category = record.patient.category || 'N/A';
+          type = record.patient.type || 'N/A';
+        } else {
+          grade = record.grade || 'N/A';
+          section = record.section || 'N/A';
+          category = record.category || 'N/A';
+          type = record.type || 'N/A';
+        }
+        return {
+          id: record.patient_id,
+          consultation_id: record.consultation_id,
+          name: record.patient_name,
+          grade,
+          section,
+          category,
+          type, // Add type here
+          time: moment(record.date).tz("Asia/Manila").format('hh:mm A'),
+          complaint: record.complaint,
+          remarks: record.remarks,
+          confined: record.confined,
+          medAdministration: record.medAdministration,
+          intervention: record.intervention,
+          action: record.action,
+          disposition: record.disposition,
+          doctor_reviewed: record.doctor_reviewed || false,  // Add this field to track if the doctor reviewed it
+          doctor_review_date: record.doctor_review_date || null // Add review date
+        };
+      });
   } catch (error) {
     console.error('Error fetching patients:', error.message);
   }

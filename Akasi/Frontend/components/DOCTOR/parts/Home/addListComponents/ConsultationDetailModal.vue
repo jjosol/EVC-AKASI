@@ -124,6 +124,9 @@ const saveConsultation = async () => {
   }
 };
 
+// Add a ref to hold the extracted patient type
+const patientType = ref('');
+
 // Populate fields when consultation data is available
 watch(() => props.consultation, (newConsultation) => {
   if (newConsultation) {
@@ -138,6 +141,9 @@ watch(() => props.consultation, (newConsultation) => {
     heartRate.value = medicalData.heart_rate || '';
     complaints.value = medicalData.diagnosis || newConsultation?.complaint || '';
     treatment.value = medicalData.treatment || '';
+
+    // Set patient type from extracted data, fallback to consultation.type
+    patientType.value = medicalData.patientType || newConsultation.type || 'N/A';
 
     // If this consultation has been reviewed by a doctor before, show the nurse view directly
     if (newConsultation.doctor_reviewed) {
@@ -173,7 +179,7 @@ watch(() => props.consultation, (newConsultation) => {
             </div>
             <div>
               <p class="text-sm text-gray-500">Type</p>
-              <p class="font-medium">{{ consultation.type }}</p>
+              <p class="font-medium">{{ patientType }}</p>
             </div>
             <div v-if="consultation.grade">
               <p class="text-sm text-gray-500">Grade/Section</p>
@@ -426,7 +432,7 @@ watch(() => props.consultation, (newConsultation) => {
             </div>
             <div>
               <p class="text-sm text-gray-500">Type</p>
-              <p class="font-medium">{{ consultation.type }}</p>
+              <p class="font-medium">{{ patientType }}</p>
             </div>
             <div v-if="consultation.grade">
               <p class="text-sm text-gray-500">Grade/Section</p>

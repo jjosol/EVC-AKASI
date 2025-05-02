@@ -1506,7 +1506,6 @@ const switchTab = (tab) => {
 const showDiagnosisDropdown = ref(false);
 
 // Note: We already have filteredDiseases computed property defined earlier in the code
-
 // Function to toggle the diagnosis dropdown
 const toggleDiagnosisDropdown = () => {
   showDiagnosisDropdown.value = !showDiagnosisDropdown.value;
