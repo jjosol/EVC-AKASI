@@ -1,11 +1,135 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 @font-face {
-    font-family: 'nimbus';
-    src: url('~/assets/fonts/TAN-NIMBUS.otf') format('opentype'),
-         url('/assets/fonts/TAN-NIMBUS.ttf') format('truetype');
-    font-weight: 400;
-    font-style: normal;
-  }
-  
+     font-family: 'nimbus';
+     src: url('~/assets/fonts/TAN-NIMBUS.otf') format('opentype'),
+          url('/assets/fonts/TAN-NIMBUS.ttf') format('truetype');
+     font-weight: 400;
+     font-style: normal;
+}
+
+/* Add these responsive classes to the end of the CSS file */
+
+/* Global responsive utilities */
+.container-responsive {
+     width: 100%;
+     padding-right: 15px;
+     padding-left: 15px;
+     margin-right: auto;
+     margin-left: auto;
+}
+
+/* Responsive grid system */
+.row {
+     display: flex;
+     flex-wrap: wrap;
+     margin-right: -15px;
+     margin-left: -15px;
+}
+
+/* Mobile-first approach */
+.col {
+     position: relative;
+     width: 100%;
+     padding-right: 15px;
+     padding-left: 15px;
+     flex-basis: 0;
+     flex-grow: 1;
+     max-width: 100%;
+}
+
+/* Responsive breakpoints */
+@media screen and (max-width: 576px) {
+     .hide-on-mobile {
+          display: none !important;
+     }
+
+     .mobile-full-width {
+          width: 100% !important;
+     }
+
+     .mobile-text-center {
+          text-align: center !important;
+     }
+
+     /* Adjust font sizes for mobile */
+     h1 {
+          font-size: 1.75rem !important;
+     }
+
+     h2 {
+          font-size: 1.5rem !important;
+     }
+
+     .text-sm-mobile {
+          font-size: 0.875rem !important;
+     }
+
+     /* Adjust paddings/margins */
+     .mobile-p-2 {
+          padding: 0.5rem !important;
+     }
+
+     .mobile-m-2 {
+          margin: 0.5rem !important;
+     }
+
+     /* Stack flex items */
+     .mobile-flex-column {
+          flex-direction: column !important;
+     }
+
+     /* Make tables responsive */
+     .table-responsive {
+          display: block;
+          width: 100%;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+     }
+
+     /* Make fixed width elements responsive */
+     .w-fixed {
+          width: 100% !important;
+          max-width: none !important;
+     }
+}
+
+/* Tablet breakpoint */
+@media screen and (min-width: 577px) and (max-width: 768px) {
+     .hide-on-tablet {
+          display: none !important;
+     }
+
+     .tablet-full-width {
+          width: 100% !important;
+     }
+
+     .tablet-flex-column {
+          flex-direction: column !important;
+     }
+}
+
+/* Ensure modals are usable on mobile */
+@media screen and (max-width: 768px) {
+     .modal-container {
+          width: 95% !important;
+          max-width: 95% !important;
+          margin: 10px !important;
+     }
+
+     .modal-body {
+          max-height: 70vh !important;
+          overflow-y: auto !important;
+     }
+
+     /* Improve form elements on mobile */
+     input,
+     select,
+     textarea,
+     button {
+          font-size: 16px !important;
+          /* Prevents zoom on iOS */
+     }
+}

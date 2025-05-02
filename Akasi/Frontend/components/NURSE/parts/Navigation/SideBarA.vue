@@ -1,9 +1,22 @@
 <script setup>
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, inject, ref, onBeforeUnmount } from 'vue';
 import { useProfile } from '~/composables/useProfile';
 
 const route = useRoute();
 const { profile, loading: profileLoading, fetchProfile } = useProfile();
+
+// Get mobile state from parent if available
+const sidebarActive = inject('sidebarActive', ref(false));
+const isMobile = inject('isMobile', ref(false));
+
+// If sidebar is clicked on mobile, auto-close it when clicking links
+const handleLinkClick = () => {
+  if (isMobile.value) {
+    setTimeout(() => {
+      sidebarActive.value = false;
+    }, 150); // Small delay for better UX
+  }
+};
 
 const links = [
   { path: '/home', label: 'Home' },
@@ -11,7 +24,7 @@ const links = [
   { path: '/files/student', label: 'Files' },
   { path: '/reports', label: 'Reports' },
   { path: '/inventory', label: 'Inventory' },
-  { path: '/dashboard', label: 'Dashboard'}
+  { path: '/dashboard', label: 'Dashboard' }
 ];
 
 // Separate profile link for special formatting
@@ -31,51 +44,44 @@ onMounted(() => {
   fetchProfile();
 });
 </script>
-  
+
 <template>
-  <div class="fixed top-0 left-0 z-50 h-full font-inter">
-    <nav class="flex flex-col items-center h-full py-10 w-64 text-white bg-[#2F4A71] shadow-right">
-      <div class="mb-12">
-        <MidTitle class="text-5xl"/>
-      </div>
-      
-      <div class="flex flex-col w-full px-6 space-y-5">
-        <!-- Regular navigation links -->
-        <router-link
-          v-for="link in links" 
-          :key="link.path"
-          :to="link.path"
-          class="px-5 py-3 text-lg font-medium text-center transition-all duration-200 ease-in-out rounded-full"
-          :class="isActive(link.path).value 
-            ? 'bg-[#f8f4ff] text-[#4c2f71] shadow-md border-4 border-[#745dab]' 
-            : 'text-white hover:bg-[#f8f4ff] hover:text-[#2F4A71]'"
-        >
-          {{ link.label }}
-        </router-link>
-        
-        <!-- Enhanced Profile button - INLINE VERSION -->
-      <router-link
-        :to="profileLink.path"
-        class="transition-all duration-200 ease-in-out rounded-3xl"
-        :class="isActive(profileLink.path).value 
-          ? 'bg-[#f8f4ff] text-[#4c2f71] shadow-md border-4 border-[#745dab]' 
-          : 'text-white hover:bg-[#f8f4ff] hover:text-[#2F4A71]'"
-      >
+  <nav class="flex flex-col items-center h-full py-10 text-white bg-[#2F4A71] shadow-right transition-all duration-300">
+    <div class="mb-12">
+      <MidTitle class="text-5xl sm:text-4xl" />
+    </div>
+
+    <div class="flex flex-col w-full px-6 space-y-5 overflow-y-auto">
+      <!-- Regular navigation links -->
+      <router-link v-for="link in links" :key="link.path" :to="link.path" @click="handleLinkClick"
+        class="px-5 py-3 text-lg font-medium text-center transition-all duration-200 ease-in-out rounded-full" :class="isActive(link.path).value
+          ? 'bg-[#f8f4ff] text-[#4c2f71] shadow-md border-4 border-[#745dab]'
+          : 'text-white hover:bg-[#f8f4ff] hover:text-[#2F4A71]'">
+        {{ link.label }}
+      </router-link>
+
+      <!-- Enhanced Profile button - INLINE VERSION -->
+      <router-link :to="profileLink.path" @click="handleLinkClick"
+        class="transition-all duration-200 ease-in-out rounded-3xl" :class="isActive(profileLink.path).value
+          ? 'bg-[#f8f4ff] text-[#4c2f71] shadow-md border-4 border-[#745dab]'
+          : 'text-white hover:bg-[#f8f4ff] hover:text-[#2F4A71]'">
         <div class="flex flex-row items-center px-5 py-3">
           <!-- Profile avatar -->
-          <div class="flex items-center justify-center flex-shrink-0 w-10 h-10 mr-3 rounded-full" :class="isActive(profileLink.path).value ? 'bg-[#2F4A71]' : 'bg-[#f8f4ff]'">
-            <span class="text-lg font-bold" :class="isActive(profileLink.path).value ? 'text-[#f8f4ff]' : 'text-[#2F4A71]'">
+          <div class="flex items-center justify-center flex-shrink-0 w-10 h-10 mr-3 rounded-full"
+            :class="isActive(profileLink.path).value ? 'bg-[#2F4A71]' : 'bg-[#f8f4ff]'">
+            <span class="text-lg font-bold"
+              :class="isActive(profileLink.path).value ? 'text-[#f8f4ff]' : 'text-[#2F4A71]'">
               {{ profile?.name?.charAt(0) || '?' }}
             </span>
           </div>
-          
+
           <!-- Name and role in column -->
           <div class="flex flex-col items-start">
             <!-- Profile name -->
             <span class="text-base font-medium leading-tight">
               {{ profile?.name || 'Profile' }}
             </span>
-            
+
             <!-- Role or category -->
             <span class="text-xs" :class="isActive(profileLink.path).value ? 'text-[#4c2f71]/80' : 'text-white/80'">
               {{ profile?.type === 'nurse' ? 'Nurse' : profile?.category || 'User' }}
@@ -83,13 +89,41 @@ onMounted(() => {
           </div>
         </div>
       </router-link>
-      </div>
-    </nav>
-  </div>
+    </div>
+  </nav>
 </template>
 
 <style scoped>
 .shadow-right {
   box-shadow: 1px 0 12px 0px rgba(0, 0, 0, 0.5);
+}
+
+.desktop-sidebar {
+  width: 16rem;
+  /* w-64 */
+}
+
+.mobile-sidebar {
+  width: 70%;
+  transform: translateX(calc(-100%));
+}
+
+.mobile-sidebar.active {
+  transform: translateX(0);
+}
+
+.mobile-width {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .desktop-sidebar {
+    width: 70%;
+    transform: translateX(calc(-100%));
+  }
+
+  .desktop-sidebar.active {
+    transform: translateX(0);
+  }
 }
 </style>
