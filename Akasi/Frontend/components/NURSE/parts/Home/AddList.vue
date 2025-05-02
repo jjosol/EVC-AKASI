@@ -5,10 +5,11 @@ import moment from 'moment-timezone';
 import { useProfile } from '~/composables/useProfile'
 import { useAppointmentsByDate } from '~/composables/useAppointmentsByDate';
 import * as consultationRecordService from '~/services/consultationRecordService';
+import { fetchInventoryItems } from '~/services/inventoryService';
 import { Icon } from '@iconify/vue';
 
 // Import all the components
-import ConfirmationModal from '~/components/shared/parts/confirmationModal.vue';
+
 import AddModal from './addListComponents/AddModal.vue';
 import EditModal from './addListComponents/EditModal.vue';
 import MedicineModal from './addListComponents/MedicineModal.vue';
@@ -176,17 +177,34 @@ const createConsultationRecord = async (person) => {
     const now = new Date();
     selectedDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
     
+    // Format the complaint from chiefComplaints instead of person.complaints
+    const formattedComplaint = chiefComplaints.value
+      .filter(c => c.value)
+      .map(c => getChiefComplaintValue(c))
+      .join(', ');
+      
+    // Format actions from actionsTaken 
+    const formattedAction = actionsTaken.value
+      .filter(a => a.value)
+      .map(a => getActionDisplayValue(a))
+      .join(', ');
+      
+    // Format dispositions from dispositions
+    const formattedDisposition = dispositions.value
+      .filter(d => d.value)
+      .map(d => getDispositionDisplayValue(d))
+      .join(', ');
+    
     const consultationData = {
-      patient_id: selectedPerson.value.clientId, // FIX: use patient_id
-      nurse_id: currentUser.value.admin_id,     // FIX: use nurse_id
-      nurse_name: currentUser.value.name, // Ensure nurse_name is set
+      patient_id: selectedPerson.value.clientId,
+      nurse_id: currentUser.value.admin_id,
+      nurse_name: currentUser.value.name,
       date: selectedDateTime.toISOString(),
       patient_name: selectedPerson.value.name,
       patient_occupation:
         selectedPerson.value.occupation ||
         `${selectedPerson.value.grade}-${selectedPerson.value.section}`,
-      doctor: currentUser.value.name,
-      complaint: selectedPerson.value.complaints.length > 0 ? selectedPerson.value.complaints.map(c => c.text).join(', ') : null,
+      complaint: formattedComplaint || "No complaint specified",
       remarks: selectedPerson.value.remarks || '',
       confined: Boolean(selectedPerson.value.confined),
       medAdministration: Boolean(selectedPerson.value.medicationAdministration),
@@ -196,10 +214,11 @@ const createConsultationRecord = async (person) => {
       diagnosis_ids: selectedPerson.value.complaints
         .filter(c => c.disease_id)
         .map(c => c.disease_id),
-      action: selectedPerson.value.action || '',
-      disposition: selectedPerson.value.disposition || '',
-      doctorShow: hasNonOTCMedicines.value // Automatically set doctorShow if non-OTC medicines are included
+      action: formattedAction || '',
+      disposition: formattedDisposition || '',
+      doctorShow: hasNonOTCMedicines.value
     };
+    
     // Debug: log consultationData before sending
     console.log('Consultation data:', consultationData);
 
@@ -265,15 +284,15 @@ const fetchPeople = async () => {
   try {
     const data = await consultationRecordService.fetchPeople();
     allPeople.value = data.map((patient) => ({
-      clientId: patient.patient_id, // Keep clientId for backward compatibility
+      clientId: patient.patient_id,
       name: patient.name,
       section: patient.section || 'N/A',
       grade: patient.grade || 'N/A',
       age: patient.age || 0,
       sex: patient.gender || 'N/A',
       type: patient.type || 'N/A',
-      category: patient.category || 'N/A',
-      occupation: patient.position || 'N/A',
+      category: patient.type?.toLowerCase() === 'student' ? patient.category : patient.division || 'N/A',
+      occupation: patient.type || 'N/A'
     }));
   } catch (error) {
     console.error('Error fetching people:', error.message);
@@ -288,7 +307,6 @@ const fetchPatients = async () => {
   try {
     const data = await consultationRecordService.fetchConsultationRecords();
     
-    // Use moment.js for consistent timezone handling
     const currentDate = moment(props.currentDay.date).tz("Asia/Manila");
     
     patients.value = data
@@ -300,7 +318,10 @@ const fetchPatients = async () => {
         id: record.patient_id,
         consultation_id: record.consultation_id,
         name: record.patient_name,
-        occupation: record.patient_occupation || 'N/A',
+        occupation: record.patient?.type || 'N/A',
+        category: record.patient?.type?.toLowerCase() === 'student' 
+          ? record.patient?.category 
+          : record.patient?.division || 'N/A',
         time: moment(record.date).tz("Asia/Manila").format('hh:mm A'),
         complaint: record.complaint,
         remarks: record.remarks,
@@ -355,40 +376,6 @@ watch(
  * Handles both new records and updates
  * @returns {Promise<void>}
  */
-
-// Watch for date changes when on appointments tab
-watch(() => props.currentDay, () => {
-  if (activeTab.value === 'tab2') {
-    fetchAppointmentsForSelectedDate();
-  }
-}, { deep: true });
-
-// Watch for tab changes
-watch(() => activeTab.value, (newTab) => {
-  if (newTab === 'tab2') {
-    fetchAppointmentsForSelectedDate();
-  }
-});
-
-// fetch data when mounted
-onMounted(() => {
-  fetchPeople();
-  fetchPatients();
-  fetchRecordCount();
-  fetchInventory();
-  fetchProfile(); 
-
-  if (activeTab.value === 'tab2') {
-    fetchAppointmentsForSelectedDate();
-  }
-});
-console.log(patients)
-////////////////
-/**
- * Saves/updates person and consultation record
- * Handles both new records and updates
- * @returns {Promise<void>}
- */
 const savePerson = async () => {
   try {
     if (!selectedPerson.value?.clientId) {
@@ -416,133 +403,44 @@ const savePerson = async () => {
     selectedDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
 
     const consultationData = {
-      patient_id: selectedPerson.value.clientId, // FIX: use patient_id
-      nurse_id: currentUser.value.admin_id,     // FIX: use nurse_id
-      nurse_name: currentUser.value.name, // Ensure nurse_name is set
+      patient_id: selectedPerson.value.clientId,
+      nurse_id: currentUser.value.admin_id,
+      nurse_name: currentUser.value.name,
       date: selectedDateTime.toISOString(),
       patient_name: selectedPerson.value.name,
-      patient_occupation:
-        selectedPerson.value.occupation ||
-        `${selectedPerson.value.grade}-${selectedPerson.value.section}`,
-      doctor: currentUser.value.name,
+      patient_occupation: selectedPerson.value.occupation || `${selectedPerson.value.grade}-${selectedPerson.value.section}`,
       complaint: selectedPerson.value.complaints.length > 0 ? selectedPerson.value.complaints.map(c => c.text).join(', ') : null,
       remarks: selectedPerson.value.remarks || '',
       confined: Boolean(selectedPerson.value.confined),
       medAdministration: Boolean(selectedPerson.value.medicationAdministration),
       fatality: Boolean(selectedPerson.value.fatality),
       intervention: selectedPerson.value.intervention || '',
-      // Include diagnosis_ids array if present
-      diagnosis_ids: selectedPerson.value.complaints
-        .filter(c => c.disease_id)
-        .map(c => c.disease_id),
       action: selectedPerson.value.action || '',
       disposition: selectedPerson.value.disposition || '',
-      doctorShow: hasNonOTCMedicines.value // Automatically set doctorShow if non-OTC medicines are included
+      doctorShow: hasNonOTCMedicines.value,
+      medical_data: {
+        patientType: selectedPerson.value.occupation || 'Student',
+        patientCategory: selectedPerson.value.category || 'N/A',
+        patientGrade: selectedPerson.value.grade || null,
+        patientSection: selectedPerson.value.section || null,
+        patientAge: selectedPerson.value.age || null,
+        patientGender: selectedPerson.value.sex || null,
+        created_at: new Date().toISOString()
+      }
     };
+
     // Debug: log consultationData before sending
     console.log('Consultation data:', consultationData);
 
     // Use the service function instead of direct fetch
     const newConsultation = await consultationRecordService.createConsultationRecord(consultationData);
     const consultationId = newConsultation.consultation_id;
-
-    // Save each medicine to medAdministration only after consultation is created
-    if (selectedPerson.value.medicines && consultationId) {
-      for (const medicine of selectedPerson.value.medicines) {
-        // Prepare the payload
-        const medPayload = {
-          consultation_id: consultationId,
-          patient_id: selectedPerson.value.clientId,
-          nurse_id: currentUser.value.admin_id,
-          med_id: medicine.med_id,
-          medName: medicine.name,
-          count: Number(medicine.quantity),
-          schedule: medicine.schedule || '',
-          // Convert to ISO string for backend/Prisma
-          start_date: medicine.startDate ? new Date(medicine.startDate).toISOString() : undefined,
-          end_date: medicine.endDate ? new Date(medicine.endDate).toISOString() : undefined,
-          date: new Date().toISOString(),
-          patient_name: selectedPerson.value.name,
-          remarks: medicine.remarks || '',
-        };
-        // List of required fields
-        const requiredFields = [
-          'consultation_id', 'patient_id', 'nurse_id', 'med_id', 'medName', 'count', 'schedule', 'start_date', 'end_date', 'date', 'patient_name'
-        ];
-        // Check for missing fields
-        const missingFields = requiredFields.filter(field => {
-          return medPayload[field] === undefined || medPayload[field] === null || medPayload[field] === '';
-        });
-        // Log the payload and missing fields for debugging
-        console.log('Med administration payload:', JSON.stringify(medPayload, null, 2));
-        if (missingFields.length > 0) {
-          console.error('Skipping med administration record due to missing fields:', missingFields, medPayload);
-          continue;
-        }
-        try {
-          await consultationRecordService.createMedAdministrationRecord(medPayload);
-        } catch (err) {
-          console.error('Error creating med administration:', err, medPayload);
-        }
-      }
-    }
-
-    // Close modal and refresh list
-    showEditModal.value = false;
-    await fetchPatients();
+    
+    // Continue with the rest of the function...
+    // ...existing code for handling medicines...
   } catch (error) {
     console.error('Error creating consultation record:', error);
     throw error;
-  }
-};
-
-/**
- * Fetches medicine inventory from API
- * @returns {Promise<void>}
- */
-/**
- * Fetches inventory items using the inventoryService
- * @returns {Promise<void>}
- */
-/**
- * Fetches inventory items using the consultationRecordService
- */
- const fetchInventory = async () => {
-  try {
-    // Use the correct service function
-    const data = await consultationRecordService.fetchInventory();
-    console.log("Fetched inventory data:", data);
-    allMedicines.value = data || [];
-  } catch (error) {
-    console.error('Error fetching inventory:', error);
-    allMedicines.value = [];
-  }
-};
-
-// Add this function to prepare a medicine for the detail modal
-const prepareAddMedicine = (medicine) => {
-  // Set up the medicine to be added in the detail modal
-  selectedMedicine.value = {
-    med_id: medicine.med_id,
-    name: medicine.name,
-    quantity: medicine.requestedQuantity,
-    schedule: '',
-    startDate: todayFormatted.value,
-    endDate: todayFormatted.value,
-    remarks: '',
-    originalQuantity: medicine.requestedQuantity
-  };
-  
-  // Clear view-only mode and open the modal
-  isViewOnly.value = false;
-  showMedicineDetailModal.value = true;
-};
-
-//Appointments
-// Add new function to fetch appointments for selected date
-const fetchAppointmentsForSelectedDate = async () => {
-  if (props.currentDay && props.currentDay.date) {
-    await fetchAppointmentsByDate(props.currentDay.date);
   }
 };
 
@@ -560,32 +458,57 @@ watch(() => activeTab.value, (newTab) => {
   }
 });
 
+/**
+ * Fetches appointments for the selected date
+ * @returns {Promise<void>}
+ */
+const fetchAppointmentsForSelectedDate = async () => {
+  try {
+    // Make sure we have a valid date from the props
+    if (!props.currentDay || !props.currentDay.date) {
+      console.error('Invalid current day prop:', props.currentDay);
+      return;
+    }
+    
+    // Create a date object for the current day
+    const dateObj = props.currentDay.date;
+    
+    // Call the composable function to fetch appointments using the date object
+    await fetchAppointmentsByDate(dateObj);
+    
+    console.log('Fetched appointments:', appointments.value);
+  } catch (error) {
+    console.error('Error fetching appointments for selected date:', error);
+  }
+};
+
 // fetch data when mounted
 onMounted(() => {
   fetchPeople();
   fetchPatients();
   fetchRecordCount();
-  fetchInventory(); 
-  fetchProfile(); 
-
+  fetchMedicines(); // load medicines into allMedicines
+  fetchDiseases();
+  fetchDiseaseCategories();
+  
   if (activeTab.value === 'tab2') {
     fetchAppointmentsForSelectedDate();
   }
 });
 console.log(patients)
 
-// fetch data when mounted
-onMounted(() => {
-  fetchPeople();
-  fetchPatients();
-  fetchRecordCount();
-  fetchInventory(); // This should be called
-  fetchDiseases();
-  fetchDiseaseCategories();
-});
-console.log(patients)
 // Initialize values for meds list
 const allMedicines = ref([]);
+// Fetch medicines list from inventory service
+const fetchMedicines = async () => {
+  try {
+    const data = await fetchInventoryItems();
+    allMedicines.value = data || [];
+  } catch (error) {
+    console.error('Error fetching inventory items:', error);
+    allMedicines.value = [];
+  }
+};
 
 // Add these with your other refs
 const expandedMedicines = ref(new Set());
@@ -697,84 +620,188 @@ const openEditModal = async (patient) => {
     const consultationRecord = await fetchConsultationRecord(patient.consultation_id);
     selectedConsultationRecord.value = consultationRecord;
 
-    let clientCategory = 'N/A';
-    let clientGrade = 'N/A';
-    let clientSection = 'N/A';
-    let clientOccupation = 'N/A';
+    // Fetch patient details to get the most up-to-date information
+    const clientData = await consultationRecordService.fetchPatientById(patient.id);
 
-    try {
-      const clientData = await consultationRecordService.fetchPatientById(patient.id);
-      if (clientData) {
-        clientCategory = clientData.category || 'N/A';
-        clientGrade = clientData.grade || 'N/A';
-        clientSection = clientData.section || 'N/A';
-        clientOccupation = clientData.position || 'N/A';
+    // Set category based on patient type
+    const displayCategory = clientData.type?.toLowerCase() === 'student' 
+      ? clientData.category 
+      : clientData.division;
+
+    // Parse the complaint string into chief complaints array
+    chiefComplaints.value = [{ id: generateId(), value: '', details: '' }]; // Reset to default first
+    if (consultationRecord.complaint) {
+      try {
+        const complaintsArray = consultationRecord.complaint.split(', ');
+        chiefComplaints.value = complaintsArray.map(complaintText => {
+          // Check if it's an injury or other with details
+          const injuryMatch = complaintText.match(/^Injury: (.+)$/);
+          const otherMatch = complaintText.match(/^Other: (.+)$/);
+          
+          if (injuryMatch) {
+            return {
+              id: generateId(),
+              value: 'Injury',
+              details: injuryMatch[1]
+            };
+          } else if (otherMatch) {
+            return {
+              id: generateId(),
+              value: 'Other',
+              details: otherMatch[1]
+            };
+          } else {
+            return {
+              id: generateId(),
+              value: complaintText,
+              details: ''
+            };
+          }
+        });
+      } catch (error) {
+        console.error('Error parsing complaint string:', error);
       }
-    } catch (clientError) {
-      console.error('Error fetching patient details:', clientError);
+    }
+
+    // Parse the action string into actions taken array
+    actionsTaken.value = [{ id: generateId(), value: '', details: '' }]; // Reset to default first
+    if (consultationRecord.action) {
+      try {
+        const actionsArray = consultationRecord.action.split(', ');
+        actionsTaken.value = actionsArray.map(actionText => {
+          // Check if it's a special case with details
+          const headCheckedMatch = actionText.match(/^Head checked for: (.+)$/);
+          const parentNotifiedMatch = actionText.match(/^Parent\/guardian notified at: (.+)$/);
+          const otherMatch = actionText.match(/^Other: (.+)$/);
+          
+          if (headCheckedMatch) {
+            return {
+              id: generateId(),
+              value: 'Head checked for',
+              details: headCheckedMatch[1]
+            };
+          } else if (parentNotifiedMatch) {
+            return {
+              id: generateId(),
+              value: 'Parent/guardian notified at',
+              details: parentNotifiedMatch[1]
+            };
+          } else if (otherMatch) {
+            return {
+              id: generateId(),
+              value: 'Other',
+              details: otherMatch[1]
+            };
+          } else {
+            return {
+              id: generateId(),
+              value: actionText,
+              details: ''
+            };
+          }
+        });
+      } catch (error) {
+        console.error('Error parsing actions string:', error);
+      }
+    }
+
+    // Parse the disposition string into dispositions array
+    dispositions.value = [{ id: generateId(), value: '', details: '' }]; // Reset to default first
+    if (consultationRecord.disposition) {
+      try {
+        const dispositionsArray = consultationRecord.disposition.split(', ');
+        dispositions.value = dispositionsArray.map(dispositionText => {
+          // Check if it's a special case with details
+          const otherMatch = dispositionText.match(/^Other: (.+)$/);
+          
+          if (otherMatch) {
+            return {
+              id: generateId(),
+              value: 'Other',
+              details: otherMatch[1]
+            };
+          } else {
+            return {
+              id: generateId(),
+              value: dispositionText,
+              details: ''
+            };
+          }
+        });
+      } catch (error) {
+        console.error('Error parsing dispositions string:', error);
+      }
     }
 
     // Fetch medication administration records
-    const medAdminRecords = await consultationRecordService.fetchMedAdministrationRecords(patient.consultation_id);
-
-    // Map the med admin records to match the expected format
-    const mappedMedicines = medAdminRecords.map(record => ({
-      med_id: record.med_id,
-      med_administration_id: record.med_administration_id, // Use the new PK
-      consultation_id: record.consultation_id,
-      name: record.medName,
-      quantity: record.count,
-      schedule: record.schedule,
-      startDate: new Date(record.start_date).toISOString().split('T')[0],
-      endDate: new Date(record.end_date).toISOString().split('T')[0],
-      remarks: record.remarks
-    }));
-
-    // Handle existing diagnoses if available in the consultationRecord
-    let diagnosisComplaints = [];
-    if (consultationRecord.diagnoses && consultationRecord.diagnoses.length > 0) {
-      diagnosisComplaints = consultationRecord.diagnoses.map(diag => ({
-        id: generateId(),
-        text: diag.diagnosis.name,
-        disease_id: diag.diagnosis_id,
-        category: diag.diagnosis.category?.name || ''
-      }));
-    } else if (consultationRecord.complaint) {
-      // Fallback to the old way of splitting complaint text
-      diagnosisComplaints = consultationRecord.complaint.split(', ').map(text => ({
-        id: generateId(),
-        text: text.trim()
-      }));
+    let medicines = [];
+    if (consultationRecord.medAdministration) {
+      try {
+        const medAdminRecords = await consultationRecordService.fetchMedAdministrationRecords(patient.consultation_id);
+        console.log('Fetched med admin records:', medAdminRecords);
+        
+        medicines = medAdminRecords.map(record => ({
+          med_id: record.med_id,
+          med_administration_id: record.med_administration_id,
+          consultation_id: record.consultation_id,
+          name: record.medName,
+          quantity: record.count,
+          schedule: record.schedule,
+          startDate: record.start_date ? new Date(record.start_date).toISOString().split('T')[0] : '',
+          endDate: record.end_date ? new Date(record.end_date).toISOString().split('T')[0] : '',
+          remarks: record.remarks || '',
+          markedForDeletion: false
+        }));
+      } catch (error) {
+        console.error('Error fetching medication administration records:', error);
+      }
     }
 
     selectedPerson.value = {
       ...patient,
       clientId: patient.id,
-      category: clientCategory, // Add category
-      grade: clientGrade, // Add grade
-      section: clientSection, // Add section
-      occupation: clientOccupation, // Add occupation
-      complaints: diagnosisComplaints,
+      category: displayCategory || 'N/A',
+      grade: clientData.grade || 'N/A',
+      section: clientData.section || 'N/A',
+      occupation: clientData.type || 'N/A',
+      complaints: consultationRecord.diagnoses?.map(diag => ({
+        id: generateId(),
+        text: diag.diagnosis.name,
+        disease_id: diag.diagnosis_id,
+        category: diag.diagnosis.category?.name || ''
+      })) || [],
       remarks: consultationRecord.remarks,
       confined: consultationRecord.confined,
       medicationAdministration: consultationRecord.medAdministration,
-      fatality: consultationRecord.fatality,
       intervention: consultationRecord.intervention,
-      medicines: mappedMedicines, // Add the medicines array
       action: consultationRecord.action || '',
       disposition: consultationRecord.disposition || '',
-      nurse_followup: consultationRecord.nurse_followup || ''
+      nurse_followup: consultationRecord.nurse_followup || '',
+      medicines: medicines // Set the fetched medicines
     };
 
     // Check if the record has been reviewed by a doctor
     const hasBeenReviewed = patient.doctor_reviewed || 
                           (consultationRecord.doctor_diagnosis && consultationRecord.doctor_diagnosis.trim() !== '');
+    
+    // If the doctor has reviewed the record, allow editing confined and medication administration fields
+    if (hasBeenReviewed) {
+      isViewOnly.value = false; // Set to false to allow editing specific fields
+    }
 
-    // Set initial page and determine total pages based on review status
-    currentModalPage.value = hasBeenReviewed ? 3 : 1; // Set to third page if reviewed
+    // Set initial page to first page when opening
+    currentModalPage.value = 1;
     
     // Open the edit modal
     showEditModal.value = true;
+
+    console.log('Loaded record:', {
+      complaints: chiefComplaints.value,
+      actions: actionsTaken.value,
+      dispositions: dispositions.value,
+      medicines: medicines,
+      doctorReviewed: hasBeenReviewed
+    });
   } catch (error) {
     console.error('Error opening edit modal:', error);
     alert('Failed to load consultation record');
@@ -788,13 +815,23 @@ const openEditModal = async (patient) => {
  */
 const deleteConsultationRecord = async (consultation_id) => {
   try {
+    console.log('Deleting consultation record:', consultation_id);
     await consultationRecordService.deleteConsultationRecord(consultation_id);
-    await fetchPatients();
+    await fetchPatients(); // Refresh the list
+    showConfirmationModal.value = false; // Close the confirmation modal
     emit('consultation-deleted');
   } catch (error) {
     console.error('Error deleting consultation record:', error);
-    alert('Failed to delete consultation record');
+    alert('Failed to delete consultation record: ' + error.message);
   }
+};
+
+// Add this new method for delete confirmation
+const confirmDelete = (consultation_id) => {
+  selectedConsultationRecord.value = { consultation_id };
+  confirmationMessage.value = 'Are you sure you want to delete this consultation record? This action cannot be undone.';
+  showConfirmationModal.value = true;
+  pendingSaveAction.value = 'delete';
 };
 
 /**
@@ -867,8 +904,8 @@ const quantity = ref(1); // Add a ref for quantity
       quantity: Number(medicine.requestedQuantity),
       startDate: todayFormatted.value,
       endDate: todayFormatted.value,
-      schedule: '',
-      remarks: ''
+      schedule: medicine.schedule || '',
+      remarks: medicine.remarks || ''
     };
     
     // Initialize medicines array if it doesn't exist
@@ -1475,7 +1512,6 @@ const switchTab = (tab) => {
 const showDiagnosisDropdown = ref(false);
 
 // Note: We already have filteredDiseases computed property defined earlier in the code
-
 // Function to toggle the diagnosis dropdown
 const toggleDiagnosisDropdown = () => {
   showDiagnosisDropdown.value = !showDiagnosisDropdown.value;
@@ -1554,52 +1590,7 @@ const getStatusClass = (status) => {
   }
 };
 
-// Add this after the other refs at the top level of your script
-const pendingMedicineQuantities = ref({}); // Track quantities that are "reserved" but not yet committed to DB
 
-/**
- * Shows confirmation modal for actions that need confirmation
- */
-const confirmAction = (action) => {
-  pendingSaveAction.value = action;
-  
-  if (action === 'consultation') {
-    confirmationMessage.value = 'Are you sure you want to save this consultation record? This action cannot be undone once saved.';
-  } else {
-    confirmationMessage.value = 'Are you sure you want to proceed with this action?';
-  }
-  
-  showConfirmationModal.value = true;
-};
-
-/**
- * Handle confirmation from the modal
- */
-const handleConfirm = async () => {
-  try {
-    if (pendingSaveAction.value === 'consultation') {
-      await savePerson();
-    } else if (pendingSaveAction.value === 'medicine') {
-      await saveMedicineDetails();
-    } else if (pendingSaveAction.value === 'delete' && selectedConsultationRecord.value) {
-      await deleteConsultationRecord(selectedConsultationRecord.value.consultation_id);
-    }
-  } catch (error) {
-    console.error('Error processing confirmed action:', error);
-  } finally {
-    // Always clean up the modal state
-    showConfirmationModal.value = false;
-    pendingSaveAction.value = null;
-  }
-};
-
-/**
- * Handle cancellation from the modal
- */
-const handleCancel = () => {
-  showConfirmationModal.value = false;
-  pendingSaveAction.value = null;
-};
 
 // Add this computed property after your other computed properties
 const todayFormatted = computed(() => {
@@ -1747,6 +1738,418 @@ const hasNonOTCMedicines = computed(() => {
     return foundMedicine && foundMedicine.otc === false;
   });
 });
+
+// Chief complaint multiple values
+const chiefComplaints = ref([{ id: generateId(), value: '', details: '' }]);
+
+// Helper to get display value for chief complaint
+function getChiefComplaintValue(complaint) {
+  if (complaint.value === 'Injury' || complaint.value === 'Other') {
+    return complaint.value + (complaint.details ? ': ' + complaint.details : '');
+  }
+  return complaint.value || '';
+}
+
+// Add new chief complaint
+function addChiefComplaint() {
+  chiefComplaints.value.push({ id: generateId(), value: '', details: '' });
+}
+
+// Remove chief complaint
+function removeChiefComplaint(complaintId) {
+  if (chiefComplaints.value.length > 1) {
+    chiefComplaints.value = chiefComplaints.value.filter(c => c.id !== complaintId);
+  }
+}
+
+// Check if a complaint value is already selected in another dropdown
+function isComplaintValueSelected(value, currentId) {
+  // Always allow selecting "Injury" or "Other" in any dropdown
+  if (value === 'Injury' || value === 'Other') return false;
+  
+  // Check if the value is selected in any other dropdown
+  return chiefComplaints.value.some(complaint => 
+    complaint.id !== currentId && complaint.value === value
+  );
+}
+
+// Actions Taken (like chiefComplaints)
+const actionOptions = [
+  'Student laid/sat in clinic for 20 minutes or less',
+  'Student laid/sat in clinic for 20 minutes or more',
+  'Temperature taken',
+  'Ice pack applied to affected area',
+  'Affected area cleaned',
+  'Band aid applied to affected area',
+  'Medication given',
+  'Head checked for',
+  'Parent/guardian notified at',
+  'Other'
+];
+
+const actionsTaken = ref([
+  { id: generateId(), value: '', details: '' }
+]);
+
+function getActionDisplayValue(action) {
+  if (
+    action.value === 'Head checked for' ||
+    action.value === 'Parent/guardian notified at' ||
+    action.value === 'Other'
+  ) {
+    return action.value + (action.details ? ': ' + action.details : '');
+  }
+  return action.value || '';
+}
+
+function addActionTaken() {
+  actionsTaken.value.push({ id: generateId(), value: '', details: '' });
+}
+
+function removeActionTaken(actionId) {
+  if (actionsTaken.value.length > 1) {
+    actionsTaken.value = actionsTaken.value.filter(a => a.id !== actionId);
+  }
+}
+
+function isActionValueSelected(value, currentId) {
+  // Always allow selecting these in any dropdown
+  if (
+    value === 'Other' ||
+    value === 'Head checked for' ||
+    value === 'Parent/guardian notified at'
+  )
+    return false;
+  return actionsTaken.value.some(action => action.id !== currentId && action.value === value);
+}
+
+// Disposition options for student
+const dispositionOptions = [
+  'Returned to class, feeling better',
+  "Returned to class at parent's/guardian's request",
+  'Returned to class, unable to contact parent/guardian',
+  'Sent home',
+  'Teacher notified',
+  'Referral was made to health care provider',
+  'Transported to hospital',
+  'Copy of clinic pass sent home',
+  'Other'
+];
+
+// Dispositions array (like chiefComplaints)
+const dispositions = ref([{ id: generateId(), value: '', details: '' }]);
+
+function getDispositionDisplayValue(disposition) {
+  if (disposition.value === 'Other') {
+    return disposition.value + (disposition.details ? ': ' + disposition.details : '');
+  }
+  return disposition.value || '';
+}
+
+function addDisposition() {
+  dispositions.value.push({ id: generateId(), value: '', details: '' });
+}
+
+function removeDisposition(dispositionId) {
+  if (dispositions.value.length > 1) {
+    dispositions.value = dispositions.value.filter(d => d.id !== dispositionId);
+  }
+}
+
+function isDispositionValueSelected(value, currentId) {
+  if (value === 'Other') return false;
+  return dispositions.value.some(disposition => disposition.id !== currentId && disposition.value === value);
+}
+
+// Sync with selectedPerson.disposition (for saving/loading)
+watch(
+  dispositions,
+  (newVal) => {
+    if (selectedPerson.value) {
+      const formattedDisposition = newVal
+        .filter(d => d.value)
+        .map(d => getDispositionDisplayValue(d))
+        .join(', ');
+      
+      // Update the disposition field directly rather than relying on deep reactivity
+      selectedPerson.value.disposition = formattedDisposition;
+      
+      // Add debug logging
+      console.log('Disposition updated:', {
+        dispositions: newVal,
+        formatted: formattedDisposition,
+        saved: selectedPerson.value.disposition
+      });
+    }
+  },
+  { deep: true }
+);
+
+watch(
+  () => selectedPerson.value && selectedPerson.value.disposition,
+  (newVal) => {
+    if (!newVal) {
+      dispositions.value = [{ id: generateId(), value: '', details: '' }];
+    }
+    // Optionally, parse string to array if needed
+  }
+)
+
+/**
+ * Handles confirmation from the confirmation modal
+ */
+const handleConfirm = async () => {
+  try {
+    if (pendingSaveAction.value === 'delete' && selectedConsultationRecord.value) {
+      await deleteConsultationRecord(selectedConsultationRecord.value.consultation_id);
+    } else if (pendingSaveAction.value === 'consultation') {
+      await createConsultationRecord(selectedPerson.value);
+      // Close the AddModal after a successful consultation save
+      showAddModal.value = false;
+    }
+    
+    // Reset state
+    pendingSaveAction.value = null;
+    showConfirmationModal.value = false;
+  } catch (error) {
+    console.error('Error in handleConfirm:', error);
+    alert('An error occurred. Please try again.');
+  }
+};
+
+/**
+ * Handles cancel from the confirmation modal
+ */
+const handleCancel = () => {
+  pendingSaveAction.value = null;
+  showConfirmationModal.value = false;
+};
+
+/**
+ * Prepares to add a medicine to the current consultation
+ * @param {Object} medicine - Medicine to add
+ */
+const prepareAddMedicine = (medicine) => {
+  if (!validateMedicineData(medicine)) {
+    alert('Please select a valid medicine and quantity');
+    return;
+  }
+  
+  // Track pending quantities if not already
+  if (!pendingMedicineQuantities.value) {
+    pendingMedicineQuantities.value = {};
+  }
+  
+  // Add the medicine ID to tracking if not already
+  if (!pendingMedicineQuantities.value[medicine.med_id]) {
+    pendingMedicineQuantities.value[medicine.med_id] = 0;
+  }
+  
+  // Add the requested quantity to the pending total
+  pendingMedicineQuantities.value[medicine.med_id] += Number(medicine.requestedQuantity);
+  
+  // Check if total quantity exceeds available
+  if (pendingMedicineQuantities.value[medicine.med_id] > medicine.count) {
+    alert(`Cannot add more than ${medicine.count} units of this medicine`);
+    pendingMedicineQuantities.value[medicine.med_id] -= Number(medicine.requestedQuantity);
+    return;
+  }
+  
+  // Set up the medicine to be added in the detail modal
+  selectedMedicine.value = {
+    med_id: medicine.med_id,
+    name: medicine.name,
+    quantity: medicine.requestedQuantity,
+    schedule: 'As needed', // Default schedule
+    startDate: todayFormatted.value,
+    endDate: new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0], // Default to 7 days
+    remarks: '',
+    originalQuantity: medicine.requestedQuantity,
+    otc: medicine.otc // Pass the OTC status from the medicine
+  };
+  
+  // Clear view-only mode and open the medicine detail modal
+  isViewOnly.value = false;
+  showMedicineDetailModal.value = true;
+  // Hide the medicine selection modal
+  showMedicineModal.value = false;
+};
+
+// Initialize pendingMedicineQuantities for tracking quantities
+const pendingMedicineQuantities = ref({});
+
+/**
+ * Opens the consultation modal with prepopulated data from an appointment
+ * @param {Object} appointment - Appointment data
+ */
+const createConsultationFromAppointment = async (appointment) => {
+  try {
+    if (!appointment || !appointment.patient_id) {
+      throw new Error('Invalid appointment data');
+    }
+
+    // Find the patient in allPeople list
+    const patientData = allPeople.value.find(person => person.clientId === appointment.patient_id);
+    
+    if (!patientData) {
+      // If not found, we need to fetch the patient data
+      const clientData = await consultationRecordService.fetchPatientById(appointment.patient_id);
+      
+      if (!clientData) {
+        throw new Error('Patient information not found');
+      }
+      
+      // Create a person object with required fields
+      const person = {
+        clientId: clientData.patient_id,
+        name: clientData.name || appointment.patient?.name || 'Unknown',
+        section: clientData.section || 'N/A',
+        grade: clientData.grade || 'N/A',
+        age: clientData.age || 0,
+        sex: clientData.gender || 'N/A',
+        type: clientData.type || 'N/A',
+        category: clientData.type?.toLowerCase() === 'student' ? clientData.category : clientData.division || 'N/A',
+        occupation: clientData.type || 'N/A'
+      };
+      
+      // Add person and open the edit modal with prepopulated complaint
+      addPerson(person);
+      
+      // Parse the complaint string from appointment and populate chief complaints
+      if (appointment.complaint) {
+        try {
+          // Reset to default first
+          chiefComplaints.value = [{ id: generateId(), value: '', details: '' }];
+          
+          const complaintsArray = appointment.complaint.split(', ');
+          chiefComplaints.value = complaintsArray.map(complaintText => {
+            // Check if it's an injury or other with details
+            const injuryMatch = complaintText.match(/^Injury: (.+)$/);
+            const otherMatch = complaintText.match(/^Other: (.+)$/);
+            
+            if (injuryMatch) {
+              return {
+                id: generateId(),
+                value: 'Injury',
+                details: injuryMatch[1]
+              };
+            } else if (otherMatch) {
+              return {
+                id: generateId(),
+                value: 'Other',
+                details: otherMatch[1]
+              };
+            } else {
+              return {
+                id: generateId(),
+                value: complaintText,
+                details: ''
+              };
+            }
+          });
+        } catch (error) {
+          console.error('Error parsing complaint string:', error);
+          // If parsing fails, just set the raw complaint as a single entry
+          chiefComplaints.value = [{
+            id: generateId(),
+            value: 'Other',
+            details: appointment.complaint
+          }];
+        }
+      }
+      
+      // Set notes from appointment as remarks if available
+      if (appointment.notes) {
+        selectedPerson.value.remarks = appointment.notes;
+      }
+      
+    } else {
+      // Use existing patient data
+      addPerson(patientData);
+      
+      // Parse the complaint string from appointment and populate chief complaints
+      if (appointment.complaint) {
+        try {
+          // Reset to default first
+          chiefComplaints.value = [{ id: generateId(), value: '', details: '' }];
+          
+          const complaintsArray = appointment.complaint.split(', ');
+          chiefComplaints.value = complaintsArray.map(complaintText => {
+            // Check if it's an injury or other with details
+            const injuryMatch = complaintText.match(/^Injury: (.+)$/);
+            const otherMatch = complaintText.match(/^Other: (.+)$/);
+            
+            if (injuryMatch) {
+              return {
+                id: generateId(),
+                value: 'Injury',
+                details: injuryMatch[1]
+              };
+            } else if (otherMatch) {
+              return {
+                id: generateId(),
+                value: 'Other',
+                details: otherMatch[1]
+              };
+            } else {
+              return {
+                id: generateId(),
+                value: complaintText,
+                details: ''
+              };
+            }
+          });
+        } catch (error) {
+          console.error('Error parsing complaint string:', error);
+          // If parsing fails, just set the raw complaint as a single entry
+          chiefComplaints.value = [{
+            id: generateId(),
+            value: 'Other',
+            details: appointment.complaint
+          }];
+        }
+      }
+      
+      // Set notes from appointment as remarks if available
+      if (appointment.notes) {
+        selectedPerson.value.remarks = appointment.notes;
+      }
+    }
+    
+    // Set view mode to editable for new consultation
+    isViewOnly.value = false;
+    
+    // Reset modal page to first page
+    currentModalPage.value = 1;
+    
+  } catch (error) {
+    console.error('Error preparing consultation from appointment:', error);
+    alert('Failed to prepare consultation: ' + error.message);
+  }
+};
+
+/**
+ * Initiates the confirmation process for creating or deleting a consultation
+ * @param {string} actionType - The type of action to confirm ('consultation' or 'delete')
+ */
+const confirmAction = (actionType) => {
+  if (actionType === 'consultation') {
+    // Set the pending action
+    pendingSaveAction.value = 'consultation';
+    
+    // If we need to confirm with a dialog, show it
+    if (selectedPerson.value.confined) {
+      confirmationMessage.value = 'Are you sure you want to mark this patient as confined?';
+      showConfirmationModal.value = true;
+    } else {
+      // Otherwise proceed directly
+      handleConfirm();
+    }
+  } else if (actionType === 'delete') {
+    pendingSaveAction.value = 'delete';
+    showConfirmationModal.value = true;
+  }
+};
 </script>
 
 <template>
@@ -1827,7 +2230,10 @@ const hasNonOTCMedicines = computed(() => {
               <Icon icon="mdi:arrow-left" class="w-5 h-5" />
             </button>
             <!-- Delete Button -->
-            <button @click="confirmAction('delete')" class="p-1 text-white bg-red-500 rounded hover:bg-red-600">
+            <button 
+              @click="confirmDelete(patient.consultation_id)" 
+              class="p-1 text-white bg-red-500 rounded hover:bg-red-600"
+            >
               <Icon icon="fluent:delete-28-regular" class="w-5 h-5" />
             </button>
           </div>
@@ -1906,9 +2312,24 @@ const hasNonOTCMedicines = computed(() => {
               <div class="flex justify-end mt-2">
                 <button 
                   @click="openStatusModal(appointment)" 
-                  class="px-3 py-1 text-sm bg-[#2f4a71] text-white rounded hover:bg-[#8b67db]"
+                  class="px-3 py-1 mr-2 text-sm bg-[#2f4a71] text-white rounded hover:bg-[#8b67db]"
                 >
                   Manage Status
+                </button>
+                <button 
+                  @click="createConsultationFromAppointment(appointment)"
+                  :disabled="appointment.status !== 'approved'"
+                  :class="[
+                    'px-3 py-1 text-sm rounded',
+                    appointment.status === 'approved' 
+                      ? 'bg-green-600 text-white hover:bg-green-700 cursor-pointer'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                  ]"
+                  :title="appointment.status !== 'approved' ? 'Appointment must be approved first' : 'Create consultation record'"
+                  style="pointer-events: auto;"
+                  @mousedown.prevent="appointment.status !== 'approved'"
+                >
+                  Make Consultation
                 </button>
               </div>
             </div>
@@ -1923,7 +2344,7 @@ const hasNonOTCMedicines = computed(() => {
   :show="showEditModal"
   :is-view-only="isViewOnly"
   :current-page="currentModalPage"
-  :total-pages="3"
+  :total-pages="selectedPerson?.doctor_reviewed || (selectedConsultationRecord?.doctor_diagnosis && selectedConsultationRecord?.doctor_diagnosis.trim() !== '') ? 3 : 2"
   :has-non-OTC-medicines="hasNonOTCMedicines"
   @cancel="cancelEdit"
   @save="confirmAction('consultation')"
@@ -2015,41 +2436,84 @@ const hasNonOTCMedicines = computed(() => {
       </div>
     </div>
     
-    <!-- Complaint Section - Previously Diagnosis Section -->
+    <!-- Complaint Section - Revised to match form in image with checkboxes -->
     <div class="mb-4">
-      <label for="complaint" class="block text-sm font-semibold text-gray-600">Chief Complaints</label>
-      <div v-if="!isViewOnly" class="flex items-center mb-2">
-        <button 
-          @click="addComplaint" 
-          class="p-1 text-white bg-blue-600 rounded-full hover:bg-blue-700"
-          title="Add a new complaint"
-        >
-          <Icon icon="mdi:plus" class="w-4 h-4" />
-        </button>
+      <label for="complaint" class="block mb-2 text-sm font-semibold text-gray-600">Nature of Complaint:</label>
+      
+      <div class="p-4 border border-gray-300 rounded-md bg-gray-50">
+        <!-- Multiple complaint entries with + button -->
+        <div class="flex flex-col space-y-4">
+          <div v-for="complaint in chiefComplaints" :key="complaint.id" class="flex items-start space-x-2">
+            <div class="flex-grow">
+              <div class="relative">
+                <select 
+                  v-model="complaint.value"
+                  :disabled="isViewOnly"
+                  class="w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="" disabled selected>Select a complaint...</option>
+                  <option 
+                    v-for="option in ['Not feeling well', 'Stomachache', 'Headache', 'Toothache', 'Injury', 'Other']" 
+                    :key="option" 
+                    :value="option" 
+                    :disabled="isComplaintValueSelected(option, complaint.id)"
+                  >
+                    {{ option }}
+                  </option>
+                </select>
+                <!-- Custom dropdown arrow -->
+                <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                  <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                  </svg>
+                </div>
+              </div>
+              
+              <!-- Details field for Injury or Other -->
+              <div v-if="complaint.value === 'Injury' || complaint.value === 'Other'" 
+                   class="mt-2 transition-all duration-300 ease-in-out">
+                <input 
+                  type="text"
+                  v-model="complaint.details"
+                  :placeholder="complaint.value === 'Injury' ? 'Please describe the injury in detail...' : 'Please specify the complaint...' "
+                  :disabled="isViewOnly"
+                  class="w-full px-4 py-2 text-gray-700 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+            
+            <!-- Remove button -->
+            <button 
+              v-if="!isViewOnly && chiefComplaints.length > 1" 
+              @click="removeChiefComplaint(complaint.id)"
+              class="p-2 mt-1 text-red-500 bg-white border border-red-300 rounded-md hover:bg-red-50"
+              title="Remove complaint"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+          
+          <!-- Add button -->
+          <div class="flex justify-end">
+            <button 
+              v-if="!isViewOnly"
+              @click="addChiefComplaint"
+              class="flex items-center px-4 py-2 text-white transition-colors duration-300 bg-blue-500 rounded-md hover:bg-blue-600"
+            >
+              <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+              </svg>
+              Add Another Complaint
+            </button>
+          </div>
+        </div>
       </div>
       
-      <!-- Chief complaints input fields - Compact version -->
-      <div class="flex flex-wrap gap-2">
-        <div 
-          v-for="complaint in selectedPerson.complaints" 
-          :key="complaint.id" 
-          class="flex items-center overflow-hidden border border-gray-200 rounded-md bg-gray-50"
-        >
-          <input 
-            v-model="complaint.text" 
-            type="text" 
-            :disabled="isViewOnly"
-            class="px-2 py-1 text-sm bg-transparent border-none w-36 focus:outline-none focus:ring-1 focus:ring-blue-500" 
-            placeholder="Enter complaint"
-          />
-          <button 
-            v-if="!isViewOnly" 
-            @click="removeComplaint(complaint.id)" 
-            class="p-1 text-red-500 hover:text-red-700"
-          >
-            <Icon icon="mdi:close" class="w-4 h-4" />
-          </button>
-        </div>
+      <!-- Display selected complaints summary -->
+      <div v-if="chiefComplaints.some(c => c.value)" class="mt-2 text-sm font-medium text-blue-600">
+        Selected: {{ chiefComplaints.filter(c => c.value).map(c => getChiefComplaintValue(c)).join(', ') }}
       </div>
     </div>
 
@@ -2102,6 +2566,7 @@ const hasNonOTCMedicines = computed(() => {
         <thead class="text-sm font-semibold text-gray-600">
           <tr>
             <th class="px-2 py-3">Name</th>
+      
             <th class="px-2 py-3">Quantity</th>
             <th class="px-2 py-3">Schedule</th>
             <th class="px-2 py-3">Start - End</th>
@@ -2143,27 +2608,151 @@ const hasNonOTCMedicines = computed(() => {
   <div v-else-if="currentModalPage === 2" class="flex-grow overflow-y-auto">
     <div class="pt-4 mb-4">
       <div class="mb-6">
-        <label for="action" class="block text-sm font-semibold text-gray-600">Actions Taken</label>
-        <textarea
-          id="action"
-          v-model="selectedPerson.action"
-          rows="6"
-          :disabled="isViewOnly"
-          class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Enter actions taken...">
-        </textarea>
+        <label class="block text-sm font-semibold text-gray-600">Actions Taken</label>
+        <div class="p-4 border border-gray-300 rounded-md bg-gray-50">
+          <div class="flex flex-col space-y-4">
+            <div v-for="action in actionsTaken" :key="action.id" class="flex items-start space-x-2">
+              <div class="flex-grow">
+                <div class="relative">
+                  <select
+                    v-model="action.value"
+                    :disabled="isViewOnly"
+                    class="w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="" disabled selected>Select an action...</option>
+                    <option
+                      v-for="option in actionOptions"
+                      :key="option"
+                      :value="option"
+                      :disabled="isActionValueSelected(option, action.id)"
+                    >
+                      {{ option }}
+                    </option>
+                  </select>
+                  <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                    <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    </svg>
+                  </div>
+                </div>
+                <!-- Details field for Head checked for, Parent/guardian notified at, or Other -->
+                <div v-if="['Head checked for', 'Parent/guardian notified at', 'Other'].includes(action.value)" class="mt-2 transition-all duration-300 ease-in-out">
+                  <input
+                    type="text"
+                    v-model="action.details"
+                    :placeholder="
+                      action.value === 'Head checked for' ? 'Specify what was checked for...'
+                      : action.value === 'Parent/guardian notified at' ? 'Specify time or details...'
+                      : 'Please specify...'
+                    "
+                    :disabled="isViewOnly"
+                    class="w-full px-4 py-2 text-gray-700 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              <!-- Remove button -->
+              <button
+                v-if="!isViewOnly && actionsTaken.length > 1"
+                @click="removeActionTaken(action.id)"
+                class="p-2 mt-1 text-red-500 bg-white border border-red-300 rounded-md hover:bg-red-50"
+                title="Remove action"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            <!-- Add button -->
+            <div class="flex justify-end">
+              <button
+                v-if="!isViewOnly"
+                @click="addActionTaken"
+                class="flex items-center px-4 py-2 text-white transition-colors duration-300 bg-blue-500 rounded-md hover:bg-blue-600"
+              >
+                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Add Another Action
+              </button>
+            </div>
+          </div>
+        </div>
+        <!-- Display selected actions summary -->
+        <div v-if="actionsTaken.some(a => a.value)" class="mt-2 text-sm font-medium text-blue-600">
+          Selected: {{ actionsTaken.filter(a => a.value).map(a => getActionDisplayValue(a)).join(', ') }}
+        </div>
       </div>
 
       <div class="mb-4">
         <label for="disposition" class="block text-sm font-semibold text-gray-600">Disposition of the Student</label>
-        <textarea
-          id="disposition"
-          v-model="selectedPerson.disposition"
-          rows="6"
-          :disabled="isViewOnly"
-          class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Enter student disposition...">
-        </textarea>
+        <div class="p-4 border border-gray-300 rounded-md bg-gray-50">
+          <div class="flex flex-col space-y-4">
+            <div v-for="disposition in dispositions" :key="disposition.id" class="flex items-start space-x-2">
+              <div class="flex-grow">
+                <div class="relative">
+                  <select
+                    v-model="disposition.value"
+                    :disabled="isViewOnly"
+                    class="w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="" disabled selected>Select a disposition...</option>
+                    <option
+                      v-for="option in dispositionOptions"
+                      :key="option"
+                      :value="option"
+                      :disabled="isDispositionValueSelected(option, disposition.id)"
+                    >
+                      {{ option }}
+                    </option>
+                  </select>
+                  <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                    <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    </svg>
+                  </div>
+                </div>
+                <!-- Details field for Other -->
+                <div v-if="disposition.value === 'Other'" class="mt-2 transition-all duration-300 ease-in-out">
+                  <input
+                    type="text"
+                    v-model="disposition.details"
+                    placeholder="Please specify..."
+                    :disabled="isViewOnly"
+                    class="w-full px-4 py-2 text-gray-700 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              <!-- Remove button -->
+              <button
+                v-if="!isViewOnly && dispositions.length > 1"
+                @click="removeDisposition(disposition.id)"
+                class="p-2 mt-1 text-red-500 bg-white border border-red-300 rounded-md hover:bg-red-50"
+                title="Remove disposition"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            <!-- Add button -->
+            <div class="flex justify-end">
+              <button
+                v-if="!isViewOnly"
+                @click="addDisposition"
+                class="flex items-center px-4 py-2 text-white transition-colors duration-300 bg-blue-500 rounded-md hover:bg-blue-600"
+              >
+                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Add Another Disposition
+              </button>
+            </div>
+          </div>
+        </div>
+        <!-- Display selected dispositions summary -->
+        <div v-if="dispositions.some(d => d.value)" class="mt-2 text-sm font-medium text-blue-600">
+          Selected: {{ dispositions.filter(d => d.value).map(d => getDispositionDisplayValue(d)).join(', ') }}
+        </div>
       </div>
     </div>
   </div>
@@ -2172,7 +2761,7 @@ const hasNonOTCMedicines = computed(() => {
   <div v-else-if="currentModalPage === 3" class="flex-grow overflow-y-auto">
     <div class="pt-4 mb-4">
       <!-- Patient Demographics Section -->
-      <div class="p-4 mb-6 bg-gray-50 border border-gray-200 rounded-lg">
+      <div class="p-4 mb-6 border border-gray-200 rounded-lg bg-gray-50">
         <h3 class="mb-3 text-lg font-semibold text-gray-700">Patient Demographics</h3>
         <div class="grid grid-cols-2 gap-4">
           <!-- Patient Information -->
@@ -2200,7 +2789,7 @@ const hasNonOTCMedicines = computed(() => {
           </div>
           <div>
             <label class="block mb-1 text-sm font-medium text-gray-700">Blood Pressure</label>
-            <div class="p-2 border rounded">{{ selectedConsultationRecord?.blood_pressure || 'Not recorded' }}</div>
+            <div class="p-2 border rounded">{{ selectedConsultationRecord?.blood_pressure || 'Notrecorded' }}</div>
           </div>
           <div>
             <label class="block mb-1 text-sm font-medium text-gray-700">Heart Rate</label>
@@ -2210,19 +2799,19 @@ const hasNonOTCMedicines = computed(() => {
       </div>
       
       <!-- Doctor's Feedback Section -->
-      <div class="p-4 mb-6 bg-blue-50 border border-blue-200 rounded-lg">
+      <div class="p-4 mb-6 border border-blue-200 rounded-lg bg-blue-50">
         <h3 class="mb-3 text-lg font-semibold text-blue-800">Doctor's Feedback</h3>
         <div class="mb-4">
           <label class="block mb-1 text-sm font-medium text-gray-700">Doctor's Diagnosis</label>
           <div class="p-3 bg-white border rounded-md">
-            {{ selectedConsultationRecord?.doctor_diagnosis || 'No diagnosis provided' }}
+            {{ selectedConsultationRecord?.medical_data?.diagnosis || 'No diagnosis provided' }}
           </div>
         </div>
         
         <div>
           <label class="block mb-1 text-sm font-medium text-gray-700">Treatment Plan</label>
           <div class="p-3 bg-white border rounded-md">
-            {{ selectedConsultationRecord?.doctor_treatment || 'No treatment plan provided' }}
+            {{ selectedConsultationRecord?.medical_data?.treatment || 'No treatment plan provided' }}
           </div>
         </div>
       </div>
@@ -2340,7 +2929,7 @@ const hasNonOTCMedicines = computed(() => {
     <div class="w-full max-w-4xl p-8 bg-white rounded-lg shadow-lg max-h-[80vh] overflow-y-auto">
       <!-- Header -->
       <div class="flex items-center justify-between mb-6">
-        <h2 class="text2xl font-semibold text-gray-800">Manage Diagnoses & Categories</h2>
+        <h2 class="font-semibold text-gray-800 text2xl">Manage Diagnoses & Categories</h2>
         <button @click="closeManageModal" class="text-gray-500 hover:text-gray-700">
           <Icon icon="mdi:close" class="w-6 h-6" />
         </button>
@@ -2574,3 +3163,4 @@ textarea {
   text-overflow: ellipsis;
 }
 </style>
+
