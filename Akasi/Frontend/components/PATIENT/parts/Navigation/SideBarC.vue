@@ -60,7 +60,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <nav class="flex flex-col items-center h-full py-10 text-white bg-[#2F4A71] shadow-right transition-all duration-300">
+  <nav class="flex flex-col items-center h-full py-10 text-white transition-all duration-300">
     <div class="mb-12">
       <MidTitle class="text-5xl sm:text-4xl" />
     </div>

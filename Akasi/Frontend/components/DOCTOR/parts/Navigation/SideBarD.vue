@@ -44,7 +44,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <nav class="flex flex-col items-center h-full py-10 text-white bg-[#2F4A71] shadow-right transition-all duration-300">
+  <nav class="flex flex-col items-center h-full py-10 text-white transition-all duration-300">
     <div class="mb-12">
       <MidTitle class="text-5xl sm:text-4xl" />
     </div>
@@ -83,7 +83,7 @@ onMounted(() => {
             <!-- Role or category -->
             <span class="text-xs" :class="isActive(profileLink.path).value ? 'text-[#4c2f71]/80' : 'text-white/80'">
               {{ profile?.type === 'nurse' ? 'Nurse' : (profile?.type === 'doctor' ? 'Doctor' : profile?.category ||
-              'User') }}
+                'User') }}
             </span>
           </div>
         </div>

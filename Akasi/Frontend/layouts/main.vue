@@ -94,7 +94,7 @@ body.sidebar-open {
         <span>☰</span>
     </button>
 
-    <div class="split left" :class="{ 'active': sidebarActive }">
+    <div class="split left bg-[#2F4A71] shadow-right" :class="{ 'active': sidebarActive }">
         <div class="center">
             <SideBarA v-if="isNurse" />
             <SideBarC v-else-if="isPatient" />
