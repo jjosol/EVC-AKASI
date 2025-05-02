@@ -783,6 +783,11 @@ const openEditModal = async (patient) => {
     // Check if the record has been reviewed by a doctor
     const hasBeenReviewed = patient.doctor_reviewed || 
                           (consultationRecord.doctor_diagnosis && consultationRecord.doctor_diagnosis.trim() !== '');
+    
+    // If the doctor has reviewed the record, allow editing confined and medication administration fields
+    if (hasBeenReviewed) {
+      isViewOnly.value = false; // Set to false to allow editing specific fields
+    }
 
     // Set initial page to first page when opening
     currentModalPage.value = 1;
@@ -794,7 +799,8 @@ const openEditModal = async (patient) => {
       complaints: chiefComplaints.value,
       actions: actionsTaken.value,
       dispositions: dispositions.value,
-      medicines: medicines
+      medicines: medicines,
+      doctorReviewed: hasBeenReviewed
     });
   } catch (error) {
     console.error('Error opening edit modal:', error);
