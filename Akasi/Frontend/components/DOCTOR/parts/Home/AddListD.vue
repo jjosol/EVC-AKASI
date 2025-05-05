@@ -1716,9 +1716,24 @@ const selectedConsultation = ref(null);
  * Opens the consultation detail modal with the selected patient's data
  * @param {Object} patient - Patient to view/edit
  */
-const openConsultationDetailModal = (patient) => {
-  selectedConsultation.value = { ...patient };
-  showConsultationDetailModal.value = true;
+const openConsultationDetailModal = async (patient) => {
+  try {
+    // Get more detailed patient information
+    const patientDetails = await consultationRecordService.fetchPatientById(patient.id);
+    
+    selectedConsultation.value = { 
+      ...patient,
+      age: patientDetails?.age || patient.age || 'N/A',
+      gender: patientDetails?.gender || patient.sex || 'N/A'
+    };
+    
+    showConsultationDetailModal.value = true;
+  } catch (error) {
+    console.error('Error fetching patient details:', error);
+    // Fall back to basic data if fetch fails
+    selectedConsultation.value = { ...patient };
+    showConsultationDetailModal.value = true;
+  }
 };
 </script>
 

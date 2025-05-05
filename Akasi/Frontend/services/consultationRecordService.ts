@@ -539,6 +539,9 @@ export const updateConsultationMedicalData = async (consultation_id: number, med
     const payload = {
       medical_data: {
         ...medicalData,
+        // Make sure patient demographic data is stored in the correct structure
+        patientAge: medicalData.age,
+        patientGender: medicalData.gender,
         updated_at: new Date().toISOString()
       },
       doctor_reviewed: true
@@ -591,7 +594,7 @@ export const extractMedicalData = (consultationRecord: any) => {
     treatment: null,
     patientType: null,
     patientGrade: null,
-    patientSection: null,
+    patientSection: null, 
     patientAge: null,
     patientGender: null
   };

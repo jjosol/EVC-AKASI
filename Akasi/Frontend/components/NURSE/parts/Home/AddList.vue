@@ -226,6 +226,12 @@ const createConsultationRecord = async (person) => {
     const newConsultation = await consultationRecordService.createConsultationRecord(consultationData);
     const consultationId = newConsultation.consultation_id;
 
+    // If we have a prescription file and non-OTC medicines, upload the prescription file
+    let prescriptionFileId = null;
+    if (hasNonOTCMedicines.value && prescriptionFile.value) {
+      prescriptionFileId = await uploadPrescriptionFile(consultationId);
+    }
+
     // Save each medicine to medAdministration only after consultation is created
     if (selectedPerson.value.medicines && consultationId) {
       for (const medicine of selectedPerson.value.medicines) {
@@ -244,6 +250,7 @@ const createConsultationRecord = async (person) => {
           date: new Date().toISOString(),
           patient_name: selectedPerson.value.name,
           remarks: medicine.remarks || '',
+          prescription_file_id: prescriptionFileId
         };
         // List of required fields
         const requiredFields = [
@@ -266,6 +273,9 @@ const createConsultationRecord = async (person) => {
         }
       }
     }
+
+    // Reset prescription file state after successful upload
+    clearPrescriptionFile();
 
     // Close modal and refresh list
     showEditModal.value = false;
@@ -2150,6 +2160,139 @@ const confirmAction = (actionType) => {
     showConfirmationModal.value = true;
   }
 };
+
+// Add refs for prescription file upload
+const prescriptionFile = ref(null);
+const isUploadingPrescription = ref(false);
+const prescriptionUploadProgress = ref(0);
+const prescriptionUploadError = ref('');
+const prescriptionFilePreview = ref(null);
+
+// Function to handle prescription file selection
+function handlePrescriptionFileChange(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  // Validate file type and size
+  const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  
+  if (!allowedTypes.includes(file.type)) {
+    prescriptionUploadError.value = 'Invalid file type. Please upload PDF, JPG, or PNG.';
+    return;
+  }
+  
+  if (file.size > maxSize) {
+    prescriptionUploadError.value = 'File is too large. Maximum size is 10MB.';
+    return;
+  }
+  
+  prescriptionFile.value = file;
+  prescriptionUploadError.value = '';
+  
+  // Create preview for image files
+  if (file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      prescriptionFilePreview.value = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  } else {
+    prescriptionFilePreview.value = null;
+  }
+}
+
+// Function to clear prescription file
+function clearPrescriptionFile() {
+  prescriptionFile.value = null;
+  prescriptionFilePreview.value = null;
+  prescriptionUploadError.value = '';
+}
+
+// Function to upload prescription file
+async function uploadPrescriptionFile(consultationId) {
+  if (!prescriptionFile.value || !consultationId) return null;
+  
+  try {
+    isUploadingPrescription.value = true;
+    prescriptionUploadError.value = '';
+    
+    // Start progress simulation
+    const progressInterval = simulateProgressForPrescription();
+    
+    const formData = new FormData();
+    formData.append('file', prescriptionFile.value);
+    formData.append('consultation_id', consultationId.toString());
+    formData.append('patient_id', selectedPerson.value.clientId.toString());
+    formData.append('type', 'prescription');
+    
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication token not found');
+    }
+    
+    console.log('Uploading prescription file:', {
+      fileName: prescriptionFile.value.name,
+      fileSize: prescriptionFile.value.size,
+      fileType: prescriptionFile.value.type,
+      consultationId: consultationId,
+      patientId: selectedPerson.value.clientId
+    });
+    
+    const response = await fetch('http://localhost:3001/patient-files/upload-prescription', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+    
+    // Stop progress simulation
+    clearInterval(progressInterval);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `Server error: ${response.status}`);
+    }
+    
+    const responseData = await response.json();
+    console.log('Prescription upload response:', responseData);
+    
+    // Show 100% progress
+    prescriptionUploadProgress.value = 100;
+    
+    return responseData.id; // Return the file ID for reference
+  } catch (error) {
+    console.error('Error uploading prescription file:', error);
+    prescriptionUploadError.value = error.message || 'Failed to upload prescription file';
+    prescriptionUploadProgress.value = 0;
+    return null;
+  } finally {
+    // Set uploading to false after a delay to show the complete progress
+    setTimeout(() => {
+      isUploadingPrescription.value = false;
+    }, 1000);
+  }
+}
+
+// Function to simulate upload progress for better UX
+function simulateProgressForPrescription() {
+  return setInterval(() => {
+    if (prescriptionUploadProgress.value < 90) {
+      prescriptionUploadProgress.value += Math.floor(Math.random() * 10) + 1;
+    }
+  }, 300);
+}
+
+// Helper function to format file size
+function formatFileSize(bytes) {
+  if (!bytes) return '0 Bytes';
+  
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  
+  return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i];
+}
 </script>
 
 <template>
@@ -2346,6 +2489,7 @@ const confirmAction = (actionType) => {
   :current-page="currentModalPage"
   :total-pages="selectedPerson?.doctor_reviewed || (selectedConsultationRecord?.doctor_diagnosis && selectedConsultationRecord?.doctor_diagnosis.trim() !== '') ? 3 : 2"
   :has-non-OTC-medicines="hasNonOTCMedicines"
+  :doctor-reviewed="patient?.doctor_reviewed || selectedPerson?.doctor_reviewed || (selectedConsultationRecord?.doctor_diagnosis && selectedConsultationRecord?.doctor_diagnosis.trim() !== '')"
   @cancel="cancelEdit"
   @save="confirmAction('consultation')"
   @next-page="currentModalPage++"
@@ -2602,6 +2746,81 @@ const confirmAction = (actionType) => {
         </tbody>
       </table>
     </div>
+    
+    <!-- Prescription File Upload Section - Show when non-OTC medicines are present -->
+    <div v-if="hasNonOTCMedicines && selectedPerson.medicationAdministration && !isViewOnly" class="mt-6">
+      <div class="p-4 border border-blue-300 rounded-lg bg-blue-50">
+        <h4 class="mb-3 text-base font-semibold text-blue-800">Prescription Upload</h4>
+        <p class="mb-3 text-sm text-blue-600">
+          Non-OTC medicine requires a prescription. Please upload a prescription file.
+        </p>
+        
+        <!-- File Upload UI -->
+        <div class="mb-4">
+          <div v-if="!prescriptionFile" class="flex justify-center px-6 pt-5 pb-6 border-2 border-blue-300 border-dashed rounded-md">
+            <div class="space-y-1 text-center">
+              <svg class="w-12 h-12 mx-auto text-blue-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" 
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              <div class="flex text-sm text-blue-600">
+                <label for="prescription-file-upload" class="relative font-medium text-blue-600 bg-white rounded-md cursor-pointer hover:text-blue-700 focus-within:outline-none">
+                  <span>Upload a file</span>
+                  <input id="prescription-file-upload" name="prescription-file" type="file" class="sr-only" 
+                    @change="handlePrescriptionFileChange" accept=".pdf,.jpg,.jpeg,.png">
+                </label>
+                <p class="pl-1">or drag and drop</p>
+              </div>
+              <p class="text-xs text-blue-500">PDF, PNG, JPG up to 10MB</p>
+            </div>
+          </div>
+          
+          <!-- Preview of selected file -->
+          <div v-else class="relative p-4 bg-white border border-blue-300 rounded-md">
+            <div class="flex items-center space-x-4">
+              <!-- PDF icon or image preview -->
+              <div class="flex-shrink-0">
+                <div v-if="prescriptionFilePreview" class="w-16 h-16">
+                  <img :src="prescriptionFilePreview" class="object-cover rounded border" alt="File preview">
+                </div>
+                <div v-else class="p-2 bg-blue-100 rounded-md">
+                  <svg class="w-12 h-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
+              
+              <!-- File name and type -->
+              <div class="flex-1">
+                <div class="text-sm font-medium text-blue-700">{{ prescriptionFile.name }}</div>
+                <p class="text-xs text-gray-500">{{ prescriptionFile.type }} · {{ formatFileSize(prescriptionFile.size) }}</p>
+              </div>
+              
+              <!-- Remove button -->
+              <button @click="clearPrescriptionFile" class="p-1 text-red-500 bg-white rounded hover:text-red-700">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+          
+          <!-- Upload error message -->
+          <div v-if="prescriptionUploadError" class="mt-2 text-sm text-red-600">
+            {{ prescriptionUploadError }}
+          </div>
+          
+          <!-- Upload progress -->
+          <div v-if="isUploadingPrescription" class="mt-2">
+            <div class="w-full h-2 bg-gray-200 rounded-full">
+              <div class="h-2 bg-blue-600 rounded-full" :style="{ width: `${prescriptionUploadProgress}%` }"></div>
+            </div>
+            <p class="mt-1 text-xs text-gray-600">Uploading: {{ prescriptionUploadProgress }}%</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
   
   <!-- Page 2: Actions Taken and Disposition -->
@@ -2762,21 +2981,8 @@ const confirmAction = (actionType) => {
     <div class="pt-4 mb-4">
       <!-- Patient Demographics Section -->
       <div class="p-4 mb-6 border border-gray-200 rounded-lg bg-gray-50">
-        <h3 class="mb-3 text-lg font-semibold text-gray-700">Patient Demographics</h3>
+        <h3 class="mb-3 text-lg font-semibold text-gray-700">Extended Patient Information</h3>
         <div class="grid grid-cols-2 gap-4">
-          <!-- Patient Information -->
-          <div class="col-span-2 p-3 bg-white border rounded-md">
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block mb-1 text-sm font-medium text-gray-700">Age</label>
-                <div class="p-2 border rounded">{{ selectedPerson?.age || 'N/A' }}</div>
-              </div>
-              <div>
-                <label class="block mb-1 text-sm font-medium text-gray-700">Gender</label>
-                <div class="p-2 border rounded">{{ selectedPerson?.sex || 'N/A' }}</div>
-              </div>
-            </div>
-          </div>
           
           <!-- Vital Signs -->
           <div>
@@ -2840,6 +3046,7 @@ const confirmAction = (actionType) => {
       :show="showMedicineDetailModal"
       :medicine="selectedMedicine"
       :is-view-only="isViewOnly"
+      :doctor-reviewed="selectedPerson?.doctor_reviewed || (selectedConsultationRecord?.doctor_diagnosis && selectedConsultationRecord?.doctor_diagnosis.trim() !== '')"
       @cancel="cancelMedicineDetails"
       @save="saveMedicineDetails"
     />

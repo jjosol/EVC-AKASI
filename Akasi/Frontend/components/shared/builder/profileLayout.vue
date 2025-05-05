@@ -13,19 +13,10 @@
         </div>
         <template v-else>
           <ProfileHeader/>
-          <!-- Debug information during development -->
-          <div v-if="showDebug" class="p-4 mb-4 text-xs bg-gray-100 rounded">
-            <h3 class="mb-2 font-bold">Debug Info:</h3>
-            <p>Profile type: {{ profile?.type || 'undefined' }}</p>
-            <p>Is doctor (auth): {{ isDoctor }}</p>
-            <p>Is doctor (profile): {{ profile?.type === 'doctor' }}</p>
-            <p>Is doctor (combined): {{ isDoctor }}</p>
-            <p>User role: {{ userRole }}</p>
-          </div>
+
           
           <!-- Conditional components based on user type -->
           <ProfileFiles v-if="isPatient"/>
-          <DoctorDetails v-else-if="isDoctor"/>
           <div v-if="!isPatient && !isDoctor && !isNurse" class="p-6 mt-4 text-center bg-yellow-50 rounded-lg">
             <p class="text-lg text-yellow-700">No matching profile layout for your user type: {{ profile?.type || 'unknown' }}</p>
           </div>

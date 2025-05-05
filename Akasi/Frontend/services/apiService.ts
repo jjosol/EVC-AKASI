@@ -1,4 +1,49 @@
-const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+// Dynamically determine the host based on the current environment
+const getBaseUrl = () => {
+  // Use environment variable if defined
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  
+  // If running in a browser, determine the host dynamically
+  if (typeof window !== 'undefined') {
+    // Extract the host (without port) from the current URL
+    const currentHost = window.location.hostname;
+    
+    // If it's localhost, use localhost for the API
+    if (currentHost === 'localhost') {
+      return 'http://localhost:3001';
+    }
+    
+    // Otherwise use the current host's IP with the backend port
+    return `http://${currentHost}:3001`;
+  }
+  
+  // Fallback to your specific IP address for SSR
+  return 'http://10.35.133.169:3001';
+};
+
+const baseUrl = getBaseUrl();
+
+// Helper function to safely access localStorage
+const safeLocalStorage = {
+  getItem(key: string): string | null {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return localStorage.getItem(key);
+    }
+    return null;
+  },
+  setItem(key: string, value: string): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem(key, value);
+    }
+  },
+  removeItem(key: string): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.removeItem(key);
+    }
+  }
+};
 
 // Find your fetchWithTimeout function and increase the timeout value
 export const fetchWithTimeout = async (url: string, options: RequestInit, timeout = 15000) => {
@@ -23,8 +68,8 @@ export const fetchWithTimeout = async (url: string, options: RequestInit, timeou
 };
 
 export async function get(endpoint: string) {
-  // Add token to GET requests
-  const token = localStorage.getItem('token');
+  // Add token to GET requests - use safeLocalStorage instead of direct localStorage
+  const token = safeLocalStorage.getItem('token');
   try {
     const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {
       headers: {
@@ -42,14 +87,14 @@ export async function get(endpoint: string) {
 }
 
 export async function post(endpoint: string, data: any) {
-  // Change authToken to token
-  const token = localStorage.getItem('token');
+  // Use safeLocalStorage instead of direct localStorage
+  const token = safeLocalStorage.getItem('token');
   try {
     const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        'Authorization': token ? `Bearer ${token}` : ''
       },
       body: JSON.stringify(data)
     }, 30000);
@@ -65,13 +110,14 @@ export async function post(endpoint: string, data: any) {
 }
 
 export async function put(endpoint: string, data: any) {
-  const token = localStorage.getItem('token'); // Change from 'authToken' to 'token'
+  // Use safeLocalStorage instead of direct localStorage
+  const token = safeLocalStorage.getItem('token');
   try {
     const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        'Authorization': token ? `Bearer ${token}` : ''
       },
       body: JSON.stringify(data)
     }, 30000);
@@ -87,13 +133,14 @@ export async function put(endpoint: string, data: any) {
 }
 
 export async function del(endpoint: string) {
-  const token = localStorage.getItem('token');
+  // Use safeLocalStorage instead of direct localStorage
+  const token = safeLocalStorage.getItem('token');
   
   try {
     const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {
       method: 'DELETE',
       headers: {
-        'authorization': `Bearer ${token}`,  // lowercase to match common API conventions
+        'authorization': token ? `Bearer ${token}` : '',  // lowercase to match common API conventions
         'Content-Type': 'application/json'   // add content-type header
       }
     });
@@ -128,7 +175,8 @@ export async function del(endpoint: string) {
 
 // Add this new function to your apiService.ts
 export async function uploadFile(endpoint: string, formData: FormData) {
-  const token = localStorage.getItem('token'); // Change from 'authToken' to 'token'
+  // Use safeLocalStorage instead of direct localStorage
+  const token = safeLocalStorage.getItem('token');
   
   try {
     const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {

@@ -57,12 +57,12 @@ export default defineNuxtConfig({
     // Add API proxy configuration to route /api requests to your NestJS backend
     devProxy: {
       '/change-password': {
-        target: 'http://localhost:3001',
+        target: 'http://10.35.133.169:3001',
         changeOrigin: true,
         pathRewrite: { '^/change-password': '/change-password' }
       },
       '/api': {
-        target: 'http://localhost:3001', // Adjust to your NestJS backend port
+        target: 'http://10.35.133.169:3001', // Using your machine's IP address
         changeOrigin: true,
       }
     }

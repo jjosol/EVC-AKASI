@@ -35,12 +35,18 @@
             Next
           </button>
           <button
-            v-if="currentPage === totalPages && !isViewOnly"
+            v-if="currentPage === totalPages && !isViewOnly && !doctorReviewed"
             @click="$emit('save')"
             class="px-4 py-2 text-white bg-green-500 rounded-md hover:bg-green-600"
           >
             {{ hasNonOTCMedicines ? 'Send to Doctor' : 'Save' }}
           </button>
+          <div 
+            v-else-if="doctorReviewed" 
+            class="px-4 py-2 text-white bg-blue-500 rounded-md flex items-center"
+          >
+            <span class="mr-1">✓</span> Reviewed by Doctor
+          </div>
         </div>
       </div>
     </div>
@@ -69,6 +75,10 @@ const props = defineProps({
     default: () => []
   },
   hasNonOTCMedicines: {
+    type: Boolean,
+    default: false
+  },
+  doctorReviewed: {
     type: Boolean,
     default: false
   }

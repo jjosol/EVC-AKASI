@@ -93,7 +93,10 @@ const saveConsultation = async () => {
       blood_pressure: bloodPressure.value,
       heart_rate: heartRate.value,
       diagnosis: complaints.value,
-      treatment: treatment.value
+      treatment: treatment.value,
+      // Include patient demographic data
+      age: props.consultation.age,
+      gender: props.consultation.gender
     };
 
     // Call service to update consultation with medical data
@@ -124,8 +127,10 @@ const saveConsultation = async () => {
   }
 };
 
-// Add a ref to hold the extracted patient type
+// Define refs for patient demographic data
 const patientType = ref('');
+const patientAge = ref('');
+const patientGender = ref('');
 
 // Populate fields when consultation data is available
 watch(() => props.consultation, (newConsultation) => {
@@ -142,8 +147,10 @@ watch(() => props.consultation, (newConsultation) => {
     complaints.value = medicalData.diagnosis || newConsultation?.complaint || '';
     treatment.value = medicalData.treatment || '';
 
-    // Set patient type from extracted data, fallback to consultation.type
+    // Set patient demographic data from extracted data with fallbacks
     patientType.value = medicalData.patientType || newConsultation.type || 'N/A';
+    patientAge.value = medicalData.patientAge || newConsultation.age || 'N/A';
+    patientGender.value = medicalData.patientGender || newConsultation.gender || 'N/A';
 
     // If this consultation has been reviewed by a doctor before, show the nurse view directly
     if (newConsultation.doctor_reviewed) {
@@ -181,7 +188,7 @@ watch(() => props.consultation, (newConsultation) => {
               <p class="text-sm text-gray-500">Type</p>
               <p class="font-medium">{{ patientType }}</p>
             </div>
-            <div v-if="consultation.grade">
+                        <div v-if="consultation.grade">
               <p class="text-sm text-gray-500">Grade/Section</p>
               <p class="font-medium">{{ consultation.grade }}-{{ consultation.section }}</p>
             </div>
