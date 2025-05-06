@@ -190,17 +190,15 @@ export class PatientFilesController {
         FileInterceptor('file', {
             storage: diskStorage({
                 destination: (req, file, cb) => {
-                    // Create directory structure based on date
-                    const patientId = req.body.patient_id || 'unknown';
-                    console.log(`Creating prescription folder for patient ID: ${patientId}`);
-                    
+                    console.log('[DEBUG prescription upload] req.body:', req.body);
+                    const patientId = req.body.patient_id;
+                    if (!patientId || isNaN(Number(patientId))) {
+                        return cb(new Error('Missing or invalid patient_id'), null);
+                    }
                     const today = new Date();
                     const year = today.getFullYear();
                     const month = String(today.getMonth() + 1).padStart(2, '0');
-                    
-                    // Create path like: uploads/prescriptions/2023/05/patientId/
                     const uploadPath = path.resolve(__dirname, `../../uploads/prescriptions/${year}/${month}/${patientId}`);
-                    console.log(`Creating prescription folder at: ${uploadPath}`);
                     fs.mkdirSync(uploadPath, { recursive: true });
                     cb(null, uploadPath);
                 },

@@ -2221,10 +2221,11 @@ async function uploadPrescriptionFile(consultationId) {
     const progressInterval = simulateProgressForPrescription();
     
     const formData = new FormData();
-    formData.append('file', prescriptionFile.value);
+    // Append fields BEFORE the file
     formData.append('consultation_id', consultationId.toString());
     formData.append('patient_id', selectedPerson.value.clientId.toString());
     formData.append('type', 'prescription');
+    formData.append('file', prescriptionFile.value); // file LAST
     
     const token = localStorage.getItem('token');
     if (!token) {
@@ -2239,6 +2240,7 @@ async function uploadPrescriptionFile(consultationId) {
       patientId: selectedPerson.value.clientId
     });
     
+    // Do NOT set Content-Type header manually
     const response = await fetch('http://localhost:3001/patient-files/upload-prescription', {
       method: 'POST',
       headers: {
@@ -2859,7 +2861,7 @@ const closePrescriptionModal = () => {
                 <div v-else class="p-2 bg-blue-100 rounded-md">
                   <svg class="w-12 h-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                      d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0112.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0112.586 3H7a2 2 0 00-2 2v14a2 2 0 01-2 2z" />
                   </svg>
                 </div>
               </div>
