@@ -2293,6 +2293,68 @@ function formatFileSize(bytes) {
   
   return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i];
 }
+
+// Add these refs for prescription viewing
+const showPrescriptionModal = ref(false);
+const currentPrescription = ref(null);
+const isPrescriptionLoading = ref(false);
+const prescriptionViewError = ref('');
+
+/**
+ * Fetches and displays prescription file for a consultation
+ * @param {number} consultation_id - ID of the consultation
+ */
+const viewPrescription = async (consultation_id) => {
+  try {
+    isPrescriptionLoading.value = true;
+    prescriptionViewError.value = '';
+    
+    // First fetch the prescription metadata by consultation ID
+    const response = await fetch(`http://localhost:3001/patient-files/prescription/by-consultation/${consultation_id}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch prescription: ${response.statusText}`);
+    }
+    
+    const prescriptionInfo = await response.json();
+    console.log('Found prescription:', prescriptionInfo);
+    
+    if (!prescriptionInfo || !prescriptionInfo.prescription_id) {
+      throw new Error('No prescription found for this consultation');
+    }
+    
+    // Now get the actual file URL
+    const prescriptionUrl = `http://localhost:3001/patient-files/prescription/${prescriptionInfo.prescription_id}`;
+    
+    // Set the prescription data for display
+    currentPrescription.value = {
+      id: prescriptionInfo.prescription_id,
+      url: prescriptionUrl,
+      fileName: prescriptionInfo.file_name,
+      mimeType: prescriptionInfo.mime_type
+    };
+    
+    // Show the modal
+    showPrescriptionModal.value = true;
+  } catch (error) {
+    console.error('Error viewing prescription:', error);
+    prescriptionViewError.value = error.message;
+    alert('Error viewing prescription: ' + error.message);
+  } finally {
+    isPrescriptionLoading.value = false;
+  }
+};
+
+// Function to close the prescription modal
+const closePrescriptionModal = () => {
+  showPrescriptionModal.value = false;
+  currentPrescription.value = null;
+  prescriptionViewError.value = '';
+};
 </script>
 
 <template>
@@ -2350,34 +2412,45 @@ function formatFileSize(bytes) {
       <ul class="mt-4 overflow-y-auto max-h-60">
         <li v-for="(patient, index) in patients" :key="patient.consultation_id" class="flex items-center justify-between mb-2 text-lg confinement-item text-[#2f4a71]">
           <span @click="openEditModal(patient)" class="cursor-pointer confinement-details">
-            {{ patient.name }} - {{ patient.time }} 
+            {{ patient.time }} - {{ patient.name }}
+            <span v-if="patient.confined" class="ml-2 text-xs font-bold text-red-500">[CONFINED]</span>
+            <span v-if="patient.medAdministration" class="ml-2 text-xs font-bold text-blue-500">[MEDICATION]</span>
           </span>
           <div class="flex items-center">
+            <!-- Prescription View Button -->
+            <button 
+              v-if="patient.medAdministration"
+              @click="viewPrescription(patient.consultation_id)"
+              class="p-1 mr-1 text-white bg-blue-500 rounded hover:bg-blue-600"
+              title="View Prescription"
+            >
+              <Icon icon="mdi:file-document" class="w-5 h-5" />
+            </button>
             <!-- Send to Doctor Button -->
             <button 
-              v-if="!patient.doctor_reviewed"
-              @click="sendToDoctor(patient)" 
-              class="p-1 mr-1 text-white bg-green-500 rounded hover:bg-green-600" 
-              :class="{ 'opacity-50 cursor-not-allowed': patient.doctorShow }"
-              :title="patient.doctorShow ? 'Already sent to doctor' : 'Send to doctor'"
+              v-if="hasNonOTCMedicines && !patient.doctorShow && !patient.doctor_reviewed"
+              @click="sendToDoctor(patient)"
               :disabled="patient.doctorShow"
+              class="p-1 mr-1 text-white bg-green-500 rounded hover:bg-green-600"
+              title="Send to Doctor"
             >
-              <Icon icon="mdi:arrow-right" class="w-5 h-5" />
+              <Icon icon="mdi:doctor" class="w-5 h-5" />
             </button>
             <!-- Doctor Reviewed Indicator -->
             <button 
-              v-else 
-              class="p-1 mr-1 text-white bg-blue-500 rounded cursor-not-allowed"
+              v-if="patient.doctor_reviewed"
               title="Doctor has reviewed this record"
+              class="p-1 mr-1 text-white bg-blue-500 rounded"
             >
-              <Icon icon="mdi:arrow-left" class="w-5 h-5" />
+              <Icon icon="mdi:check-circle" class="w-5 h-5" />
             </button>
             <!-- Delete Button -->
             <button 
-              @click="confirmDelete(patient.consultation_id)" 
+              @click="confirmDelete(patient.consultation_id)"
               class="p-1 text-white bg-red-500 rounded hover:bg-red-600"
+              title="Delete Record"
             >
-              <Icon icon="fluent:delete-28-regular" class="w-5 h-5" />
+              <Icon icon="mdi:delete" class="w-5 h-5" />
             </button>
           </div>
         </li>
@@ -2489,7 +2562,7 @@ function formatFileSize(bytes) {
   :current-page="currentModalPage"
   :total-pages="selectedPerson?.doctor_reviewed || (selectedConsultationRecord?.doctor_diagnosis && selectedConsultationRecord?.doctor_diagnosis.trim() !== '') ? 3 : 2"
   :has-non-OTC-medicines="hasNonOTCMedicines"
-  :doctor-reviewed="patient?.doctor_reviewed || selectedPerson?.doctor_reviewed || (selectedConsultationRecord?.doctor_diagnosis && selectedConsultationRecord?.doctor_diagnosis.trim() !== '')"
+  :doctor-reviewed="selectedPerson?.doctor_reviewed || (selectedConsultationRecord?.doctor_diagnosis && selectedConsultationRecord?.doctor_diagnosis.trim() !== '')"
   @cancel="cancelEdit"
   @save="confirmAction('consultation')"
   @next-page="currentModalPage++"
@@ -2781,12 +2854,12 @@ function formatFileSize(bytes) {
               <!-- PDF icon or image preview -->
               <div class="flex-shrink-0">
                 <div v-if="prescriptionFilePreview" class="w-16 h-16">
-                  <img :src="prescriptionFilePreview" class="object-cover rounded border" alt="File preview">
+                  <img :src="prescriptionFilePreview" class="object-cover border rounded" alt="File preview">
                 </div>
                 <div v-else class="p-2 bg-blue-100 rounded-md">
                   <svg class="w-12 h-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                      d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0112.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                   </svg>
                 </div>
               </div>
@@ -3251,26 +3324,101 @@ function formatFileSize(bytes) {
     @confirm="handleConfirm"
     @cancel="handleCancel"
   />
-</div>
+
+  <!-- Prescription Modal -->
+  <div v-if="showPrescriptionModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+    <div class="w-full max-w-4xl max-h-[90vh] bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between p-4 border-b">
+        <h3 class="text-lg font-medium text-gray-900">
+          Prescription File: {{ currentPrescription?.fileName || 'Loading...' }}
+        </h3>
+        <button @click="closePrescriptionModal" class="text-gray-400 hover:text-gray-500">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Modal Body -->
+      <div class="flex-1 overflow-hidden">
+        <!-- Loading State -->
+        <div v-if="isPrescriptionLoading" class="flex items-center justify-center h-full">
+          <div class="w-12 h-12 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin"></div>
+        </div>
+        
+        <!-- Error State -->
+        <div v-else-if="prescriptionViewError" class="flex flex-col items-center justify-center h-full p-8">
+          <svg class="w-16 h-16 mb-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <p class="text-lg font-medium text-red-600">{{ prescriptionViewError }}</p>
+        </div>
+        
+        <!-- Content Based on File Type -->
+        <template v-else-if="currentPrescription">
+          <!-- PDF -->
+          <iframe 
+            v-if="currentPrescription.mimeType === 'application/pdf'" 
+            :src="currentPrescription.url" 
+            class="w-full h-full border-0" 
+            title="PDF Prescription Viewer"
+          ></iframe>
+          
+          <!-- Image -->
+          <div 
+            v-else-if="currentPrescription.mimeType.startsWith('image/')"
+            class="flex items-center justify-center h-full p-4 bg-gray-100"
+          >
+            <img 
+              :src="currentPrescription.url" 
+              alt="Prescription Image" 
+              class="object-contain max-w-full max-h-full"
+            />
+          </div>
+          
+          <!-- Fallback for other file types -->
+          <div v-else class="flex flex-col items-center justify-center h-full p-8">
+            <svg class="w-16 h-16 mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <p class="text-lg font-medium text-gray-600">This file type cannot be previewed</p>
+            <a 
+              :href="currentPrescription.url" 
+              target="_blank" 
+              class="px-4 py-2 mt-4 text-white bg-blue-500 rounded hover:bg-blue-600"
+            >
+              Open in New Tab
+            </a>
+          </div>
+        </template>
+      </div>
+      
+      <!-- Modal Footer -->
+      <div class="flex justify-end p-4 border-t bg-gray-50">
+        <a 
+          v-if="currentPrescription" 
+          :href="currentPrescription.url" 
+          target="_blank"
+          class="px-4 py-2 mr-2 text-blue-600 border border-blue-300 rounded bg-blue-50 hover:bg-blue-100"
+        >
+          Open in New Tab
+        </a>
+        <button 
+          @click="closePrescriptionModal" 
+          class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+  </div>
 </template>
+
 <style scoped>
-textarea {
-  resize: none;
-}
-
-.time-picker {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 15px 0;
-}
-
-.time-picker-select {
-  padding: 6px 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-
 .modal-overlay {
   position: fixed;
   top: 0;

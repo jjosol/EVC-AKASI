@@ -653,3 +653,94 @@ export const extractMedicalData = (consultationRecord: any) => {
     diagnosis: consultationRecord.complaint || null,
   };
 };
+
+/**
+ * Fetches prescription file data for a consultation
+ * @param {number} consultation_id - ID of the consultation
+ * @returns {Promise<any>} Prescription file data
+ */
+export const fetchPrescriptionFile = async (consultation_id: number) => {
+  try {
+    console.log(`Fetching prescription for consultation ID: ${consultation_id}`);
+    // Use our new endpoint that looks up by consultation_id
+    return await get(`/patient-files/prescription/by-consultation/${consultation_id}`);
+  } catch (error) {
+    console.error('Error fetching prescription file:', error);
+    throw error;
+  }
+};
+
+/**
+ * Downloads prescription file content
+ * @param {number} prescription_id - ID of the prescription
+ * @returns {Promise<Blob>} Prescription file as blob
+ */
+export const downloadPrescriptionFile = async (prescription_id: number) => {
+  try {
+    console.log(`Downloading prescription file with ID: ${prescription_id}`);
+    // Get token from localStorage
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('Authentication required to download files');
+    }
+
+    // This endpoint returns the actual file content
+    const response = await fetch(`${getBaseUrl()}/patient-files/prescription/${prescription_id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to download prescription file: ${response.statusText}`);
+    }
+    
+    return await response.blob();
+  } catch (error) {
+    console.error('Error downloading prescription file:', error);
+    throw error;
+  }
+};
+
+/**
+ * Opens the prescription file in a modal view
+ * This is a placeholder function that will be replaced by UI components
+ * @param {number} consultation_id - ID of the consultation to view prescription for
+ * @returns {Promise<void>}
+ */
+export const viewPrescriptionFile = async (consultation_id: number) => {
+  try {
+    // First get the prescription info by consultation ID
+    const prescriptionInfo = await fetchPrescriptionFile(consultation_id);
+    
+    if (!prescriptionInfo || !prescriptionInfo.prescription_id) {
+      throw new Error('No prescription file found for this consultation');
+    }
+    
+    console.log('Found prescription file:', prescriptionInfo);
+    
+    // Return the prescription info - the actual viewing will be handled by the PrescriptionViewModal component
+    return prescriptionInfo;
+  } catch (error) {
+    console.error('Error preparing prescription file for view:', error);
+    throw error;
+  }
+};
+
+// Helper function to get base URL (copy from apiService to avoid circular dependencies)
+const getBaseUrl = () => {
+  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  
+  if (typeof window !== 'undefined') {
+    const currentHost = window.location.hostname;
+    if (currentHost === 'localhost') {
+      return 'http://localhost:3001';
+    }
+    return `http://${currentHost}:3001`;
+  }
+  
+  return 'http://10.35.133.169:3001';
+};

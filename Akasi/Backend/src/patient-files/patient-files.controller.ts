@@ -192,12 +192,15 @@ export class PatientFilesController {
                 destination: (req, file, cb) => {
                     // Create directory structure based on date
                     const patientId = req.body.patient_id || 'unknown';
+                    console.log(`Creating prescription folder for patient ID: ${patientId}`);
+                    
                     const today = new Date();
                     const year = today.getFullYear();
                     const month = String(today.getMonth() + 1).padStart(2, '0');
                     
                     // Create path like: uploads/prescriptions/2023/05/patientId/
                     const uploadPath = path.resolve(__dirname, `../../uploads/prescriptions/${year}/${month}/${patientId}`);
+                    console.log(`Creating prescription folder at: ${uploadPath}`);
                     fs.mkdirSync(uploadPath, { recursive: true });
                     cb(null, uploadPath);
                 },
@@ -341,7 +344,6 @@ export class PatientFilesController {
     }
 
     @Get('prescription/:id')
-    @UseGuards(JwtAuthGuard)
     async getPrescriptionFile(
         @Param('id', ParseIntPipe) prescriptionId: number,
         @Res() res: Response,
@@ -381,6 +383,147 @@ export class PatientFilesController {
                 },
                 error.status || HttpStatus.INTERNAL_SERVER_ERROR,
             );
+        }
+    }
+
+    @Get('prescription/by-consultation/:id')
+    @UseGuards(JwtAuthGuard)
+    async getPrescriptionByConsultation(
+        @Param('id', ParseIntPipe) consultationId: number,
+        @Res() res: Response,
+    ) {
+        try {
+            // Find prescription record by consultation_id
+            console.log(`Looking up prescription for consultation ID: ${consultationId}`);
+            
+            const prescription = await this.prisma.prescription.findFirst({
+                where: { consultation_id: consultationId }
+            });
+
+            if (!prescription) {
+                console.log(`No prescription found for consultation ID: ${consultationId}`);
+                throw new HttpException('Prescription not found', HttpStatus.NOT_FOUND);
+            }
+            
+            console.log(`Found prescription ID: ${prescription.prescription_id} for consultation ID: ${consultationId}`);
+            
+            // Return just the prescription data (not the file)
+            return res.json({
+                prescription_id: prescription.prescription_id,
+                consultation_id: prescription.consultation_id,
+                file_name: prescription.file_name,
+                file_size: prescription.file_size,
+                mime_type: prescription.mime_type,
+                date_uploaded: prescription.date_uploaded
+            });
+        } catch (error) {
+            console.error(`Error fetching prescription by consultation ${consultationId}:`, error);
+            throw new HttpException(
+                {
+                    status: error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+                    error: 'Failed to fetch prescription by consultation',
+                    message: error.message,
+                },
+                error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    @Post('view-prescription/:id')
+    async viewPrescriptionWithToken(
+        @Param('id', ParseIntPipe) prescriptionId: number,
+        @Body('token') token: string,
+        @Res() res: Response,
+    ) {
+        try {
+            // Verify token validity (simplified version)
+            if (!token) {
+                return res.status(401).send('Unauthorized: No token provided');
+            }
+
+            // Find prescription record
+            const prescription = await this.prisma.prescription.findUnique({
+                where: { prescription_id: prescriptionId }
+            });
+
+            if (!prescription) {
+                return res.status(404).send('Prescription not found');
+            }
+
+            // Check if file exists
+            const filePath = path.resolve(__dirname, `../../uploads/${prescription.file_path}`);
+            if (!fs.existsSync(filePath)) {
+                return res.status(404).send('Prescription file not found on disk');
+            }
+
+            // Set appropriate content type based on mime type
+            const contentType = prescription.mime_type || 'application/octet-stream';
+            
+            // Create an HTML page that will display the file with proper embedding
+            const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Prescription File - ${prescription.file_name}</title>
+                <style>
+                    body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+                    .container { 
+                        display: flex;
+                        flex-direction: column;
+                        height: 100vh;
+                    }
+                    .header {
+                        background: #2f4a71;
+                        color: white;
+                        padding: 10px 20px;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    }
+                    .content {
+                        flex-grow: 1;
+                        height: calc(100vh - 60px);
+                        width: 100%;
+                        border: none;
+                    }
+                    .btn {
+                        background: white;
+                        color: #2f4a71;
+                        border: none;
+                        padding: 8px 16px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: bold;
+                    }
+                    .btn:hover {
+                        background: #f0f0f0;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h2>Prescription: ${prescription.file_name}</h2>
+                        <button class="btn" onclick="window.print()">Print</button>
+                    </div>
+                    ${contentType.startsWith('image/') 
+                        ? `<img src="data:${contentType};base64,${fs.readFileSync(filePath).toString('base64')}" class="content" />`
+                        : contentType === 'application/pdf'
+                            ? `<iframe src="data:application/pdf;base64,${fs.readFileSync(filePath).toString('base64')}" class="content" type="application/pdf"></iframe>`
+                            : `<div class="content">File format not supported for preview</div>`
+                    }
+                </div>
+            </body>
+            </html>
+            `;
+
+            // Send the HTML page
+            res.setHeader('Content-Type', 'text/html');
+            return res.send(htmlContent);
+            
+        } catch (error) {
+            console.error('Error viewing prescription file:', error);
+            return res.status(500).send('Error viewing prescription file: ' + error.message);
         }
     }
 
