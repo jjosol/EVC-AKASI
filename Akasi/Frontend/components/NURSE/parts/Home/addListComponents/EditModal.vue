@@ -39,11 +39,11 @@
             @click="$emit('save')"
             class="px-4 py-2 text-white bg-green-500 rounded-md hover:bg-green-600"
           >
-            {{ hasNonOTCMedicines ? 'Send to Doctor' : 'Save' }}
+            {{ hasNonOTCMedicines && !hasPrescription ? 'Send to Doctor' : 'Save' }}
           </button>
           <div 
             v-else-if="doctorReviewed" 
-            class="px-4 py-2 text-white bg-blue-500 rounded-md flex items-center"
+            class="flex items-center px-4 py-2 text-white bg-blue-500 rounded-md"
           >
             <span class="mr-1">✓</span> Reviewed by Doctor
           </div>
@@ -75,6 +75,10 @@ const props = defineProps({
     default: () => []
   },
   hasNonOTCMedicines: {
+    type: Boolean,
+    default: false
+  },
+  hasPrescription: {
     type: Boolean,
     default: false
   },

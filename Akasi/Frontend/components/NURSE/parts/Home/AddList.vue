@@ -195,6 +195,10 @@ const createConsultationRecord = async (person) => {
       .map(d => getDispositionDisplayValue(d))
       .join(', ');
     
+    // If we have non-OTC medicines and no prescription file, we should send to doctor
+    // Otherwise, if we have a prescription file, we can save without sending to doctor
+    const shouldSendToDoctor = hasNonOTCMedicines.value && !prescriptionFile.value;
+    
     const consultationData = {
       patient_id: selectedPerson.value.clientId,
       nurse_id: currentUser.value.admin_id,
@@ -216,7 +220,7 @@ const createConsultationRecord = async (person) => {
         .map(c => c.disease_id),
       action: formattedAction || '',
       disposition: formattedDisposition || '',
-      doctorShow: hasNonOTCMedicines.value
+      doctorShow: shouldSendToDoctor
     };
     
     // Debug: log consultationData before sending
@@ -319,31 +323,59 @@ const fetchPatients = async () => {
     
     const currentDate = moment(props.currentDay.date).tz("Asia/Manila");
     
-    patients.value = data
+    // Create an array to store the promises for checking prescriptions
+    const patientPromises = data
       .filter(record => {
         const recordDate = moment(record.date).tz("Asia/Manila");
         return recordDate.isSame(currentDate, 'day');
       })
-      .map((record) => ({
-        id: record.patient_id,
-        consultation_id: record.consultation_id,
-        name: record.patient_name,
-        occupation: record.patient?.type || 'N/A',
-        category: record.patient?.type?.toLowerCase() === 'student' 
-          ? record.patient?.category 
-          : record.patient?.division || 'N/A',
-        time: moment(record.date).tz("Asia/Manila").format('hh:mm A'),
-        complaint: record.complaint,
-        remarks: record.remarks,
-        confined: record.confined,
-        medAdministration: record.medAdministration,
-        intervention: record.intervention,
-        action: record.action,
-        disposition: record.disposition,
-        doctorShow: record.doctorShow || false,
-        doctor_reviewed: record.doctor_reviewed || false,
-        nurse_notified: record.nurse_notified || false
-      }));
+      .map(async (record) => {
+        // Check if this consultation has a prescription file
+        let hasPrescription = false;
+        if (record.medAdministration) {
+          try {
+            const response = await fetch(`http://localhost:3001/patient-files/prescription/by-consultation/${record.consultation_id}`, {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              }
+            });
+            
+            if (response.ok) {
+              const prescriptionInfo = await response.json();
+              hasPrescription = !!prescriptionInfo?.prescription_id;
+            }
+          } catch (error) {
+            console.error('Error checking for prescription file:', error);
+            // Default to false if there's an error
+            hasPrescription = false;
+          }
+        }
+        
+        return {
+          id: record.patient_id,
+          consultation_id: record.consultation_id,
+          name: record.patient_name,
+          occupation: record.patient?.type || 'N/A',
+          category: record.patient?.type?.toLowerCase() === 'student' 
+            ? record.patient?.category 
+            : record.patient?.division || 'N/A',
+          time: moment(record.date).tz("Asia/Manila").format('hh:mm A'),
+          complaint: record.complaint,
+          remarks: record.remarks,
+          confined: record.confined,
+          medAdministration: record.medAdministration,
+          intervention: record.intervention,
+          action: record.action,
+          disposition: record.disposition,
+          doctorShow: record.doctorShow || false,
+          doctor_reviewed: record.doctor_reviewed || false,
+          nurse_notified: record.nurse_notified || false,
+          hasPrescription: hasPrescription // Add the prescription flag
+        };
+      });
+    
+    // Wait for all prescription checks to complete
+    patients.value = await Promise.all(patientPromises);
   } catch (error) {
     console.error('Error fetching patients:', error.message);
   }
@@ -2417,16 +2449,25 @@ const closePrescriptionModal = () => {
             {{ patient.time }} - {{ patient.name }}
             <span v-if="patient.confined" class="ml-2 text-xs font-bold text-red-500">[CONFINED]</span>
             <span v-if="patient.medAdministration" class="ml-2 text-xs font-bold text-blue-500">[MEDICATION]</span>
+            <span v-if="patient.doctorShow && !patient.doctor_reviewed" class="ml-2 text-xs font-bold text-amber-500">[IN REVIEW]</span>
           </span>
           <div class="flex items-center">
-            <!-- Prescription View Button -->
+            <!-- Prescription View Button - Only show if patient has a prescription -->
             <button 
-              v-if="patient.medAdministration"
+              v-if="patient.medAdministration && patient.hasPrescription"
               @click="viewPrescription(patient.consultation_id)"
               class="p-1 mr-1 text-white bg-blue-500 rounded hover:bg-blue-600"
               title="View Prescription"
             >
               <Icon icon="mdi:file-document" class="w-5 h-5" />
+            </button>
+            <!-- Record Under Review Indicator -->
+            <button 
+              v-if="patient.doctorShow && !patient.doctor_reviewed"
+              title="Under doctor review"
+              class="p-1 mr-1 text-white rounded cursor-default bg-amber-500"
+            >
+              <Icon icon="mdi:clock-outline" class="w-5 h-5" />
             </button>
             <!-- Send to Doctor Button -->
             <button 
@@ -2563,6 +2604,7 @@ const closePrescriptionModal = () => {
   :current-page="currentModalPage"
   :total-pages="selectedPerson?.doctor_reviewed || (selectedConsultationRecord?.doctor_diagnosis && selectedConsultationRecord?.doctor_diagnosis.trim() !== '') ? 3 : 2"
   :has-non-OTC-medicines="hasNonOTCMedicines"
+  :has-prescription="prescriptionFile !== null"
   :doctor-reviewed="selectedPerson?.doctor_reviewed || (selectedConsultationRecord?.doctor_diagnosis && selectedConsultationRecord?.doctor_diagnosis.trim() !== '')"
   @cancel="cancelEdit"
   @save="confirmAction('consultation')"
@@ -2924,7 +2966,7 @@ const closePrescriptionModal = () => {
                   </select>
                   <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
                     <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 0 010-1.414z" clip-rule="evenodd"></path>
+                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 0 01-1.414 0l-4-4a1 0 010-1.414z" clip-rule="evenodd"></path>
                     </svg>
                   </div>
                 </div>
@@ -3000,7 +3042,7 @@ const closePrescriptionModal = () => {
                   </select>
                   <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
                     <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 0 010-1.414z" clip-rule="evenodd"></path>
+                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 0 01-1.414 0l-4-4a1 0 010-1.414z" clip-rule="evenodd"></path>
                     </svg>
                   </div>
                 </div>
