@@ -17,6 +17,7 @@ import MedicineDetailModal from './addListComponents/MedicineDetailModal.vue';
 import AddDiagnosisModal from './addListComponents/AddDiagnosisModal.vue';
 import AddCategoryModal from './addListComponents/AddCategoryModal.vue';
 import StatusModal from './addListComponents/StatusModal.vue';
+import DoctorResponseModal from './addListComponents/DoctorResponseModal.vue'; // Import the new DoctorResponseModal component
 
 // Properly initialize the profile composable
 const { profile, loading: profileLoading, fetchProfile } = useProfile();
@@ -90,9 +91,12 @@ const medicinesVisible = ref(true);
 const showConfirmationModal = ref(false);
 const confirmationMessage = ref('');
 const pendingSaveAction = ref(null);
+// New modal state for doctor response
+const showDoctorResponseModal = ref(false);
 // Selected person and record
 const selectedPerson = ref(null);
 const selectedConsultationRecord = ref(null);
+const selectedConsultationForDoctorResponse = ref(null);
 // Selected date/time
 const selectedDate = computed(() => {
   // Use the currentDay prop or fallback to current Manila time
@@ -848,6 +852,15 @@ const openEditModal = async (patient) => {
     console.error('Error opening edit modal:', error);
     alert('Failed to load consultation record');
   }
+};
+
+/**
+ * Opens doctor response modal to view doctor's review of a consultation
+ * @param {Object} patient - Patient consultation to view
+ */
+const openDoctorResponseModal = (patient) => {
+  selectedConsultationForDoctorResponse.value = patient;
+  showDoctorResponseModal.value = true;
 };
 
 /**
@@ -2389,6 +2402,16 @@ const closePrescriptionModal = () => {
   currentPrescription.value = null;
   prescriptionViewError.value = '';
 };
+
+// Computed property to filter consultations reviewed by doctors
+const reviewedConsultations = computed(() => {
+  return patients.value.filter(patient => patient.doctor_reviewed === true);
+});
+
+// Computed property to filter consultations not yet reviewed by doctors
+const pendingConsultations = computed(() => {
+  return patients.value.filter(patient => patient.doctor_reviewed === false);
+});
 </script>
 
 <template>
