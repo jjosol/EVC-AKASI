@@ -180,36 +180,48 @@ const createAccount = async (isClient = false, isManager = false) => {
 
 const updateAccount = async (isClient = false, isManager = false) => {
   if (!validateForm(selectedAccount.value, isClient)) return;
-  
   try {
     isLoading.value = true;
-    
     if (isClient) {
+      // Only send allowed patient fields
+      const {
+        username, name, gmail, age, gender, type, civil_status, address, division, position, grade, section, category, password
+      } = selectedAccount.value;
+      const patientData = {
+        username, name, gmail, age, gender, type, civil_status, address, division, position, grade, section, category
+      };
+      if (password && password.trim() !== '') patientData.password = password;
       await updatePatientAccount(
         selectedAccount.value.patient_id || selectedAccount.value.client_id,
-        selectedAccount.value
+        patientData
       );
       successMessage.value = 'Patient account updated successfully';
       await loadClientAccounts();
     } else if (isManager) {
+      // Only send allowed doctor fields
+      const { username, gmail, name, password } = selectedAccount.value;
+      const doctorData = { username, gmail, name };
+      if (password && password.trim() !== '') doctorData.password = password;
       await updateDoctorAccount(
         selectedAccount.value.doctor_id || selectedAccount.value.manager_id,
-        selectedAccount.value
+        doctorData
       );
       successMessage.value = 'Doctor account updated successfully';
       await loadManagerAccounts();
     } else {
+      // Only send allowed nurse fields
+      const { username, gmail, name, password } = selectedAccount.value;
+      const nurseData = { username, gmail, name };
+      if (password && password.trim() !== '') nurseData.password = password;
       await updateNurseAccount(
         selectedAccount.value.nurse_id || selectedAccount.value.admin_id,
-        selectedAccount.value
+        nurseData
       );
       successMessage.value = 'Nurse account updated successfully';
       await loadAdminAccounts();
     }
-    
     showEditModal.value = false;
     selectedAccount.value = null;
-    
   } catch (error) {
     errorMessage.value = `Error: ${error.message}`;
     console.error(`Error updating account:`, error);
@@ -640,18 +652,6 @@ const processExcelImport = async () => {
               }
               
               // Refresh client accounts after processing graduates
-              existingAccounts = await fetchClientAccounts();
-              importResults.value.logs.push(`✅ Processed ${graduatingStudents.length} graduating students`);
-            } catch (error) {
-              importResults.value.logs.push(`❌ Error processing graduating students: ${error.message}`);
-            }
-          }
-          
-          // Now continue with the normal import process...
-          for (const row of jsonData) {
-            try {
-              // Original validation and processing code
-              const validationError = validateExcelRow(row, massImportType.value);
               if (validationError) {
                 throw new Error(validationError);
               }
@@ -1405,7 +1405,7 @@ const downloadSampleTemplate = () => {
       <div class="relative p-5 mx-auto bg-white border rounded-md shadow-lg top-20 w-96">
         <div class="mt-3">
           <h3 class="text-lg font-medium leading-6 text-center text-gray-900">
-            Edit {{ activeTab === 'nurse' ? 'Nurse' : activeTab === 'clients' ? 'Client' : 'Manager' }} Account
+            Edit {{ activeTab === 'admins' ? 'Nurse' : activeTab === 'clients' ? 'Patient' : 'Doctor' }} Account
           </h3>
           
           <!-- Error Message -->

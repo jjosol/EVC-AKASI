@@ -2430,21 +2430,20 @@ const closePrescriptionModal = () => {
             </button>
             <!-- Send to Doctor Button -->
             <button 
-              v-if="hasNonOTCMedicines && !patient.doctorShow && !patient.doctor_reviewed"
+              v-if="!patient.doctorShow && !patient.doctor_reviewed"
               @click="sendToDoctor(patient)"
-              :disabled="patient.doctorShow"
               class="p-1 mr-1 text-white bg-green-500 rounded hover:bg-green-600"
               title="Send to Doctor"
             >
-              <Icon icon="mdi:doctor" class="w-5 h-5" />
+              <Icon icon="mdi:arrow-right" class="w-5 h-5" />
             </button>
             <!-- Doctor Reviewed Indicator -->
             <button 
               v-if="patient.doctor_reviewed"
               title="Doctor has reviewed this record"
-              class="p-1 mr-1 text-white bg-blue-500 rounded"
+              class="p-1 mr-1 text-white bg-blue-500 rounded cursor-default"
             >
-              <Icon icon="mdi:check-circle" class="w-5 h-5" />
+              <Icon icon="mdi:arrow-left" class="w-5 h-5" />
             </button>
             <!-- Delete Button -->
             <button 
@@ -2683,7 +2682,7 @@ const closePrescriptionModal = () => {
                 <!-- Custom dropdown arrow -->
                 <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
                   <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a 1 0 01-1.414 0l-4-4a1 0 010-1.414z" clip-rule="evenodd"></path>
                   </svg>
                 </div>
               </div>
@@ -2925,7 +2924,7 @@ const closePrescriptionModal = () => {
                   </select>
                   <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
                     <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 0 010-1.414z" clip-rule="evenodd"></path>
                     </svg>
                   </div>
                 </div>
@@ -3001,7 +3000,7 @@ const closePrescriptionModal = () => {
                   </select>
                   <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
                     <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 0 010-1.414z" clip-rule="evenodd"></path>
                     </svg>
                   </div>
                 </div>

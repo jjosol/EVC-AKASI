@@ -677,18 +677,10 @@ export const fetchPrescriptionFile = async (consultation_id: number) => {
  */
 export const downloadPrescriptionFile = async (prescription_id: number) => {
   try {
-    console.log(`Downloading prescription file with ID: ${prescription_id}`);
-    // Get token from localStorage
-    const token = localStorage.getItem('token');
-    
-    if (!token) {
-      throw new Error('Authentication required to download files');
-    }
-
     // This endpoint returns the actual file content
     const response = await fetch(`${getBaseUrl()}/patient-files/prescription/${prescription_id}`, {
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
     });
     
@@ -704,8 +696,7 @@ export const downloadPrescriptionFile = async (prescription_id: number) => {
 };
 
 /**
- * Opens the prescription file in a modal view
- * This is a placeholder function that will be replaced by UI components
+ * Opens the prescription file in a new browser tab
  * @param {number} consultation_id - ID of the consultation to view prescription for
  * @returns {Promise<void>}
  */
@@ -720,13 +711,51 @@ export const viewPrescriptionFile = async (consultation_id: number) => {
     
     console.log('Found prescription file:', prescriptionInfo);
     
-    // Return the prescription info - the actual viewing will be handled by the PrescriptionViewModal component
+    // Instead of directly opening a URL that would lose our auth token,
+    // create a temporary anchor element with a download attribute
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('You must be logged in to view prescription files');
+    }
+    
+    // Method 1: Create a proxy endpoint that generates a URL with embedded token
+    // Create a hidden iframe to load the file with proper authentication
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    
+    // Create a form inside the iframe that will POST to the prescription endpoint
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.target = '_blank';
+    form.action = `${getBaseUrl()}/patient-files/view-prescription/${prescriptionInfo.prescription_id}`;
+    
+    // Add token as a hidden field
+    const tokenField = document.createElement('input');
+    tokenField.type = 'hidden';
+    tokenField.name = 'token';
+    tokenField.value = token;
+    form.appendChild(tokenField);
+    
+    // Append the form to the iframe's document and submit it
+    iframe.onload = () => {
+      iframe.contentDocument.body.appendChild(form);
+      form.submit();
+      
+      // Clean up after a short delay
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    };
+    
     return prescriptionInfo;
   } catch (error) {
-    console.error('Error preparing prescription file for view:', error);
+    console.error('Error viewing prescription file:', error);
+    alert('Could not view prescription file: ' + error.message);
     throw error;
   }
-};
+}
 
 // Helper function to get base URL (copy from apiService to avoid circular dependencies)
 const getBaseUrl = () => {
