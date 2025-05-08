@@ -400,6 +400,25 @@ export const deleteDiseaseCategory = async (category_id: number) => {
   return del(`${DIAGNOSIS_URL}/categories/${category_id}`);
 };
 
+/**
+ * Toggles the active status of a diagnosis
+ * @param {number} diagnosis_id - ID of the diagnosis to toggle
+ * @returns {Promise<any>} Updated diagnosis with toggled status
+ */
+export const toggleDiagnosisStatus = async (diagnosis_id: number) => {
+  return put(`${DIAGNOSIS_URL}/${diagnosis_id}/toggle-status`, {});
+};
+
+/**
+ * Updates a disease category
+ * @param {number} category_id - ID of the category to update
+ * @param {any} data - Updated category data
+ * @returns {Promise<any>} Updated category
+ */
+export const updateDiseaseCategory = async (category_id: number, data: any) => {
+  return put(`${DIAGNOSIS_URL}/categories/${category_id}`, data);
+};
+
 // Appointment-related functions
 
 /**
@@ -756,6 +775,15 @@ export const viewPrescriptionFile = async (consultation_id: number) => {
     throw error;
   }
 }
+
+/**
+ * Fetches prescription by consultation ID (alias for fetchPrescriptionFile)
+ * @param {number} consultation_id - ID of the consultation
+ * @returns {Promise<any>} Prescription data
+ */
+export const fetchPrescriptionByConsultation = async (consultation_id: number) => {
+  return fetchPrescriptionFile(consultation_id);
+};
 
 // Helper function to get base URL (copy from apiService to avoid circular dependencies)
 const getBaseUrl = () => {

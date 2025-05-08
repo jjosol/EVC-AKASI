@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { Icon } from '@iconify/vue';
 import * as consultationRecordService from '~/services/consultationRecordService';
+import DiagnosisModalD from './DiagnosisModalD.vue';
 
 const props = defineProps({
   show: {
@@ -22,12 +23,20 @@ const weight = ref('');
 const height = ref('');
 const bloodPressure = ref('');
 const heartRate = ref('');
-const complaints = ref('');
+const complaints = ref(''); // keep this for backward compatibility
+const selectedDiagnosis = ref(null); // new ref for selected diagnosis
 const treatment = ref('');
+
+// Diagnosis system refs
+const diagnoses = ref([]);
+const diagnosisSearchQuery = ref('');
+const showDiagnosisDropdown = ref(false);
+const showManageDiagnosisModal = ref(false);
 
 // Loading state
 const isSaving = ref(false);
 const isLoadingDetails = ref(false);
+const isLoadingDiagnoses = ref(false);
 
 // Consultation details
 const consultationDetails = ref(null);
@@ -164,7 +173,7 @@ const fetchConsultationDetails = async (consultationId) => {
     
     // Check for prescription
     try {
-      const prescriptionInfo = await consultationRecordService.fetchPrescriptionByConsultation(consultationId);
+      const prescriptionInfo = await consultationRecordService.fetchPrescriptionFile(consultationId);
       if (prescriptionInfo && prescriptionInfo.prescription_id) {
         hasPrescription.value = true;
         prescriptionDetails.value = prescriptionInfo;
@@ -184,6 +193,61 @@ const fetchConsultationDetails = async (consultationId) => {
     isLoadingDetails.value = false;
   }
 };
+
+// Function to fetch all available diagnoses
+const fetchDiagnoses = async () => {
+  try {
+    isLoadingDiagnoses.value = true;
+    const data = await consultationRecordService.fetchDiseases();
+    diagnoses.value = data;
+  } catch (error) {
+    console.error('Error fetching diagnoses:', error);
+  } finally {
+    isLoadingDiagnoses.value = false;
+  }
+};
+
+// Function to toggle diagnosis dropdown
+const toggleDiagnosisDropdown = () => {
+  showDiagnosisDropdown.value = !showDiagnosisDropdown.value;
+};
+
+// Function to close dropdown when clicking outside
+const closeDiagnosisDropdown = () => {
+  showDiagnosisDropdown.value = false;
+};
+
+// Function to select diagnosis
+const selectDiagnosis = (diagnosis) => {
+  selectedDiagnosis.value = diagnosis;
+  complaints.value = diagnosis.name; // update complaints field for backward compatibility
+  showDiagnosisDropdown.value = false;
+};
+
+// Function to open diagnosis management modal
+const openManageDiagnosisModal = () => {
+  showManageDiagnosisModal.value = true;
+};
+
+// Function to close diagnosis management modal
+const closeManageDiagnosisModal = () => {
+  showManageDiagnosisModal.value = false;
+  // Refresh diagnoses list after potential changes
+  fetchDiagnoses();
+};
+
+// Filter diagnoses based on search query
+const filteredDiagnoses = computed(() => {
+  if (!diagnosisSearchQuery.value) {
+    return diagnoses.value;
+  }
+  
+  const query = diagnosisSearchQuery.value.toLowerCase();
+  return diagnoses.value.filter(diagnosis => 
+    diagnosis.name.toLowerCase().includes(query) || 
+    (diagnosis.category && diagnosis.category.name.toLowerCase().includes(query))
+  );
+});
 
 // Function to close modal
 const closeModal = () => {
@@ -244,6 +308,18 @@ const saveConsultation = async () => {
       medicalData
     );
     
+    // If we have a selected diagnosis with ID, link it to the consultation
+    if (selectedDiagnosis.value && selectedDiagnosis.value.diagnosis_id) {
+      try {
+        await consultationRecordService.linkDiagnosisToConsultation(
+          props.consultation.consultation_id,
+          selectedDiagnosis.value.diagnosis_id
+        );
+      } catch (diagnosisError) {
+        console.warn('Failed to link diagnosis to consultation:', diagnosisError);
+      }
+    }
+    
     // Update to show nurse view
     currentPage.value = 3;
 
@@ -253,7 +329,7 @@ const saveConsultation = async () => {
     );
     
     // Show success message
-    alert('Medical data saved successfully and sent to the nurse');
+    alert('Medical record saved successfully and sent to the nurse');
     
     // Trigger refresh but don't close modal yet (nurse can see the info)
     emit('save');
@@ -310,6 +386,11 @@ watch(() => props.consultation, async (newConsultation) => {
     }
   }
 }, { immediate: true });
+
+// Fetch diagnoses when component is mounted
+onMounted(() => {
+  fetchDiagnoses();
+});
 </script>
 
 <template>
@@ -554,12 +635,35 @@ watch(() => props.consultation, async (newConsultation) => {
                 <Icon icon="mdi:check-circle" class="w-4 h-4 mr-1" />Completed
               </span>
             </div>
-            <textarea
-              v-model="complaints"
-              class="w-full h-32 px-3 py-2 text-sm transition-all border rounded-md resize-none"
-              :class="complaints ? 'border-green-400 bg-green-50' : 'border-gray-300'"
-              placeholder="Enter patient complaints and diagnosis"
-            ></textarea>
+            <div class="relative">
+              <input
+                v-model="diagnosisSearchQuery"
+                @focus="toggleDiagnosisDropdown"
+                @blur="closeDiagnosisDropdown"
+                type="text"
+                class="w-full px-3 py-2 text-sm transition-all border rounded-md"
+                :class="selectedDiagnosis ? 'border-green-400 bg-green-50' : 'border-gray-300'"
+                placeholder="Search or select diagnosis"
+              />
+              <button
+                @click="openManageDiagnosisModal"
+                class="absolute top-0 right-0 px-3 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none"
+              >
+                Manage
+              </button>
+              <div v-if="showDiagnosisDropdown" class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
+                <ul class="py-1 overflow-auto max-h-48">
+                  <li
+                    v-for="diagnosis in filteredDiagnoses"
+                    :key="diagnosis.diagnosis_id"
+                    @mousedown.prevent="selectDiagnosis(diagnosis)"
+                    class="px-4 py-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-100"
+                  >
+                    {{ diagnosis.name }} <span v-if="diagnosis.category" class="text-xs text-gray-500">({{ diagnosis.category.name }})</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
           
           <!-- Treatment/Instructions - larger field -->
@@ -904,4 +1008,11 @@ watch(() => props.consultation, async (newConsultation) => {
       </div>
     </div>
   </div>
+
+  <!-- Diagnosis Management Modal -->
+  <DiagnosisModalD 
+    :show="showManageDiagnosisModal" 
+    @close="closeManageDiagnosisModal"
+    @update="fetchDiagnoses"
+  />
 </template>
