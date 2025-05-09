@@ -2473,6 +2473,7 @@ const pendingConsultations = computed(() => {
             <span v-if="patient.confined" class="ml-2 text-xs font-bold text-red-500">[CONFINED]</span>
             <span v-if="patient.medAdministration" class="ml-2 text-xs font-bold text-blue-500">[MEDICATION]</span>
             <span v-if="patient.doctorShow && !patient.doctor_reviewed" class="ml-2 text-xs font-bold text-amber-500">[IN REVIEW]</span>
+            <span v-if="patient.doctor_reviewed" class="ml-2 text-xs font-bold text-green-500">[REVIEWED]</span>
           </span>
           <div class="flex items-center">
             <!-- Prescription View Button - Only show if patient has a prescription -->
@@ -2483,6 +2484,15 @@ const pendingConsultations = computed(() => {
               title="View Prescription"
             >
               <Icon icon="mdi:file-document" class="w-5 h-5" />
+            </button>
+            <!-- Doctor's Response Button - Only show if doctor has reviewed -->
+            <button 
+              v-if="patient.doctor_reviewed"
+              @click="openDoctorResponseModal(patient)"
+              class="p-1 mr-1 text-white bg-green-500 rounded hover:bg-green-600"
+              title="View Doctor's Response"
+            >
+              <Icon icon="mdi:stethoscope" class="w-5 h-5" />
             </button>
             <!-- Record Under Review Indicator -->
             <button 
@@ -2500,14 +2510,6 @@ const pendingConsultations = computed(() => {
               title="Send to Doctor"
             >
               <Icon icon="mdi:arrow-right" class="w-5 h-5" />
-            </button>
-            <!-- Doctor Reviewed Indicator -->
-            <button 
-              v-if="patient.doctor_reviewed"
-              title="Doctor has reviewed this record"
-              class="p-1 mr-1 text-white bg-blue-500 rounded cursor-default"
-            >
-              <Icon icon="mdi:arrow-left" class="w-5 h-5" />
             </button>
             <!-- Delete Button -->
             <button 
@@ -3481,6 +3483,15 @@ const pendingConsultations = computed(() => {
       </div>
     </div>
   </div>
+
+  <!-- Doctor Response Modal -->
+  <DoctorResponseModal
+    v-if="showDoctorResponseModal"
+    :show="showDoctorResponseModal"
+    :consultation="selectedConsultationForDoctorResponse"
+    @close="showDoctorResponseModal = false"
+    @refresh="fetchPatients"
+  />
   </div>
 </template>
 
