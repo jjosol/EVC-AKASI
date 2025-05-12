@@ -751,12 +751,14 @@ const openEditModal = async (patient) => {
       }
     }
 
-    // Parse the disposition string into dispositions array
-    dispositions.value = [{ id: generateId(), value: '', details: '' }]; // Reset to default first
+    // Parse the disposition string into dispositions array - IMPROVED VERSION
+    dispositions.value = []; // Reset completely before parsing
     if (consultationRecord.disposition) {
       try {
         const dispositionsArray = consultationRecord.disposition.split(', ');
-        dispositions.value = dispositionsArray.map(dispositionText => {
+        
+        // Create a new array of disposition objects
+        const newDispositions = dispositionsArray.map(dispositionText => {
           // Check if it's a special case with details
           const otherMatch = dispositionText.match(/^Other: (.+)$/);
           
@@ -767,16 +769,36 @@ const openEditModal = async (patient) => {
               details: otherMatch[1]
             };
           } else {
+            // For standard dispositions, just use the text as the value
             return {
               id: generateId(),
-              value: dispositionText,
+              value: dispositionText.trim(), // Trim to remove any leading/trailing whitespace
               details: ''
             };
           }
         });
+        
+        // Only if we have valid dispositions, assign them
+        if (newDispositions.length > 0) {
+          dispositions.value = newDispositions;
+        } else {
+          // Fallback to an empty default if parsing failed
+          dispositions.value = [{ id: generateId(), value: '', details: '' }];
+        }
+        
+        // Add debug logging to help diagnose any issues
+        console.log('Parsed dispositions:', {
+          original: consultationRecord.disposition,
+          parsed: dispositions.value.map(d => d.value)
+        });
       } catch (error) {
         console.error('Error parsing dispositions string:', error);
+        // Fallback to empty default
+        dispositions.value = [{ id: generateId(), value: '', details: '' }];
       }
+    } else {
+      // No disposition in the record, set to empty default
+      dispositions.value = [{ id: generateId(), value: '', details: '' }];
     }
 
     // Fetch medication administration records
@@ -1926,29 +1948,65 @@ watch(
         .map(d => getDispositionDisplayValue(d))
         .join(', ');
       
-      // Update the disposition field directly rather than relying on deep reactivity
-      selectedPerson.value.disposition = formattedDisposition;
-      
-      // Add debug logging
-      console.log('Disposition updated:', {
-        dispositions: newVal,
-        formatted: formattedDisposition,
-        saved: selectedPerson.value.disposition
-      });
+      // Update the disposition field directly
+      if (selectedPerson.value.disposition !== formattedDisposition) {
+        selectedPerson.value.disposition = formattedDisposition;
+        
+        // Add debug logging
+        console.log('Disposition updated:', {
+          dispositions: newVal,
+          formatted: formattedDisposition,
+          saved: selectedPerson.value.disposition
+        });
+      }
     }
   },
-  { deep: true }
+  { deep: true, immediate: true }
 );
 
+// Watch for changes to selectedPerson.disposition and update the dispositions array
 watch(
-  () => selectedPerson.value && selectedPerson.value.disposition,
+  () => selectedPerson.value?.disposition,
   (newVal) => {
-    if (!newVal) {
+    if (newVal) {
+      try {
+        // Don't reset dispositions array if it already has values
+        // This prevents the dropdown from being cleared when selecting common options
+        if (dispositions.value.length === 0 || dispositions.value.every(d => !d.value)) {
+          dispositions.value = [];
+          
+          const dispositionsArray = newVal.split(', ');
+          dispositions.value = dispositionsArray.map(dispositionText => {
+            // Check if it's a special case with details
+            const otherMatch = dispositionText.match(/^Other: (.+)$/);
+            
+            if (otherMatch) {
+              return {
+                id: generateId(),
+                value: 'Other',
+                details: otherMatch[1]
+              };
+            } else {
+              return {
+                id: generateId(),
+                value: dispositionText,
+                details: ''
+              };
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error parsing disposition string:', error);
+        // If parsing fails, set a default empty disposition
+        dispositions.value = [{ id: generateId(), value: '', details: '' }];
+      }
+    } else {
+      // Reset to empty if no disposition
       dispositions.value = [{ id: generateId(), value: '', details: '' }];
     }
-    // Optionally, parse string to array if needed
-  }
-)
+  },
+  { immediate: true }
+);
 
 /**
  * Handles confirmation from the confirmation modal
