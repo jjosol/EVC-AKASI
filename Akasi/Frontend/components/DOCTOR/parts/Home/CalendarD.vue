@@ -83,13 +83,41 @@ const fetchCounts = async () => {
   // Only fetch counts if user is authenticated and has the proper role
   if (isAuthenticated.value && (isNurse.value || isDoctor.value)) {
     try {
-      await Promise.all([
+      console.log('Fetching counts for:', selectedYear.value, selectedMonth.value);
+      
+      // Immediately set loading state by resetting counts
+      confinedCount.value = 0;
+      monthlyConsultationCount.value = 0;
+      yearlyConsultationCount.value = 0;
+      
+      // Fetch all counts in parallel
+      const [confined, monthly, yearly] = await Promise.all([
         fetchConfinedCount(selectedYear.value, selectedMonth.value),
         fetchMonthlyConsultationCount(selectedYear.value, selectedMonth.value),
         fetchYearlyConsultationCount(selectedYear.value)
       ]);
+      
+      console.log('Fetched counts:', { confined, monthly, yearly });
+      
+      // Update the ref values with the fetched counts
+      confinedCount.value = Number(confined) || 0;
+      monthlyConsultationCount.value = Number(monthly) || 0;
+      yearlyConsultationCount.value = Number(yearly) || 0;
+      
+      // Force component update
+      nextTick(() => {
+        console.log('Updated counts:', {
+          confined: confinedCount.value,
+          monthly: monthlyConsultationCount.value,
+          yearly: yearlyConsultationCount.value
+        });
+      });
     } catch (error) {
       console.error('Error fetching calendar counts:', error);
+      // Set to 0 on error
+      confinedCount.value = 0;
+      monthlyConsultationCount.value = 0;
+      yearlyConsultationCount.value = 0;
     }
   }
 };

@@ -71,6 +71,7 @@ export async function get(endpoint: string) {
   // Add token to GET requests - use safeLocalStorage instead of direct localStorage
   const token = safeLocalStorage.getItem('token');
   try {
+    console.log(`Making GET request to ${baseUrl}${endpoint}`);
     const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {
       headers: {
         'Authorization': token ? `Bearer ${token}` : ''
@@ -79,7 +80,9 @@ export async function get(endpoint: string) {
     if (!response.ok) {
       throw new Error(`GET ${endpoint} failed: ${response.statusText}`);
     }
-    return response.json();
+    const data = await response.json();
+    console.log(`GET ${endpoint} response:`, data);
+    return data;
   } catch (error) {
     console.error(`Network error during GET ${endpoint}:`, error);
     throw error;

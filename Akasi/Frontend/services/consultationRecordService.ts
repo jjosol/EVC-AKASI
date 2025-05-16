@@ -112,6 +112,16 @@ export const fetchConsultationRecord = async (consultation_id: number) => {
   return get(`${BASE_URL}/${consultation_id}`);
 };
 
+// Simple cache to avoid repeated API calls
+const countCache = {
+  consultation: new Map(),
+  confined: new Map(),
+  yearly: new Map(),
+  expirationTime: 5 * 60 * 1000, // 5 minutes cache
+  getKey: (year: number, month: number) => `${year}-${month}`,
+  isValid: (timestamp: number) => Date.now() - timestamp < countCache.expirationTime
+};
+
 /**
  * Fetches count of consultation records for specific month/year
  * @param {number} year - Year to count
@@ -119,7 +129,39 @@ export const fetchConsultationRecord = async (consultation_id: number) => {
  * @returns {Promise<number>} Count of consultations
  */
 export const fetchConsultationRecordsCount = async (year: number, month: number) => {
-  return get(`${BASE_URL}/count?year=${year}&month=${month}`);
+  try {
+    // Check cache first
+    const cacheKey = countCache.getKey(year, month);
+    const cachedData = countCache.consultation.get(cacheKey);
+    
+    if (cachedData && countCache.isValid(cachedData.timestamp)) {
+      console.log(`Using cached consultation count for ${year}-${month}`);
+      return cachedData.value;
+    }
+    
+    const result = await get(`${BASE_URL}/count?year=${year}&month=${month}`);
+    const count = typeof result === 'number' ? result : 0;
+    
+    // Cache the result
+    countCache.consultation.set(cacheKey, {
+      value: count,
+      timestamp: Date.now()
+    });
+    
+    return count;
+  } catch (error) {
+    console.error(`Error fetching consultation count for ${year}-${month}:`, error);
+    
+    // Check if we have a cached value to use as fallback
+    const cacheKey = countCache.getKey(year, month);
+    const cachedData = countCache.consultation.get(cacheKey);
+    if (cachedData) {
+      console.log(`Using cached value due to error: ${cachedData.value}`);
+      return cachedData.value;
+    }
+    
+    return 0; // Return 0 as a fallback value
+  }
 };
 
 /**
@@ -129,7 +171,39 @@ export const fetchConsultationRecordsCount = async (year: number, month: number)
  * @returns {Promise<number>} Count of consultations
  */
 export const fetchConfinedConsultationRecordsCount = async (year: number, month: number) => {
-  return get(`${BASE_URL}/count?year=${year}&month=${month}&confined=true`);
+  try {
+    // Check cache first
+    const cacheKey = countCache.getKey(year, month);
+    const cachedData = countCache.confined.get(cacheKey);
+    
+    if (cachedData && countCache.isValid(cachedData.timestamp)) {
+      console.log(`Using cached confined count for ${year}-${month}`);
+      return cachedData.value;
+    }
+    
+    const result = await get(`${BASE_URL}/count?year=${year}&month=${month}&confined=true`);
+    const count = typeof result === 'number' ? result : 0;
+    
+    // Cache the result
+    countCache.confined.set(cacheKey, {
+      value: count,
+      timestamp: Date.now()
+    });
+    
+    return count;
+  } catch (error) {
+    console.error(`Error fetching confined count for ${year}-${month}:`, error);
+    
+    // Check if we have a cached value to use as fallback
+    const cacheKey = countCache.getKey(year, month);
+    const cachedData = countCache.confined.get(cacheKey);
+    if (cachedData) {
+      console.log(`Using cached value due to error: ${cachedData.value}`);
+      return cachedData.value;
+    }
+    
+    return 0; // Return 0 as a fallback value
+  }
 };
 
 /**
@@ -138,7 +212,37 @@ export const fetchConfinedConsultationRecordsCount = async (year: number, month:
  * @returns {Promise<number>} Count of consultations for the year
  */
 export const fetchYearlyConsultationCount = async (year: number) => {
-  return get(`${BASE_URL}/year-count?year=${year}`);
+  try {
+    // Check cache first
+    const cachedData = countCache.yearly.get(year);
+    
+    if (cachedData && countCache.isValid(cachedData.timestamp)) {
+      console.log(`Using cached yearly count for ${year}`);
+      return cachedData.value;
+    }
+    
+    const result = await get(`${BASE_URL}/year-count?year=${year}`);
+    const count = typeof result === 'number' ? result : 0;
+    
+    // Cache the result
+    countCache.yearly.set(year, {
+      value: count,
+      timestamp: Date.now()
+    });
+    
+    return count;
+  } catch (error) {
+    console.error(`Error fetching yearly consultation count for ${year}:`, error);
+    
+    // Check if we have a cached value to use as fallback
+    const cachedData = countCache.yearly.get(year);
+    if (cachedData) {
+      console.log(`Using cached value due to error: ${cachedData.value}`);
+      return cachedData.value;
+    }
+    
+    return 0; // Return 0 as a fallback value
+  }
 };
 
 /**
@@ -775,15 +879,6 @@ export const viewPrescriptionFile = async (consultation_id: number) => {
     throw error;
   }
 }
-
-/**
- * Fetches prescription by consultation ID (alias for fetchPrescriptionFile)
- * @param {number} consultation_id - ID of the consultation
- * @returns {Promise<any>} Prescription data
- */
-export const fetchPrescriptionByConsultation = async (consultation_id: number) => {
-  return fetchPrescriptionFile(consultation_id);
-};
 
 // Helper function to get base URL (copy from apiService to avoid circular dependencies)
 const getBaseUrl = () => {
