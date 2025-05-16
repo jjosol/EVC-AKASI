@@ -17,6 +17,7 @@ import MedicineDetailModal from './addListComponents/MedicineDetailModal.vue';
 import AddDiagnosisModal from './addListComponents/AddDiagnosisModal.vue';
 import AddCategoryModal from './addListComponents/AddCategoryModal.vue';
 import StatusModal from './addListComponents/StatusModal.vue';
+import DoctorResponseModal from './addListComponents/DoctorResponseModal.vue'; // Import the new DoctorResponseModal component
 
 // Properly initialize the profile composable
 const { profile, loading: profileLoading, fetchProfile } = useProfile();
@@ -90,9 +91,12 @@ const medicinesVisible = ref(true);
 const showConfirmationModal = ref(false);
 const confirmationMessage = ref('');
 const pendingSaveAction = ref(null);
+// New modal state for doctor response
+const showDoctorResponseModal = ref(false);
 // Selected person and record
 const selectedPerson = ref(null);
 const selectedConsultationRecord = ref(null);
+const selectedConsultationForDoctorResponse = ref(null);
 // Selected date/time
 const selectedDate = computed(() => {
   // Use the currentDay prop or fallback to current Manila time
@@ -195,6 +199,10 @@ const createConsultationRecord = async (person) => {
       .map(d => getDispositionDisplayValue(d))
       .join(', ');
     
+    // If we have non-OTC medicines and no prescription file, we should send to doctor
+    // Otherwise, if we have a prescription file, we can save without sending to doctor
+    const shouldSendToDoctor = hasNonOTCMedicines.value && !prescriptionFile.value;
+    
     const consultationData = {
       patient_id: selectedPerson.value.clientId,
       nurse_id: currentUser.value.admin_id,
@@ -216,7 +224,7 @@ const createConsultationRecord = async (person) => {
         .map(c => c.disease_id),
       action: formattedAction || '',
       disposition: formattedDisposition || '',
-      doctorShow: hasNonOTCMedicines.value
+      doctorShow: shouldSendToDoctor
     };
     
     // Debug: log consultationData before sending
@@ -225,6 +233,12 @@ const createConsultationRecord = async (person) => {
     // Use the service function instead of direct fetch
     const newConsultation = await consultationRecordService.createConsultationRecord(consultationData);
     const consultationId = newConsultation.consultation_id;
+
+    // If we have a prescription file and non-OTC medicines, upload the prescription file
+    let prescriptionFileId = null;
+    if (hasNonOTCMedicines.value && prescriptionFile.value) {
+      prescriptionFileId = await uploadPrescriptionFile(consultationId);
+    }
 
     // Save each medicine to medAdministration only after consultation is created
     if (selectedPerson.value.medicines && consultationId) {
@@ -244,6 +258,7 @@ const createConsultationRecord = async (person) => {
           date: new Date().toISOString(),
           patient_name: selectedPerson.value.name,
           remarks: medicine.remarks || '',
+          prescription_file_id: prescriptionFileId
         };
         // List of required fields
         const requiredFields = [
@@ -266,6 +281,9 @@ const createConsultationRecord = async (person) => {
         }
       }
     }
+
+    // Reset prescription file state after successful upload
+    clearPrescriptionFile();
 
     // Close modal and refresh list
     showEditModal.value = false;
@@ -309,31 +327,59 @@ const fetchPatients = async () => {
     
     const currentDate = moment(props.currentDay.date).tz("Asia/Manila");
     
-    patients.value = data
+    // Create an array to store the promises for checking prescriptions
+    const patientPromises = data
       .filter(record => {
         const recordDate = moment(record.date).tz("Asia/Manila");
         return recordDate.isSame(currentDate, 'day');
       })
-      .map((record) => ({
-        id: record.patient_id,
-        consultation_id: record.consultation_id,
-        name: record.patient_name,
-        occupation: record.patient?.type || 'N/A',
-        category: record.patient?.type?.toLowerCase() === 'student' 
-          ? record.patient?.category 
-          : record.patient?.division || 'N/A',
-        time: moment(record.date).tz("Asia/Manila").format('hh:mm A'),
-        complaint: record.complaint,
-        remarks: record.remarks,
-        confined: record.confined,
-        medAdministration: record.medAdministration,
-        intervention: record.intervention,
-        action: record.action,
-        disposition: record.disposition,
-        doctorShow: record.doctorShow || false,
-        doctor_reviewed: record.doctor_reviewed || false,
-        nurse_notified: record.nurse_notified || false
-      }));
+      .map(async (record) => {
+        // Check if this consultation has a prescription file
+        let hasPrescription = false;
+        if (record.medAdministration) {
+          try {
+            const response = await fetch(`http://localhost:3001/patient-files/prescription/by-consultation/${record.consultation_id}`, {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              }
+            });
+            
+            if (response.ok) {
+              const prescriptionInfo = await response.json();
+              hasPrescription = !!prescriptionInfo?.prescription_id;
+            }
+          } catch (error) {
+            console.error('Error checking for prescription file:', error);
+            // Default to false if there's an error
+            hasPrescription = false;
+          }
+        }
+        
+        return {
+          id: record.patient_id,
+          consultation_id: record.consultation_id,
+          name: record.patient_name,
+          occupation: record.patient?.type || 'N/A',
+          category: record.patient?.type?.toLowerCase() === 'student' 
+            ? record.patient?.category 
+            : record.patient?.division || 'N/A',
+          time: moment(record.date).tz("Asia/Manila").format('hh:mm A'),
+          complaint: record.complaint,
+          remarks: record.remarks,
+          confined: record.confined,
+          medAdministration: record.medAdministration,
+          intervention: record.intervention,
+          action: record.action,
+          disposition: record.disposition,
+          doctorShow: record.doctorShow || false,
+          doctor_reviewed: record.doctor_reviewed || false,
+          nurse_notified: record.nurse_notified || false,
+          hasPrescription: hasPrescription // Add the prescription flag
+        };
+      });
+    
+    // Wait for all prescription checks to complete
+    patients.value = await Promise.all(patientPromises);
   } catch (error) {
     console.error('Error fetching patients:', error.message);
   }
@@ -705,12 +751,14 @@ const openEditModal = async (patient) => {
       }
     }
 
-    // Parse the disposition string into dispositions array
-    dispositions.value = [{ id: generateId(), value: '', details: '' }]; // Reset to default first
+    // Parse the disposition string into dispositions array - IMPROVED VERSION
+    dispositions.value = []; // Reset completely before parsing
     if (consultationRecord.disposition) {
       try {
         const dispositionsArray = consultationRecord.disposition.split(', ');
-        dispositions.value = dispositionsArray.map(dispositionText => {
+        
+        // Create a new array of disposition objects
+        const newDispositions = dispositionsArray.map(dispositionText => {
           // Check if it's a special case with details
           const otherMatch = dispositionText.match(/^Other: (.+)$/);
           
@@ -721,16 +769,36 @@ const openEditModal = async (patient) => {
               details: otherMatch[1]
             };
           } else {
+            // For standard dispositions, just use the text as the value
             return {
               id: generateId(),
-              value: dispositionText,
+              value: dispositionText.trim(), // Trim to remove any leading/trailing whitespace
               details: ''
             };
           }
         });
+        
+        // Only if we have valid dispositions, assign them
+        if (newDispositions.length > 0) {
+          dispositions.value = newDispositions;
+        } else {
+          // Fallback to an empty default if parsing failed
+          dispositions.value = [{ id: generateId(), value: '', details: '' }];
+        }
+        
+        // Add debug logging to help diagnose any issues
+        console.log('Parsed dispositions:', {
+          original: consultationRecord.disposition,
+          parsed: dispositions.value.map(d => d.value)
+        });
       } catch (error) {
         console.error('Error parsing dispositions string:', error);
+        // Fallback to empty default
+        dispositions.value = [{ id: generateId(), value: '', details: '' }];
       }
+    } else {
+      // No disposition in the record, set to empty default
+      dispositions.value = [{ id: generateId(), value: '', details: '' }];
     }
 
     // Fetch medication administration records
@@ -806,6 +874,15 @@ const openEditModal = async (patient) => {
     console.error('Error opening edit modal:', error);
     alert('Failed to load consultation record');
   }
+};
+
+/**
+ * Opens doctor response modal to view doctor's review of a consultation
+ * @param {Object} patient - Patient consultation to view
+ */
+const openDoctorResponseModal = (patient) => {
+  selectedConsultationForDoctorResponse.value = patient;
+  showDoctorResponseModal.value = true;
 };
 
 /**
@@ -1871,29 +1948,65 @@ watch(
         .map(d => getDispositionDisplayValue(d))
         .join(', ');
       
-      // Update the disposition field directly rather than relying on deep reactivity
-      selectedPerson.value.disposition = formattedDisposition;
-      
-      // Add debug logging
-      console.log('Disposition updated:', {
-        dispositions: newVal,
-        formatted: formattedDisposition,
-        saved: selectedPerson.value.disposition
-      });
+      // Update the disposition field directly
+      if (selectedPerson.value.disposition !== formattedDisposition) {
+        selectedPerson.value.disposition = formattedDisposition;
+        
+        // Add debug logging
+        console.log('Disposition updated:', {
+          dispositions: newVal,
+          formatted: formattedDisposition,
+          saved: selectedPerson.value.disposition
+        });
+      }
     }
   },
-  { deep: true }
+  { deep: true, immediate: true }
 );
 
+// Watch for changes to selectedPerson.disposition and update the dispositions array
 watch(
-  () => selectedPerson.value && selectedPerson.value.disposition,
+  () => selectedPerson.value?.disposition,
   (newVal) => {
-    if (!newVal) {
+    if (newVal) {
+      try {
+        // Don't reset dispositions array if it already has values
+        // This prevents the dropdown from being cleared when selecting common options
+        if (dispositions.value.length === 0 || dispositions.value.every(d => !d.value)) {
+          dispositions.value = [];
+          
+          const dispositionsArray = newVal.split(', ');
+          dispositions.value = dispositionsArray.map(dispositionText => {
+            // Check if it's a special case with details
+            const otherMatch = dispositionText.match(/^Other: (.+)$/);
+            
+            if (otherMatch) {
+              return {
+                id: generateId(),
+                value: 'Other',
+                details: otherMatch[1]
+              };
+            } else {
+              return {
+                id: generateId(),
+                value: dispositionText,
+                details: ''
+              };
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error parsing disposition string:', error);
+        // If parsing fails, set a default empty disposition
+        dispositions.value = [{ id: generateId(), value: '', details: '' }];
+      }
+    } else {
+      // Reset to empty if no disposition
       dispositions.value = [{ id: generateId(), value: '', details: '' }];
     }
-    // Optionally, parse string to array if needed
-  }
-)
+  },
+  { immediate: true }
+);
 
 /**
  * Handles confirmation from the confirmation modal
@@ -2150,6 +2263,213 @@ const confirmAction = (actionType) => {
     showConfirmationModal.value = true;
   }
 };
+
+// Add refs for prescription file upload
+const prescriptionFile = ref(null);
+const isUploadingPrescription = ref(false);
+const prescriptionUploadProgress = ref(0);
+const prescriptionUploadError = ref('');
+const prescriptionFilePreview = ref(null);
+
+// Function to handle prescription file selection
+function handlePrescriptionFileChange(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  // Validate file type and size
+  const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  
+  if (!allowedTypes.includes(file.type)) {
+    prescriptionUploadError.value = 'Invalid file type. Please upload PDF, JPG, or PNG.';
+    return;
+  }
+  
+  if (file.size > maxSize) {
+    prescriptionUploadError.value = 'File is too large. Maximum size is 10MB.';
+    return;
+  }
+  
+  prescriptionFile.value = file;
+  prescriptionUploadError.value = '';
+  
+  // Create preview for image files
+  if (file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      prescriptionFilePreview.value = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  } else {
+    prescriptionFilePreview.value = null;
+  }
+}
+
+// Function to clear prescription file
+function clearPrescriptionFile() {
+  prescriptionFile.value = null;
+  prescriptionFilePreview.value = null;
+  prescriptionUploadError.value = '';
+}
+
+// Function to upload prescription file
+async function uploadPrescriptionFile(consultationId) {
+  if (!prescriptionFile.value || !consultationId) return null;
+  
+  try {
+    isUploadingPrescription.value = true;
+    prescriptionUploadError.value = '';
+    
+    // Start progress simulation
+    const progressInterval = simulateProgressForPrescription();
+    
+    const formData = new FormData();
+    // Append fields BEFORE the file
+    formData.append('consultation_id', consultationId.toString());
+    formData.append('patient_id', selectedPerson.value.clientId.toString());
+    formData.append('type', 'prescription');
+    formData.append('file', prescriptionFile.value); // file LAST
+    
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication token not found');
+    }
+    
+    console.log('Uploading prescription file:', {
+      fileName: prescriptionFile.value.name,
+      fileSize: prescriptionFile.value.size,
+      fileType: prescriptionFile.value.type,
+      consultationId: consultationId,
+      patientId: selectedPerson.value.clientId
+    });
+    
+    // Do NOT set Content-Type header manually
+    const response = await fetch('http://localhost:3001/patient-files/upload-prescription', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+    
+    // Stop progress simulation
+    clearInterval(progressInterval);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `Server error: ${response.status}`);
+    }
+    
+    const responseData = await response.json();
+    console.log('Prescription upload response:', responseData);
+    
+    // Show 100% progress
+    prescriptionUploadProgress.value = 100;
+    
+    return responseData.id; // Return the file ID for reference
+  } catch (error) {
+    console.error('Error uploading prescription file:', error);
+    prescriptionUploadError.value = error.message || 'Failed to upload prescription file';
+    prescriptionUploadProgress.value = 0;
+    return null;
+  } finally {
+    // Set uploading to false after a delay to show the complete progress
+    setTimeout(() => {
+      isUploadingPrescription.value = false;
+    }, 1000);
+  }
+}
+
+// Function to simulate upload progress for better UX
+function simulateProgressForPrescription() {
+  return setInterval(() => {
+    if (prescriptionUploadProgress.value < 90) {
+      prescriptionUploadProgress.value += Math.floor(Math.random() * 10) + 1;
+    }
+  }, 300);
+}
+
+// Helper function to format file size
+function formatFileSize(bytes) {
+  if (!bytes) return '0 Bytes';
+  
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  
+  return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i];
+}
+
+// Add these refs for prescription viewing
+const showPrescriptionModal = ref(false);
+const currentPrescription = ref(null);
+const isPrescriptionLoading = ref(false);
+const prescriptionViewError = ref('');
+
+/**
+ * Fetches and displays prescription file for a consultation
+ * @param {number} consultation_id - ID of the consultation
+ */
+const viewPrescription = async (consultation_id) => {
+  try {
+    isPrescriptionLoading.value = true;
+    prescriptionViewError.value = '';
+    
+    // First fetch the prescription metadata by consultation ID
+    const response = await fetch(`http://localhost:3001/patient-files/prescription/by-consultation/${consultation_id}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch prescription: ${response.statusText}`);
+    }
+    
+    const prescriptionInfo = await response.json();
+    console.log('Found prescription:', prescriptionInfo);
+    
+    if (!prescriptionInfo || !prescriptionInfo.prescription_id) {
+      throw new Error('No prescription found for this consultation');
+    }
+    
+    // Now get the actual file URL
+    const prescriptionUrl = `http://localhost:3001/patient-files/prescription/${prescriptionInfo.prescription_id}`;
+    
+    // Set the prescription data for display
+    currentPrescription.value = {
+      id: prescriptionInfo.prescription_id,
+      url: prescriptionUrl,
+      fileName: prescriptionInfo.file_name,
+      mimeType: prescriptionInfo.mime_type
+    };
+    
+    // Show the modal
+    showPrescriptionModal.value = true;
+  } catch (error) {
+    console.error('Error viewing prescription:', error);
+    prescriptionViewError.value = error.message;
+    alert('Error viewing prescription: ' + error.message);
+  } finally {
+    isPrescriptionLoading.value = false;
+  }
+};
+
+// Function to close the prescription modal
+const closePrescriptionModal = () => {
+  showPrescriptionModal.value = false;
+  currentPrescription.value = null;
+  prescriptionViewError.value = '';
+};
+
+// Computed property to filter consultations reviewed by doctors
+const reviewedConsultations = computed(() => {
+  return patients.value.filter(patient => patient.doctor_reviewed === true);
+});
+
+// Computed property to filter consultations not yet reviewed by doctors
+const pendingConsultations = computed(() => {
+  return patients.value.filter(patient => patient.doctor_reviewed === false);
+});
 </script>
 
 <template>
@@ -2207,34 +2527,55 @@ const confirmAction = (actionType) => {
       <ul class="mt-4 overflow-y-auto max-h-60">
         <li v-for="(patient, index) in patients" :key="patient.consultation_id" class="flex items-center justify-between mb-2 text-lg confinement-item text-[#2f4a71]">
           <span @click="openEditModal(patient)" class="cursor-pointer confinement-details">
-            {{ patient.name }} - {{ patient.time }} 
+            {{ patient.time }} - {{ patient.name }}
+            <span v-if="patient.confined" class="ml-2 text-xs font-bold text-red-500">[CONFINED]</span>
+            <span v-if="patient.medAdministration" class="ml-2 text-xs font-bold text-blue-500">[MEDICATION]</span>
+            <span v-if="patient.doctorShow && !patient.doctor_reviewed" class="ml-2 text-xs font-bold text-amber-500">[IN REVIEW]</span>
+            <span v-if="patient.doctor_reviewed" class="ml-2 text-xs font-bold text-green-500">[REVIEWED]</span>
           </span>
           <div class="flex items-center">
+            <!-- Prescription View Button - Only show if patient has a prescription -->
+            <button 
+              v-if="patient.medAdministration && patient.hasPrescription"
+              @click="viewPrescription(patient.consultation_id)"
+              class="p-1 mr-1 text-white bg-blue-500 rounded hover:bg-blue-600"
+              title="View Prescription"
+            >
+              <Icon icon="mdi:file-document" class="w-5 h-5" />
+            </button>
+            <!-- Doctor's Response Button - Only show if doctor has reviewed -->
+            <button 
+              v-if="patient.doctor_reviewed"
+              @click="openDoctorResponseModal(patient)"
+              class="p-1 mr-1 text-white bg-green-500 rounded hover:bg-green-600"
+              title="View Doctor's Response"
+            >
+              <Icon icon="mdi:stethoscope" class="w-5 h-5" />
+            </button>
+            <!-- Record Under Review Indicator -->
+            <button 
+              v-if="patient.doctorShow && !patient.doctor_reviewed"
+              title="Under doctor review"
+              class="p-1 mr-1 text-white rounded cursor-default bg-amber-500"
+            >
+              <Icon icon="mdi:clock-outline" class="w-5 h-5" />
+            </button>
             <!-- Send to Doctor Button -->
             <button 
-              v-if="!patient.doctor_reviewed"
-              @click="sendToDoctor(patient)" 
-              class="p-1 mr-1 text-white bg-green-500 rounded hover:bg-green-600" 
-              :class="{ 'opacity-50 cursor-not-allowed': patient.doctorShow }"
-              :title="patient.doctorShow ? 'Already sent to doctor' : 'Send to doctor'"
-              :disabled="patient.doctorShow"
+              v-if="!patient.doctorShow && !patient.doctor_reviewed"
+              @click="sendToDoctor(patient)"
+              class="p-1 mr-1 text-white bg-green-500 rounded hover:bg-green-600"
+              title="Send to Doctor"
             >
               <Icon icon="mdi:arrow-right" class="w-5 h-5" />
             </button>
-            <!-- Doctor Reviewed Indicator -->
-            <button 
-              v-else 
-              class="p-1 mr-1 text-white bg-blue-500 rounded cursor-not-allowed"
-              title="Doctor has reviewed this record"
-            >
-              <Icon icon="mdi:arrow-left" class="w-5 h-5" />
-            </button>
             <!-- Delete Button -->
             <button 
-              @click="confirmDelete(patient.consultation_id)" 
+              @click="confirmDelete(patient.consultation_id)"
               class="p-1 text-white bg-red-500 rounded hover:bg-red-600"
+              title="Delete Record"
             >
-              <Icon icon="fluent:delete-28-regular" class="w-5 h-5" />
+              <Icon icon="mdi:delete" class="w-5 h-5" />
             </button>
           </div>
         </li>
@@ -2346,6 +2687,8 @@ const confirmAction = (actionType) => {
   :current-page="currentModalPage"
   :total-pages="selectedPerson?.doctor_reviewed || (selectedConsultationRecord?.doctor_diagnosis && selectedConsultationRecord?.doctor_diagnosis.trim() !== '') ? 3 : 2"
   :has-non-OTC-medicines="hasNonOTCMedicines"
+  :has-prescription="prescriptionFile !== null"
+  :doctor-reviewed="selectedPerson?.doctor_reviewed || (selectedConsultationRecord?.doctor_diagnosis && selectedConsultationRecord?.doctor_diagnosis.trim() !== '')"
   @cancel="cancelEdit"
   @save="confirmAction('consultation')"
   @next-page="currentModalPage++"
@@ -2464,7 +2807,7 @@ const confirmAction = (actionType) => {
                 <!-- Custom dropdown arrow -->
                 <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
                   <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a 1 0 01-1.414 0l-4-4a1 0 010-1.414z" clip-rule="evenodd"></path>
                   </svg>
                 </div>
               </div>
@@ -2602,6 +2945,81 @@ const confirmAction = (actionType) => {
         </tbody>
       </table>
     </div>
+    
+    <!-- Prescription File Upload Section - Show when non-OTC medicines are present -->
+    <div v-if="hasNonOTCMedicines && selectedPerson.medicationAdministration && !isViewOnly" class="mt-6">
+      <div class="p-4 border border-blue-300 rounded-lg bg-blue-50">
+        <h4 class="mb-3 text-base font-semibold text-blue-800">Prescription Upload</h4>
+        <p class="mb-3 text-sm text-blue-600">
+          Non-OTC medicine requires a prescription. Please upload a prescription file.
+        </p>
+        
+        <!-- File Upload UI -->
+        <div class="mb-4">
+          <div v-if="!prescriptionFile" class="flex justify-center px-6 pt-5 pb-6 border-2 border-blue-300 border-dashed rounded-md">
+            <div class="space-y-1 text-center">
+              <svg class="w-12 h-12 mx-auto text-blue-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" 
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              <div class="flex text-sm text-blue-600">
+                <label for="prescription-file-upload" class="relative font-medium text-blue-600 bg-white rounded-md cursor-pointer hover:text-blue-700 focus-within:outline-none">
+                  <span>Upload a file</span>
+                  <input id="prescription-file-upload" name="prescription-file" type="file" class="sr-only" 
+                    @change="handlePrescriptionFileChange" accept=".pdf,.jpg,.jpeg,.png">
+                </label>
+                <p class="pl-1">or drag and drop</p>
+              </div>
+              <p class="text-xs text-blue-500">PDF, PNG, JPG up to 10MB</p>
+            </div>
+          </div>
+          
+          <!-- Preview of selected file -->
+          <div v-else class="relative p-4 bg-white border border-blue-300 rounded-md">
+            <div class="flex items-center space-x-4">
+              <!-- PDF icon or image preview -->
+              <div class="flex-shrink-0">
+                <div v-if="prescriptionFilePreview" class="w-16 h-16">
+                  <img :src="prescriptionFilePreview" class="object-cover border rounded" alt="File preview">
+                </div>
+                <div v-else class="p-2 bg-blue-100 rounded-md">
+                  <svg class="w-12 h-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0112.586 3H7a2 2 0 00-2 2v14a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+              </div>
+              
+              <!-- File name and type -->
+              <div class="flex-1">
+                <div class="text-sm font-medium text-blue-700">{{ prescriptionFile.name }}</div>
+                <p class="text-xs text-gray-500">{{ prescriptionFile.type }} · {{ formatFileSize(prescriptionFile.size) }}</p>
+              </div>
+              
+              <!-- Remove button -->
+              <button @click="clearPrescriptionFile" class="p-1 text-red-500 bg-white rounded hover:text-red-700">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+          
+          <!-- Upload error message -->
+          <div v-if="prescriptionUploadError" class="mt-2 text-sm text-red-600">
+            {{ prescriptionUploadError }}
+          </div>
+          
+          <!-- Upload progress -->
+          <div v-if="isUploadingPrescription" class="mt-2">
+            <div class="w-full h-2 bg-gray-200 rounded-full">
+              <div class="h-2 bg-blue-600 rounded-full" :style="{ width: `${prescriptionUploadProgress}%` }"></div>
+            </div>
+            <p class="mt-1 text-xs text-gray-600">Uploading: {{ prescriptionUploadProgress }}%</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
   
   <!-- Page 2: Actions Taken and Disposition -->
@@ -2631,7 +3049,7 @@ const confirmAction = (actionType) => {
                   </select>
                   <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
                     <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 0 01-1.414 0l-4-4a1 0 010-1.414z" clip-rule="evenodd"></path>
                     </svg>
                   </div>
                 </div>
@@ -2707,7 +3125,7 @@ const confirmAction = (actionType) => {
                   </select>
                   <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
                     <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 0 01-1.414 0l-4-4a1 0 010-1.414z" clip-rule="evenodd"></path>
                     </svg>
                   </div>
                 </div>
@@ -2762,21 +3180,8 @@ const confirmAction = (actionType) => {
     <div class="pt-4 mb-4">
       <!-- Patient Demographics Section -->
       <div class="p-4 mb-6 border border-gray-200 rounded-lg bg-gray-50">
-        <h3 class="mb-3 text-lg font-semibold text-gray-700">Patient Demographics</h3>
+        <h3 class="mb-3 text-lg font-semibold text-gray-700">Extended Patient Information</h3>
         <div class="grid grid-cols-2 gap-4">
-          <!-- Patient Information -->
-          <div class="col-span-2 p-3 bg-white border rounded-md">
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block mb-1 text-sm font-medium text-gray-700">Age</label>
-                <div class="p-2 border rounded">{{ selectedPerson?.age || 'N/A' }}</div>
-              </div>
-              <div>
-                <label class="block mb-1 text-sm font-medium text-gray-700">Gender</label>
-                <div class="p-2 border rounded">{{ selectedPerson?.sex || 'N/A' }}</div>
-              </div>
-            </div>
-          </div>
           
           <!-- Vital Signs -->
           <div>
@@ -2840,6 +3245,7 @@ const confirmAction = (actionType) => {
       :show="showMedicineDetailModal"
       :medicine="selectedMedicine"
       :is-view-only="isViewOnly"
+      :doctor-reviewed="selectedPerson?.doctor_reviewed || (selectedConsultationRecord?.doctor_diagnosis && selectedConsultationRecord?.doctor_diagnosis.trim() !== '')"
       @cancel="cancelMedicineDetails"
       @save="saveMedicineDetails"
     />
@@ -3044,26 +3450,110 @@ const confirmAction = (actionType) => {
     @confirm="handleConfirm"
     @cancel="handleCancel"
   />
-</div>
+
+  <!-- Prescription Modal -->
+  <div v-if="showPrescriptionModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+    <div class="w-full max-w-4xl max-h-[90vh] bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between p-4 border-b">
+        <h3 class="text-lg font-medium text-gray-900">
+          Prescription File: {{ currentPrescription?.fileName || 'Loading...' }}
+        </h3>
+        <button @click="closePrescriptionModal" class="text-gray-400 hover:text-gray-500">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Modal Body -->
+      <div class="flex-1 overflow-hidden">
+        <!-- Loading State -->
+        <div v-if="isPrescriptionLoading" class="flex items-center justify-center h-full">
+          <div class="w-12 h-12 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin"></div>
+        </div>
+        
+        <!-- Error State -->
+        <div v-else-if="prescriptionViewError" class="flex flex-col items-center justify-center h-full p-8">
+          <svg class="w-16 h-16 mb-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <p class="text-lg font-medium text-red-600">{{ prescriptionViewError }}</p>
+        </div>
+        
+        <!-- Content Based on File Type -->
+        <template v-else-if="currentPrescription">
+          <!-- PDF -->
+          <iframe 
+            v-if="currentPrescription.mimeType === 'application/pdf'" 
+            :src="currentPrescription.url" 
+            class="w-full h-full border-0" 
+            title="PDF Prescription Viewer"
+          ></iframe>
+          
+          <!-- Image -->
+          <div 
+            v-else-if="currentPrescription.mimeType.startsWith('image/')"
+            class="flex items-center justify-center h-full p-4 bg-gray-100"
+          >
+            <img 
+              :src="currentPrescription.url" 
+              alt="Prescription Image" 
+              class="object-contain max-w-full max-h-full"
+            />
+          </div>
+          
+          <!-- Fallback for other file types -->
+          <div v-else class="flex flex-col items-center justify-center h-full p-8">
+            <svg class="w-16 h-16 mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <p class="text-lg font-medium text-gray-600">This file type cannot be previewed</p>
+            <a 
+              :href="currentPrescription.url" 
+              target="_blank" 
+              class="px-4 py-2 mt-4 text-white bg-blue-500 rounded hover:bg-blue-600"
+            >
+              Open in New Tab
+            </a>
+          </div>
+        </template>
+      </div>
+      
+      <!-- Modal Footer -->
+      <div class="flex justify-end p-4 border-t bg-gray-50">
+        <a 
+          v-if="currentPrescription" 
+          :href="currentPrescription.url" 
+          target="_blank"
+          class="px-4 py-2 mr-2 text-blue-600 border border-blue-300 rounded bg-blue-50 hover:bg-blue-100"
+        >
+          Open in New Tab
+        </a>
+        <button 
+          @click="closePrescriptionModal" 
+          class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Doctor Response Modal -->
+  <DoctorResponseModal
+    v-if="showDoctorResponseModal"
+    :show="showDoctorResponseModal"
+    :consultation="selectedConsultationForDoctorResponse"
+    @close="showDoctorResponseModal = false"
+    @refresh="fetchPatients"
+  />
+  </div>
 </template>
+
 <style scoped>
-textarea {
-  resize: none;
-}
-
-.time-picker {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 15px 0;
-}
-
-.time-picker-select {
-  padding: 6px 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-
 .modal-overlay {
   position: fixed;
   top: 0;

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { DoctorService } from './doctor.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
@@ -40,5 +40,25 @@ export class DoctorController {
         name: string;
     }) {
         return this.doctorService.createDoctor(createDoctorDto);
+    }
+
+    // Update doctor (adding the missing PUT endpoint)
+    @Put(':id')
+    async updateDoctor(
+        @Param('id') id: string, 
+        @Body() updateDoctorDto: {
+            username: string;
+            password?: string;  // Optional for updates
+            gmail: string;
+            name: string;
+        }
+    ) {
+        return this.doctorService.updateDoctor(+id, updateDoctorDto);
+    }
+
+    // Delete doctor
+    @Delete(':id')
+    async deleteDoctor(@Param('id') id: string) {
+        return this.doctorService.deleteDoctor(+id);
     }
 }

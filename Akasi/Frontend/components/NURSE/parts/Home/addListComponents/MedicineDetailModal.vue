@@ -98,11 +98,11 @@
           Close
         </button>
         <button 
-          v-if="!isViewOnly"
+          v-if="!isViewOnly && !doctorReviewed"
           @click="handleSave"
           class="px-4 py-2 text-white bg-green-500 rounded-md hover:bg-green-600"
         >
-          {{ medicine.otc === false ? 'Send to Doctor' : 'Save' }}
+          Add
         </button>
       </div>
     </div>
@@ -130,6 +130,10 @@ const props = defineProps({
     })
   },
   isViewOnly: {
+    type: Boolean,
+    default: false
+  },
+  doctorReviewed: {
     type: Boolean,
     default: false
   }

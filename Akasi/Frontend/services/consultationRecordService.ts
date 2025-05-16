@@ -400,6 +400,25 @@ export const deleteDiseaseCategory = async (category_id: number) => {
   return del(`${DIAGNOSIS_URL}/categories/${category_id}`);
 };
 
+/**
+ * Toggles the active status of a diagnosis
+ * @param {number} diagnosis_id - ID of the diagnosis to toggle
+ * @returns {Promise<any>} Updated diagnosis with toggled status
+ */
+export const toggleDiagnosisStatus = async (diagnosis_id: number) => {
+  return put(`${DIAGNOSIS_URL}/${diagnosis_id}/toggle-status`, {});
+};
+
+/**
+ * Updates a disease category
+ * @param {number} category_id - ID of the category to update
+ * @param {any} data - Updated category data
+ * @returns {Promise<any>} Updated category
+ */
+export const updateDiseaseCategory = async (category_id: number, data: any) => {
+  return put(`${DIAGNOSIS_URL}/categories/${category_id}`, data);
+};
+
 // Appointment-related functions
 
 /**
@@ -539,6 +558,9 @@ export const updateConsultationMedicalData = async (consultation_id: number, med
     const payload = {
       medical_data: {
         ...medicalData,
+        // Make sure patient demographic data is stored in the correct structure
+        patientAge: medicalData.age,
+        patientGender: medicalData.gender,
         updated_at: new Date().toISOString()
       },
       doctor_reviewed: true
@@ -591,7 +613,7 @@ export const extractMedicalData = (consultationRecord: any) => {
     treatment: null,
     patientType: null,
     patientGrade: null,
-    patientSection: null,
+    patientSection: null, 
     patientAge: null,
     patientGender: null
   };
@@ -649,4 +671,133 @@ export const extractMedicalData = (consultationRecord: any) => {
     ...directData,
     diagnosis: consultationRecord.complaint || null,
   };
+};
+
+/**
+ * Fetches prescription file data for a consultation
+ * @param {number} consultation_id - ID of the consultation
+ * @returns {Promise<any>} Prescription file data
+ */
+export const fetchPrescriptionFile = async (consultation_id: number) => {
+  try {
+    console.log(`Fetching prescription for consultation ID: ${consultation_id}`);
+    // Use our new endpoint that looks up by consultation_id
+    return await get(`/patient-files/prescription/by-consultation/${consultation_id}`);
+  } catch (error) {
+    console.error('Error fetching prescription file:', error);
+    throw error;
+  }
+};
+
+/**
+ * Downloads prescription file content
+ * @param {number} prescription_id - ID of the prescription
+ * @returns {Promise<Blob>} Prescription file as blob
+ */
+export const downloadPrescriptionFile = async (prescription_id: number) => {
+  try {
+    // This endpoint returns the actual file content
+    const response = await fetch(`${getBaseUrl()}/patient-files/prescription/${prescription_id}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to download prescription file: ${response.statusText}`);
+    }
+    
+    return await response.blob();
+  } catch (error) {
+    console.error('Error downloading prescription file:', error);
+    throw error;
+  }
+};
+
+/**
+ * Opens the prescription file in a new browser tab
+ * @param {number} consultation_id - ID of the consultation to view prescription for
+ * @returns {Promise<void>}
+ */
+export const viewPrescriptionFile = async (consultation_id: number) => {
+  try {
+    // First get the prescription info by consultation ID
+    const prescriptionInfo = await fetchPrescriptionFile(consultation_id);
+    
+    if (!prescriptionInfo || !prescriptionInfo.prescription_id) {
+      throw new Error('No prescription file found for this consultation');
+    }
+    
+    console.log('Found prescription file:', prescriptionInfo);
+    
+    // Instead of directly opening a URL that would lose our auth token,
+    // create a temporary anchor element with a download attribute
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('You must be logged in to view prescription files');
+    }
+    
+    // Method 1: Create a proxy endpoint that generates a URL with embedded token
+    // Create a hidden iframe to load the file with proper authentication
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    
+    // Create a form inside the iframe that will POST to the prescription endpoint
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.target = '_blank';
+    form.action = `${getBaseUrl()}/patient-files/view-prescription/${prescriptionInfo.prescription_id}`;
+    
+    // Add token as a hidden field
+    const tokenField = document.createElement('input');
+    tokenField.type = 'hidden';
+    tokenField.name = 'token';
+    tokenField.value = token;
+    form.appendChild(tokenField);
+    
+    // Append the form to the iframe's document and submit it
+    iframe.onload = () => {
+      iframe.contentDocument.body.appendChild(form);
+      form.submit();
+      
+      // Clean up after a short delay
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    };
+    
+    return prescriptionInfo;
+  } catch (error) {
+    console.error('Error viewing prescription file:', error);
+    alert('Could not view prescription file: ' + error.message);
+    throw error;
+  }
+}
+
+/**
+ * Fetches prescription by consultation ID (alias for fetchPrescriptionFile)
+ * @param {number} consultation_id - ID of the consultation
+ * @returns {Promise<any>} Prescription data
+ */
+export const fetchPrescriptionByConsultation = async (consultation_id: number) => {
+  return fetchPrescriptionFile(consultation_id);
+};
+
+// Helper function to get base URL (copy from apiService to avoid circular dependencies)
+const getBaseUrl = () => {
+  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  
+  if (typeof window !== 'undefined') {
+    const currentHost = window.location.hostname;
+    if (currentHost === 'localhost') {
+      return 'http://localhost:3001';
+    }
+    return `http://${currentHost}:3001`;
+  }
+  
+  return 'http://10.35.133.169:3001';
 };
