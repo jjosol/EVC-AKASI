@@ -38,7 +38,7 @@ const handleUpdateDate = ({ year, month }) => {
 
 const refreshCalendar = () => {
   if (calendarRef.value) {
-    calendarRef.value.updateCalendar();
+    calendarRef.value.updateCalendar(true);
   }
 };
 

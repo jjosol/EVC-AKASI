@@ -1,5 +1,4 @@
 <script setup>
-import { nextTick } from 'vue';
 import moment from 'moment-timezone';
 import { useAuth } from '~/composables/useAuth';
 import { fetchConfinedCount, fetchMonthlyConsultationCount, fetchYearlyConsultationCount } from '~/services/calendarService';
@@ -38,7 +37,7 @@ const props = defineProps({
 const emit = defineEmits(['day-selected', 'update-date']);
 
 // Define updateCalendar function first
-const updateCalendar = async () => {
+const updateCalendar = async (forceRefresh = false) => {
   const firstDayOfMonth = moment.tz({ 
     year: selectedYear.value, 
     month: selectedMonth.value, 
@@ -76,49 +75,29 @@ const updateCalendar = async () => {
   });
 
   // Fetch counts with proper authentication
-  await fetchCounts();
+  await fetchCounts(forceRefresh);
 };
 
 // Separate function to fetch all counts for better error handling
-const fetchCounts = async () => {
+const fetchCounts = async (forceRefresh = false) => {
   // Only fetch counts if user is authenticated and has the proper role
   if (isAuthenticated.value && (isNurse.value || isDoctor.value)) {
     try {
-      console.log('Fetching counts for:', selectedYear.value, selectedMonth.value);
-      
-      // Immediately set loading state by resetting counts
-      confinedCount.value = 0;
-      monthlyConsultationCount.value = 0;
-      yearlyConsultationCount.value = 0;
-      
-      // Fetch all counts in parallel
+      console.log('Fetching counts for:', selectedYear.value, selectedMonth.value, 'forceRefresh:', forceRefresh);
       const [confined, monthly, yearly] = await Promise.all([
-        fetchConfinedCount(selectedYear.value, selectedMonth.value),
-        fetchMonthlyConsultationCount(selectedYear.value, selectedMonth.value),
-        fetchYearlyConsultationCount(selectedYear.value)
+        fetchConfinedCount(selectedYear.value, selectedMonth.value, forceRefresh),
+        fetchMonthlyConsultationCount(selectedYear.value, selectedMonth.value, forceRefresh),
+        fetchYearlyConsultationCount(selectedYear.value, forceRefresh)
       ]);
       
       console.log('Fetched counts:', { confined, monthly, yearly });
       
       // Update the ref values with the fetched counts
-      confinedCount.value = Number(confined) || 0;
-      monthlyConsultationCount.value = Number(monthly) || 0;
-      yearlyConsultationCount.value = Number(yearly) || 0;
-      
-      // Force component update
-      nextTick(() => {
-        console.log('Updated counts:', {
-          confined: confinedCount.value,
-          monthly: monthlyConsultationCount.value,
-          yearly: yearlyConsultationCount.value
-        });
-      });
+      confinedCount.value = confined;
+      monthlyConsultationCount.value = monthly;
+      yearlyConsultationCount.value = yearly;
     } catch (error) {
       console.error('Error fetching calendar counts:', error);
-      // Set to 0 on error
-      confinedCount.value = 0;
-      monthlyConsultationCount.value = 0;
-      yearlyConsultationCount.value = 0;
     }
   }
 };

@@ -288,6 +288,7 @@ const createConsultationRecord = async (person) => {
     // Close modal and refresh list
     showEditModal.value = false;
     await fetchPatients();
+    emit('consultation-saved'); // <--- Add this line to trigger parent refresh
   } catch (error) {
     console.error('Error creating consultation record:', error);
     throw error;
@@ -2986,7 +2987,7 @@ const pendingConsultations = computed(() => {
                   <svg class="w-12 h-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                       d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0112.586 3H7a2 2 0 00-2 2v14a2 2 0 01-2 2z" />
-                  </svg>
+              </svg>
                 </div>
               </div>
               
@@ -3047,7 +3048,7 @@ const pendingConsultations = computed(() => {
                       {{ option }}
                     </option>
                   </select>
-                  <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                  <div class="absolute inset-y-0 right-0 flex items-center px-2 mt-1 pointer-events-none">
                     <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
                       <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 0 01-1.414 0l-4-4a1 0 010-1.414z" clip-rule="evenodd"></path>
                     </svg>
