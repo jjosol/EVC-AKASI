@@ -1737,12 +1737,11 @@ const openConsultationDetailModal = async (patient) => {
 };
 </script>
 
-<template>
-  <div class="fixed w-4/6">
-    <div class="fixed top-0 right-0 w-1/4 h-screen p-5 bg-gray-100">
-      <div class="h-full p-5 overflow-y-auto">
+<template>  <div class="fixed w-4/6">
+    <div class="fixed top-0 right-0 w-1/4 h-screen p-0 bg-gray-100 flex flex-col">
+      <div class="h-full flex flex-col p-5">
         <!-- Tabs navigation -->
-        <div class="flex border-b border-[#a6a6a6] mb-4">
+        <div class="flex border-b border-[#a6a6a6] mb-4 flex-shrink-0">
           <button 
             @click="activeTab = 'tab1'" 
             :class="[
@@ -1754,21 +1753,19 @@ const openConsultationDetailModal = async (patient) => {
           >
             Consultations
           </button>
-        </div>
-
-        <!-- Consultation Records -->
-        <div v-if="activeTab === 'tab1'">
-          <div class="mt-5 mb-5">
+        </div>        <!-- Consultation Records -->
+        <div v-if="activeTab === 'tab1'" class="flex flex-col flex-grow min-h-0">
+          <div class="mt-5 mb-5 flex-shrink-0">
             <span class="text-2xl font-bold text-[#2f4a71]">{{ selectedDate.monthYear }}</span>
             <span class="text-2xl text-[#2f4a71] float-right">{{ selectedDate.day }}</span>
           </div>
 
           <!-- Consultation Records List -->
-          <div v-if="patients.length > 0" class="space-y-4">
+          <div v-if="patients.length > 0" class="flex-grow overflow-y-auto h-full consultation-records-container">
             <div 
               v-for="patient in patients" 
               :key="patient.consultation_id" 
-              class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md cursor-pointer transition-all"
+              class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md cursor-pointer transition-all"
               @click="openConsultationDetailModal(patient)"
             >
               <h4 class="text-lg font-bold text-[#2f4a71]">{{ patient.name }}</h4>
@@ -1928,7 +1925,25 @@ textarea {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.text-gray-600 {
-  color: #718096;
+.text-gray-600 {  color: #718096;
+}
+
+/* Custom styles for consultation records container */
+.consultation-records-container {
+  height: calc(100vh - 200px);
+  overflow-y: auto;
+  padding-right: 5px;
+  margin-right: -5px; /* Compensate for the padding to align the scrollbar */
+  scrollbar-width: thin;
+}
+.consultation-records-container::-webkit-scrollbar {
+  width: 5px;
+}
+.consultation-records-container::-webkit-scrollbar-thumb {
+  background-color: #2f4a71;
+  border-radius: 5px;
+}
+.consultation-records-container::-webkit-scrollbar-track {
+  background-color: rgba(0, 0, 0, 0.05);
 }
 </style>

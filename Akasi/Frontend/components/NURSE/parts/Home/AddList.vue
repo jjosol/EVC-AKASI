@@ -2523,9 +2523,8 @@ const pendingConsultations = computed(() => {
           @update:search-query="searchQuery = $event"
           @cancel="cancelAdd"
           @add-person="addPerson"
-        />
-      </div>
-      <ul class="mt-4 overflow-y-auto max-h-60">
+        />      </div>
+      <ul class="mt-4 overflow-y-auto consultation-list-container">
         <li v-for="(patient, index) in patients" :key="patient.consultation_id" class="flex items-center justify-between mb-2 text-lg confinement-item text-[#2f4a71]">
           <span @click="openEditModal(patient)" class="cursor-pointer confinement-details">
             {{ patient.time }} - {{ patient.name }}
@@ -3647,11 +3646,29 @@ const pendingConsultations = computed(() => {
   align-items: center;
 }
 .confinement-details {
-  flex-grow: 1;
-  margin-right: 10px;
+  flex-grow: 1;  margin-right: 10px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Custom styles for consultation list */
+.consultation-list-container {
+  height: calc(100vh - 250px);
+  overflow-y: auto;
+  padding-right: 5px;
+  margin-right: -5px; /* Compensate for the padding to align the scrollbar */
+  scrollbar-width: thin;
+}
+.consultation-list-container::-webkit-scrollbar {
+  width: 5px;
+}
+.consultation-list-container::-webkit-scrollbar-thumb {
+  background-color: #2f4a71;
+  border-radius: 5px;
+}
+.consultation-list-container::-webkit-scrollbar-track {
+  background-color: rgba(0, 0, 0, 0.05);
 }
 </style>
 
