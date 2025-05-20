@@ -199,9 +199,10 @@ const createConsultationRecord = async (person) => {
       .map(d => getDispositionDisplayValue(d))
       .join(', ');
     
-    // If we have non-OTC medicines and no prescription file, we should send to doctor
-    // Otherwise, if we have a prescription file, we can save without sending to doctor
-    const shouldSendToDoctor = hasNonOTCMedicines.value && !prescriptionFile.value;
+  // No longer sending to doctor - check if prescription is required but not uploaded
+    if (hasNonOTCMedicines.value && !prescriptionFile.value) {
+      throw new Error('Prescription file is required for non-OTC medications');
+    }
     
     const consultationData = {
       patient_id: selectedPerson.value.clientId,
@@ -221,10 +222,9 @@ const createConsultationRecord = async (person) => {
       // Include diagnosis_ids array if present
       diagnosis_ids: selectedPerson.value.complaints
         .filter(c => c.disease_id)
-        .map(c => c.disease_id),
-      action: formattedAction || '',
+        .map(c => c.disease_id),      action: formattedAction || '',
       disposition: formattedDisposition || '',
-      doctorShow: shouldSendToDoctor
+      doctorShow: false // Always false, no longer sending to doctor
     };
     
     // Debug: log consultationData before sending
@@ -457,14 +457,13 @@ const savePerson = async () => {
       patient_name: selectedPerson.value.name,
       patient_occupation: selectedPerson.value.occupation || `${selectedPerson.value.grade}-${selectedPerson.value.section}`,
       complaint: selectedPerson.value.complaints.length > 0 ? selectedPerson.value.complaints.map(c => c.text).join(', ') : null,
-      remarks: selectedPerson.value.remarks || '',
-      confined: Boolean(selectedPerson.value.confined),
+      remarks: selectedPerson.value.remarks || '',      confined: Boolean(selectedPerson.value.confined),
       medAdministration: Boolean(selectedPerson.value.medicationAdministration),
       fatality: Boolean(selectedPerson.value.fatality),
       intervention: selectedPerson.value.intervention || '',
       action: selectedPerson.value.action || '',
       disposition: selectedPerson.value.disposition || '',
-      doctorShow: hasNonOTCMedicines.value,
+      doctorShow: false, // Always false, no longer sending to doctor
       medical_data: {
         patientType: selectedPerson.value.occupation || 'Student',
         patientCategory: selectedPerson.value.category || 'N/A',
@@ -1723,8 +1722,7 @@ const saveMedicineDetails = async () => {
       // For new medicine, find the original medicine in allMedicines to update the display count
       const medicineGroups = Object.values(groupedMedicines.value).flat();
       const originalMedicine = medicineGroups.find(m => m.med_id === medicine.med_id);
-      
-      if (originalMedicine) {
+        if (originalMedicine) {
         originalMedicine.displayCount -= medicine.quantity;
         
         // Create the medicine object to add
@@ -1745,7 +1743,7 @@ const saveMedicineDetails = async () => {
         selectedPerson.value.medicines.push(medicineToAdd);
       }
     }
-
+    
     showMedicineDetailModal.value = false;
   } catch (error) {
     console.error('Error saving medicine details:', error);
@@ -1758,43 +1756,6 @@ const delayedAction = (callback, delay) => {
   window.setTimeout(() => {
     callback();
   }, delay);
-};
-
-/**
- * Sends a consultation record to the doctor's view
- * @param {Object} patient - Patient whose record to send
- * @returns {Promise<void>}
- */
-const sendToDoctor = async (patient) => {
-  try {
-    if (patient.doctor_reviewed) {
-      // If doctor has reviewed, don't allow sending again
-      return;
-    }
-    
-    // Ensure we have the required fields for the API
-    if (!patient.id) {
-      throw new Error('Patient ID is required');
-    }
-    
-    // Update the doctorShow field to true with the required fields
-    await consultationRecordService.updateDoctorShow(patient.consultation_id, true, {
-      patient_id: patient.id, // Add the patient_id field
-      patient_name: patient.name // Add the patient_name field
-    });
-    
-    // Update the local record
-    const index = patients.value.findIndex(p => p.consultation_id === patient.consultation_id);
-    if (index !== -1) {
-      patients.value[index].doctorShow = true;
-    }
-    
-    // Show success message
-    alert('Record sent to doctor successfully');
-  } catch (error) {
-    console.error('Error sending record to doctor:', error);
-    alert('Error sending record to doctor: ' + error.message);
-  }
 };
 
 // Add computed property to detect if any non-OTC medicines are included
@@ -2248,6 +2209,15 @@ const createConsultationFromAppointment = async (appointment) => {
  */
 const confirmAction = (actionType) => {
   if (actionType === 'consultation') {
+    // Check for prescription requirement - ALWAYS require prescription for non-OTC meds
+    if (hasNonOTCMedicines.value && !prescriptionFile.value) {
+      confirmationMessage.value = 'You need to upload a prescription file for non-OTC medications.';
+      showConfirmationModal.value = false; // Don't proceed with confirmation
+      // Show error alert
+      alert('Prescription file is required for non-OTC medications.');
+      return;
+    }
+    
     // Set the pending action
     pendingSaveAction.value = 'consultation';
     
@@ -2556,18 +2526,8 @@ const pendingConsultations = computed(() => {
             <button 
               v-if="patient.doctorShow && !patient.doctor_reviewed"
               title="Under doctor review"
-              class="p-1 mr-1 text-white rounded cursor-default bg-amber-500"
-            >
+              class="p-1 mr-1 text-white rounded cursor-default bg-amber-500"            >
               <Icon icon="mdi:clock-outline" class="w-5 h-5" />
-            </button>
-            <!-- Send to Doctor Button -->
-            <button 
-              v-if="!patient.doctorShow && !patient.doctor_reviewed"
-              @click="sendToDoctor(patient)"
-              class="p-1 mr-1 text-white bg-green-500 rounded hover:bg-green-600"
-              title="Send to Doctor"
-            >
-              <Icon icon="mdi:arrow-right" class="w-5 h-5" />
             </button>
             <!-- Delete Button -->
             <button 

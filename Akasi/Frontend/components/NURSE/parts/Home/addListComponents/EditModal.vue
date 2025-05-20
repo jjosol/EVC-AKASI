@@ -33,13 +33,12 @@
             class="px-4 py-2 text-white bg-[#2f4a71] rounded-md hover:bg-[#8b67db]"
           >
             Next
-          </button>
-          <button
+          </button>          <button
             v-if="currentPage === totalPages && !isViewOnly && !doctorReviewed"
             @click="$emit('save')"
             class="px-4 py-2 text-white bg-green-500 rounded-md hover:bg-green-600"
           >
-            {{ hasNonOTCMedicines && !hasPrescription ? 'Send to Doctor' : 'Save' }}
+            Save
           </button>
           <div 
             v-else-if="doctorReviewed" 
