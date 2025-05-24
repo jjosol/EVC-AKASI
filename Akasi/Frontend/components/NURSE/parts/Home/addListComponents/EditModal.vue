@@ -33,13 +33,14 @@
             class="px-4 py-2 text-white bg-[#2f4a71] rounded-md hover:bg-[#8b67db]"
           >
             Next
-          </button>
-          <button
+          </button>          <button
             v-if="currentPage === totalPages && !isViewOnly && !doctorReviewed"
             @click="$emit('save')"
-            class="px-4 py-2 text-white bg-green-500 rounded-md hover:bg-green-600"
+            :disabled="isSaveDisabled"
+            :class="saveButtonClasses"
+            :title="saveButtonTooltip"
           >
-            {{ hasNonOTCMedicines && !hasPrescription ? 'Send to Doctor' : 'Save' }}
+            Save
           </button>
           <div 
             v-else-if="doctorReviewed" 
@@ -89,4 +90,26 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['cancel', 'save', 'next-page', 'prev-page']);
+
+// Computed property to check if save should be disabled
+const isSaveDisabled = computed(() => {
+  return props.hasNonOTCMedicines && !props.hasPrescription;
+});
+
+// Computed property for save button classes
+const saveButtonClasses = computed(() => {
+  return [
+    'px-4 py-2 rounded-md transition-colors',
+    isSaveDisabled.value 
+      ? 'text-gray-400 bg-gray-300 cursor-not-allowed' 
+      : 'text-white bg-green-500 hover:bg-green-600'
+  ];
+});
+
+// Computed property for save button tooltip
+const saveButtonTooltip = computed(() => {
+  return isSaveDisabled.value 
+    ? 'Please upload a prescription file for RX medications before saving' 
+    : '';
+});
 </script>

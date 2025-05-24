@@ -177,6 +177,12 @@ const createConsultationRecord = async (person) => {
     if (!person.clientId) {
       throw new Error('Patient ID is required');
     }
+    
+    // Validate RX medications require prescription upload
+    if (hasNonOTCMedicines.value && !prescriptionFile.value) {
+      throw new Error('Prescription file is required when administering RX medications. Please upload a prescription file before saving.');
+    }
+    
     const selectedDateTime = new Date(props.currentDay.date);
     const now = new Date();
     selectedDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
@@ -199,9 +205,9 @@ const createConsultationRecord = async (person) => {
       .map(d => getDispositionDisplayValue(d))
       .join(', ');
     
-    // If we have non-OTC medicines and no prescription file, we should send to doctor
-    // Otherwise, if we have a prescription file, we can save without sending to doctor
-    const shouldSendToDoctor = hasNonOTCMedicines.value && !prescriptionFile.value;
+    // Don't automatically send to doctor for RX medications - require prescription upload instead
+    // Only send to doctor if explicitly requested (this will be handled by separate "Send to Doctor" functionality)
+    const shouldSendToDoctor = false;
     
     const consultationData = {
       patient_id: selectedPerson.value.clientId,
@@ -2027,7 +2033,12 @@ const handleConfirm = async () => {
     showConfirmationModal.value = false;
   } catch (error) {
     console.error('Error in handleConfirm:', error);
-    alert('An error occurred. Please try again.');
+    // Show more specific error message for prescription validation
+    if (error.message && error.message.includes('Prescription file is required')) {
+      alert(error.message);
+    } else {
+      alert('An error occurred. Please try again.');
+    }
   }
 };
 
@@ -2945,37 +2956,37 @@ const pendingConsultations = computed(() => {
         </tbody>
       </table>
     </div>
-    
-    <!-- Prescription File Upload Section - Show when non-OTC medicines are present -->
+      <!-- Prescription File Upload Section - Show when non-OTC medicines are present -->
     <div v-if="hasNonOTCMedicines && selectedPerson.medicationAdministration && !isViewOnly" class="mt-6">
-      <div class="p-4 border border-blue-300 rounded-lg bg-blue-50">
-        <h4 class="mb-3 text-base font-semibold text-blue-800">Prescription Upload</h4>
-        <p class="mb-3 text-sm text-blue-600">
-          Non-OTC medicine requires a prescription. Please upload a prescription file.
+      <div class="p-4 border border-red-300 rounded-lg bg-red-50">
+        <div class="flex items-center mb-3">
+          <h4 class="text-base font-semibold text-red-800">Prescription Upload</h4>
+          <span class="ml-2 px-2 py-1 text-xs font-bold text-white bg-red-600 rounded-full">REQUIRED</span>
+        </div>
+        <p class="mb-3 text-sm text-red-600">
+          <strong>RX medication detected:</strong> A prescription file must be uploaded before saving this consultation.
         </p>
-        
-        <!-- File Upload UI -->
+          <!-- File Upload UI -->
         <div class="mb-4">
-          <div v-if="!prescriptionFile" class="flex justify-center px-6 pt-5 pb-6 border-2 border-blue-300 border-dashed rounded-md">
+          <div v-if="!prescriptionFile" class="flex justify-center px-6 pt-5 pb-6 border-2 border-red-300 border-dashed rounded-md">
             <div class="space-y-1 text-center">
-              <svg class="w-12 h-12 mx-auto text-blue-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+              <svg class="w-12 h-12 mx-auto text-red-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
                 <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" 
                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
-              <div class="flex text-sm text-blue-600">
-                <label for="prescription-file-upload" class="relative font-medium text-blue-600 bg-white rounded-md cursor-pointer hover:text-blue-700 focus-within:outline-none">
+              <div class="flex text-sm text-red-600">
+                <label for="prescription-file-upload" class="relative font-medium text-red-600 bg-white rounded-md cursor-pointer hover:text-red-700 focus-within:outline-none">
                   <span>Upload a file</span>
-                  <input id="prescription-file-upload" name="prescription-file" type="file" class="sr-only" 
-                    @change="handlePrescriptionFileChange" accept=".pdf,.jpg,.jpeg,.png">
+                  <input id="prescription-file-upload" name="prescription-file" type="file" class="sr-only"                    @change="handlePrescriptionFileChange" accept=".pdf,.jpg,.jpeg,.png">
                 </label>
                 <p class="pl-1">or drag and drop</p>
               </div>
-              <p class="text-xs text-blue-500">PDF, PNG, JPG up to 10MB</p>
+              <p class="text-xs text-red-500">PDF, PNG, JPG up to 10MB</p>
             </div>
           </div>
           
           <!-- Preview of selected file -->
-          <div v-else class="relative p-4 bg-white border border-blue-300 rounded-md">
+          <div v-else class="relative p-4 bg-white border border-green-300 rounded-md">
             <div class="flex items-center space-x-4">
               <!-- PDF icon or image preview -->
               <div class="flex-shrink-0">
