@@ -613,9 +613,7 @@ export class ConsultationRecordsService {
         parsedMedicalData = typeof medical_data === 'string' 
           ? JSON.parse(medical_data) 
           : medical_data;
-      }
-
-      // Update the consultation record with both direct fields and medical_data JSON
+      }      // Update the consultation record with both direct fields and medical_data JSON
       const updatedRecord = await this.prisma.consultation_records.update({
         where: { consultation_id },
         data: {
@@ -626,6 +624,7 @@ export class ConsultationRecordsService {
           blood_pressure: parsedMedicalData.blood_pressure as string || null,
           heart_rate: parsedMedicalData.heart_rate ? parseInt(parsedMedicalData.heart_rate as string, 10) : null,
           instructions: parsedMedicalData.treatment as string || null,
+          doctor_prescription: parsedMedicalData.prescription as string || null,
           
           // Also store the complete data as JSON
           medical_data: {

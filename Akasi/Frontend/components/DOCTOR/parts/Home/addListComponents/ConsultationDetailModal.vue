@@ -26,6 +26,7 @@ const heartRate = ref('');
 const complaints = ref(''); // keep this for backward compatibility
 const selectedDiagnosis = ref(null); // new ref for selected diagnosis
 const treatment = ref('');
+const prescription = ref('');
 
 // Diagnosis system refs
 const diagnoses = ref([]);
@@ -286,9 +287,7 @@ const saveConsultation = async () => {
     
     if (!props.consultation.consultation_id) {
       throw new Error('Consultation ID is required');
-    }
-
-    // Prepare medical data to save
+    }    // Prepare medical data to save
     const medicalData = {
       temperature: temperature.value,
       weight: weight.value,
@@ -297,6 +296,7 @@ const saveConsultation = async () => {
       heart_rate: heartRate.value,
       diagnosis: complaints.value,
       treatment: treatment.value,
+      prescription: prescription.value,
       // Include patient demographic data
       age: props.consultation.age,
       gender: props.consultation.gender
@@ -367,10 +367,10 @@ watch(() => props.consultation, async (newConsultation) => {
     temperature.value = medicalData.temperature || '';
     weight.value = medicalData.weight || '';
     height.value = medicalData.height || '';
-    bloodPressure.value = medicalData.blood_pressure || '';
-    heartRate.value = medicalData.heart_rate || '';
+    bloodPressure.value = medicalData.blood_pressure || '';    heartRate.value = medicalData.heart_rate || '';
     complaints.value = medicalData.diagnosis || newConsultation?.complaint || '';
     treatment.value = medicalData.treatment || '';
+    prescription.value = medicalData.prescription || '';
 
     // Set patient demographic data from extracted data with fallbacks
     patientType.value = medicalData.patientType || newConsultation.type || 'N/A';
@@ -665,8 +665,7 @@ onMounted(() => {
               </div>
             </div>
           </div>
-          
-          <!-- Treatment/Instructions - larger field -->
+            <!-- Treatment/Instructions - larger field -->
           <div class="mb-5">
             <div class="flex items-center justify-between mb-2">
               <label class="block font-medium text-gray-700">Treatment/Instructions</label>
@@ -679,6 +678,22 @@ onMounted(() => {
               class="w-full h-32 px-3 py-2 text-sm transition-all border rounded-md resize-none"
               :class="treatment ? 'border-green-400 bg-green-50' : 'border-gray-300'"
               placeholder="Enter treatment plan and instructions"
+            ></textarea>
+          </div>
+
+          <!-- Prescription - larger field -->
+          <div class="mb-5">
+            <div class="flex items-center justify-between mb-2">
+              <label class="block font-medium text-gray-700">Prescription</label>
+              <span v-if="prescription" class="flex items-center text-xs font-medium text-green-600">
+                <Icon icon="mdi:check-circle" class="w-4 h-4 mr-1" />Completed
+              </span>
+            </div>
+            <textarea
+              v-model="prescription"
+              class="w-full h-32 px-3 py-2 text-sm transition-all border rounded-md resize-none"
+              :class="prescription ? 'border-green-400 bg-green-50' : 'border-gray-300'"
+              placeholder="Enter prescribed medications and dosage instructions"
             ></textarea>
           </div>
         </div>
@@ -926,11 +941,16 @@ onMounted(() => {
           <h4 class="mb-2 text-sm font-medium text-gray-500">DIAGNOSIS</h4>
           <p class="whitespace-pre-wrap">{{ complaints || 'No diagnosis provided' }}</p>
         </div>
-        
-        <!-- Treatment Plan -->
+          <!-- Treatment Plan -->
         <div class="p-4 mb-6 bg-white border border-gray-200 rounded-lg">
           <h4 class="mb-2 text-sm font-medium text-gray-500">TREATMENT PLAN</h4>
           <p class="whitespace-pre-wrap">{{ treatment || 'No treatment plan provided' }}</p>
+        </div>
+
+        <!-- Prescription -->
+        <div class="p-4 mb-6 bg-white border border-gray-200 rounded-lg">
+          <h4 class="mb-2 text-sm font-medium text-gray-500">PRESCRIPTION</h4>
+          <p class="whitespace-pre-wrap">{{ prescription || 'No prescription provided' }}</p>
         </div>
         
         <!-- Footer -->

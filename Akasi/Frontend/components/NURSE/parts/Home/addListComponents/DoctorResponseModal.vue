@@ -24,6 +24,7 @@ const bloodPressure = ref('');
 const heartRate = ref('');
 const complaints = ref('');
 const treatment = ref('');
+const prescription = ref('');
 
 // Loading state
 const isLoadingDetails = ref(false);
@@ -33,8 +34,9 @@ const consultationDetails = ref(null);
 const hasMedications = ref(false);
 const medications = ref([]);
 const hasPrescription = ref(false);
-const prescriptionUrl = ref('');
-const prescriptionDetails = ref(null);
+// Remove unused prescription modal variables
+// const prescriptionUrl = ref('');
+// const prescriptionDetails = ref(null);
 const nurseRemarks = ref('');
 const actionsTaken = ref([]);
 const dispositions = ref([]);
@@ -42,8 +44,8 @@ const chiefComplaints = ref([]);
 const doctorReviewed = ref(false);
 const doctorReviewDate = ref(null);
 
-// Prescription viewer modal
-const showPrescriptionModal = ref(false);
+// Prescription viewer modal (no longer needed as prescription is displayed inline)
+// const showPrescriptionModal = ref(false);
 
 // Page display state
 const showNurseSummary = ref(true);
@@ -186,21 +188,13 @@ const fetchConsultationDetails = async (consultationId) => {
       hasMedications.value = false;
       medications.value = [];
     }
-    
-    // Check for prescription
-    try {
-      const prescriptionInfo = await consultationRecordService.fetchPrescriptionByConsultation(consultationId);
-      if (prescriptionInfo && prescriptionInfo.prescription_id) {
-        hasPrescription.value = true;
-        prescriptionDetails.value = prescriptionInfo;
-        prescriptionUrl.value = `http://localhost:3001/patient-files/prescription/${prescriptionInfo.prescription_id}`;
-      } else {
-        hasPrescription.value = false;
-        prescriptionDetails.value = null;
-      }
-    } catch (error) {
-      console.error('Error fetching prescription:', error);
+      // Check for prescription from doctor_prescription field
+    if (details.doctor_prescription && details.doctor_prescription.trim() !== '') {
+      hasPrescription.value = true;
+      prescription.value = details.doctor_prescription;
+    } else {
       hasPrescription.value = false;
+      prescription.value = '';
     }
     
   } catch (error) {
@@ -215,15 +209,9 @@ const closeModal = () => {
   emit('close');
 };
 
-// Function to view prescription
-const viewPrescription = () => {
-  showPrescriptionModal.value = true;
-};
-
-// Function to close prescription modal
-const closePrescriptionModal = () => {
-  showPrescriptionModal.value = false;
-};
+// Removed unused prescription modal functions
+// const viewPrescription = () => { showPrescriptionModal.value = true; };
+// const closePrescriptionModal = () => { showPrescriptionModal.value = false; };
 
 // Toggle section visibility
 const toggleNurseSummary = () => {
@@ -244,8 +232,7 @@ watch(() => props.consultation, async (newConsultation) => {
   if (newConsultation && newConsultation.consultation_id) {
     // Use the helper function to extract all medical data in a consistent way
     const medicalData = consultationRecordService.extractMedicalData(newConsultation);
-    
-    // Populate form fields with the extracted data
+      // Populate form fields with the extracted data
     temperature.value = medicalData.temperature || '';
     weight.value = medicalData.weight || '';
     height.value = medicalData.height || '';
@@ -253,6 +240,7 @@ watch(() => props.consultation, async (newConsultation) => {
     heartRate.value = medicalData.heart_rate || '';
     complaints.value = medicalData.diagnosis || newConsultation?.complaint || '';
     treatment.value = medicalData.treatment || '';
+    prescription.value = medicalData.prescription || '';
 
     // Set patient demographic data from extracted data with fallbacks
     patientType.value = medicalData.patientType || newConsultation.type || 'N/A';
@@ -430,16 +418,12 @@ watch(() => props.consultation, async (newConsultation) => {
                 </table>
               </div>
             </div>
-            
-            <!-- Prescription button -->
-            <div v-if="hasPrescription" class="mt-4">
-              <button 
-                @click="viewPrescription" 
-                class="flex items-center text-sm font-medium text-blue-600 hover:text-blue-800"
-              >
-                <Icon icon="mdi:file-document-outline" class="w-5 h-5 mr-1" />
-                View Prescription
-              </button>
+              <!-- Prescription link -->
+            <div v-if="hasPrescription && prescription" class="mt-4">
+              <p class="text-sm font-medium text-blue-600">
+                <Icon icon="mdi:file-document-outline" class="inline w-4 h-4 mr-1" />
+                Prescription available below
+              </p>
             </div>
           </div>
         </div>
@@ -496,12 +480,19 @@ watch(() => props.consultation, async (newConsultation) => {
                 <p class="text-sm whitespace-pre-wrap">{{ complaints || 'No diagnosis provided' }}</p>
               </div>
             </div>
-            
-            <!-- Treatment Plan -->
+              <!-- Treatment Plan -->
             <div class="mb-5">
               <h5 class="mb-2 text-sm font-medium text-gray-700">Treatment/Instructions</h5>
               <div class="p-3 rounded bg-gray-50">
                 <p class="text-sm whitespace-pre-wrap">{{ treatment || 'No treatment plan provided' }}</p>
+              </div>
+            </div>
+
+            <!-- Prescription -->
+            <div class="mb-5">
+              <h5 class="mb-2 text-sm font-medium text-gray-700">Prescription</h5>
+              <div class="p-3 rounded bg-gray-50">
+                <p class="text-sm whitespace-pre-wrap">{{ prescription || 'No prescription provided' }}</p>
               </div>
             </div>
           </div>
@@ -515,71 +506,7 @@ watch(() => props.consultation, async (newConsultation) => {
           >
             Close
           </button>
-        </div>
-      </div>
-    </div>
-  </div>
-  
-  <!-- Prescription Viewer Modal -->
-  <div v-if="showPrescriptionModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
-    <div class="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] flex flex-col">
-      <!-- Header -->
-      <div class="flex items-center justify-between p-4 border-b">
-        <h3 class="text-lg font-medium">Prescription</h3>
-        <button @click="closePrescriptionModal" class="text-gray-400 hover:text-gray-600">
-          <Icon icon="mdi:close" class="w-6 h-6" />
-        </button>
-      </div>
-      
-      <!-- Body -->
-      <div class="flex-1 p-4 overflow-auto">
-        <div v-if="prescriptionDetails">
-          <!-- Display image if it's an image type -->
-          <img 
-            v-if="prescriptionDetails.mime_type && prescriptionDetails.mime_type.startsWith('image/')" 
-            :src="prescriptionUrl" 
-            alt="Prescription" 
-            class="h-auto max-w-full mx-auto"
-          />
-          
-          <!-- Display PDF in iframe if it's a PDF -->
-          <iframe 
-            v-else-if="prescriptionDetails.mime_type === 'application/pdf'" 
-            :src="prescriptionUrl" 
-            class="w-full h-[70vh]"
-          ></iframe>
-          
-          <!-- Fallback for other file types -->
-          <div v-else class="py-8 text-center">
-            <Icon icon="mdi:file-document-outline" class="w-16 h-16 mx-auto text-gray-400" />
-            <p class="mt-2 text-sm text-gray-600">
-              {{ prescriptionDetails.file_name || 'Prescription file' }}
-            </p>
-            <a 
-              :href="prescriptionUrl" 
-              target="_blank" 
-              class="inline-block px-4 py-2 mt-4 text-white bg-blue-600 rounded hover:bg-blue-700"
-            >
-              Download Prescription
-            </a>
-          </div>
-        </div>
-        <div v-else class="py-8 text-center">
-          <p class="text-gray-500">No prescription available</p>
-        </div>
-      </div>
-      
-      <!-- Footer -->
-      <div class="p-4 border-t">
-        <div class="flex justify-end">
-          <button 
-            @click="closePrescriptionModal" 
-            class="px-4 py-2 text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
-          >
-            Close
-          </button>
-        </div>
-      </div>
+        </div>      </div>
     </div>
   </div>
 </template>

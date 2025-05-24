@@ -121,6 +121,7 @@ model consultation_records {
   doctor_review_date  DateTime? // When the doctor provided medical data
   nurse_notified      Boolean  @default(false) // Flag to indicate nurse has been notified
   nurse_notification_date DateTime? // When the nurse was notified
+  doctor_prescription String? @db.VarChar(500) // Doctor's prescription or notes
 
   // Relations
   nurse              nurse                    @relation(fields: [nurse_id], references: [nurse_id], onDelete: NoAction, onUpdate: NoAction)

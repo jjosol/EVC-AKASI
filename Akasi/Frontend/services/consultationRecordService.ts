@@ -70,6 +70,7 @@ interface MedicalData {
   heart_rate?: string;
   diagnosis?: string;
   treatment?: string;
+  prescription?: string;
   age?: string | number;
   gender?: string;
 }
@@ -707,8 +708,7 @@ export const notifyNurseAboutMedicalRecord = async (consultation_id: number) => 
  * @param {any} consultationRecord - Consultation record object
  * @returns {Object} Object containing all available medical data
  */
-export const extractMedicalData = (consultationRecord: any) => {
-  // Default empty values
+export const extractMedicalData = (consultationRecord: any) => {  // Default empty values
   const defaultData = {
     temperature: null,
     weight: null,
@@ -717,6 +717,7 @@ export const extractMedicalData = (consultationRecord: any) => {
     heart_rate: null,
     diagnosis: null,
     treatment: null,
+    prescription: null,
     patientType: null,
     patientGrade: null,
     patientSection: null, 
@@ -728,7 +729,6 @@ export const extractMedicalData = (consultationRecord: any) => {
   if (!consultationRecord) {
     return defaultData;
   }
-
   // First try to get data from direct fields (from merged HealthRecord)
   const directData = {
     temperature: consultationRecord.temperature,
@@ -737,6 +737,7 @@ export const extractMedicalData = (consultationRecord: any) => {
     blood_pressure: consultationRecord.blood_pressure,
     heart_rate: consultationRecord.heart_rate,
     treatment: consultationRecord.instructions,
+    prescription: consultationRecord.doctor_prescription,
   };
 
   // Then check if we need to supplement with data from medical_data JSON
@@ -746,8 +747,7 @@ export const extractMedicalData = (consultationRecord: any) => {
       const medicalData = typeof consultationRecord.medical_data === 'object' 
         ? consultationRecord.medical_data
         : JSON.parse(consultationRecord.medical_data);
-        
-      return {
+          return {
         // Start with direct fields
         ...directData,
         // Fill in any missing values from JSON
@@ -758,6 +758,7 @@ export const extractMedicalData = (consultationRecord: any) => {
         heart_rate: directData.heart_rate ?? medicalData.heart_rate ?? null,
         diagnosis: medicalData.diagnosis ?? consultationRecord.complaint ?? null,
         treatment: directData.treatment ?? medicalData.treatment ?? null,
+        prescription: directData.prescription ?? medicalData.prescription ?? null,
         // Add patient details from medical_data
         patientType: medicalData.patientType ?? null,
         patientGrade: medicalData.patientGrade ?? null,
@@ -794,6 +795,13 @@ export const fetchPrescriptionFile = async (consultation_id: number) => {
     throw error;
   }
 };
+
+/**
+ * Fetches prescription by consultation ID (alias for fetchPrescriptionFile)
+ * @param {number} consultation_id - ID of the consultation
+ * @returns {Promise<any>} Prescription file data
+ */
+// Removed fetchPrescriptionByConsultation - prescription data comes from consultation record doctor_prescription field
 
 /**
  * Downloads prescription file content
