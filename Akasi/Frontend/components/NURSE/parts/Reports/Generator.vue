@@ -274,12 +274,17 @@ const generatePdfFile = async (htmlContent) => {
   }
 }
 
-const fetchReportData = async (startMonthName, endMonthName, year, isYearly = false) => {
+const fetchReportData = async (startMonthName, endMonthName, schoolYear, isYearly = false) => {
   fetchingData.value = true;
   fetchError.value = null;
   
   try {
-    console.log(`Fetching data for: ${startMonthName} to ${endMonthName || startMonthName}, ${year}, yearly=${isYearly}`);
+    console.log(`Fetching data for: ${startMonthName} to ${endMonthName || startMonthName}, ${schoolYear}, yearly=${isYearly}`);
+    
+    // Extract the start year from the school year (e.g., from "2015-2016" get "2015")
+    const year = schoolYear.split('-')[0];
+    
+    console.log(`Using year ${year} for API request`);
     
     // Use the reportService function to fetch illness summary data
     const data = await fetchIllnessSummary(
@@ -301,9 +306,14 @@ const fetchReportData = async (startMonthName, endMonthName, year, isYearly = fa
   }
 };
 
-const fetchConsultationMonitoringData = async (startMonthName, endMonthName, year, isYearly = false) => {
+const fetchConsultationMonitoringData = async (startMonthName, endMonthName, schoolYear, isYearly = false) => {
   try {
-    console.log(`Fetching monitoring data for: ${startMonthName} to ${endMonthName || startMonthName}, ${year}, yearly=${isYearly}`);
+    console.log(`Fetching monitoring data for: ${startMonthName} to ${endMonthName || startMonthName}, ${schoolYear}, yearly=${isYearly}`);
+    
+    // Extract the start year from the school year (e.g., from "2015-2016" get "2015")
+    const year = schoolYear.split('-')[0];
+    
+    console.log(`Using year ${year} for monitoring API request`);
     
     // Use the reportService function to fetch consultation monitoring data
     const data = await fetchConsultationMonitoring(

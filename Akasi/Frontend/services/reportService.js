@@ -18,15 +18,26 @@ export const formatReportDate = (startMonth, endMonth, year, isYearly = false) =
 /**
  * Fetches illness summary data from the API
  */
-export const fetchIllnessSummary = async (startMonth, endMonth, year, isYearly = false) => {
+export const fetchIllnessSummary = async (startMonth, endMonth, schoolYear, isYearly = false) => {
   try {
+    // Extract the start year from the school year format (e.g., "2015-2016" -> "2015")
+    const year = schoolYear.split('-')[0];
+
     const params = new URLSearchParams();
     params.append('startMonth', startMonth);
     if (endMonth) params.append('endMonth', endMonth);
     params.append('year', year);
 
-    const response = await fetch(`/api/reports/illness-summary?${params}`);
+    // Determine API base URL based on environment
+    const apiBaseUrl = process.env.NODE_ENV === 'production' ? '/api' : '/api';
+    
+    // Add console log to debug the request
+    console.log(`Making request to: ${apiBaseUrl}/reports/illness-summary?${params}`);
+    console.log(`Using year ${year} from school year ${schoolYear}`);
+    
+    const response = await fetch(`${apiBaseUrl}/reports/illness-summary?${params}`);
     if (!response.ok) {
+      console.error(`Error response: ${response.status} ${response.statusText}`);
       throw new Error(`Failed to fetch illness summary: ${response.statusText}`);
     }
 
@@ -40,12 +51,17 @@ export const fetchIllnessSummary = async (startMonth, endMonth, year, isYearly =
 /**
  * Fetches consultation monitoring data from the API
  */
-export const fetchConsultationMonitoring = async (startMonth, endMonth, year, isYearly = false) => {
+export const fetchConsultationMonitoring = async (startMonth, endMonth, schoolYear, isYearly = false) => {
   try {
+    // Extract the start year from the school year format (e.g., "2015-2016" -> "2015")
+    const year = schoolYear.split('-')[0];
+
     const params = new URLSearchParams();
     params.append('startMonth', startMonth);
     if (endMonth) params.append('endMonth', endMonth);
     params.append('year', year);
+
+    console.log(`Making monitoring request with year ${year} from school year ${schoolYear}`);
 
     const response = await fetch(`/api/reports/monitoring?${params}`);
     if (!response.ok) {

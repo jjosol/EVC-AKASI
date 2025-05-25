@@ -48,23 +48,28 @@ export default defineNuxtConfig({
     prefetch: true, // Adds prefetch hints
   },
   nitro: {
+    devServer: {
+      // The port where your backend API is running
+      port: 3001
+    },
+    devProxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        pathRewrite: { '^/api': '' },
+        ws: true
+      },
+      '/change-password': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        pathRewrite: { '^/change-password': '/change-password' }
+      }
+    },
     handlers: [
       {
         route: '/_generate-pdf',
         handler: '~/server/api/generate-pdf.post'
       }
-    ],
-    // Add API proxy configuration to route /api requests to your NestJS backend
-    devProxy: {
-      '/change-password': {
-        target: 'http://10.35.133.169:3001',
-        changeOrigin: true,
-        pathRewrite: { '^/change-password': '/change-password' }
-      },
-      '/api': {
-        target: 'http://10.35.133.169:3001', // Using your machine's IP address
-        changeOrigin: true,
-      }
-    }
+    ]
   }
 })
