@@ -1,9 +1,11 @@
 // consultation-records.controller.ts
-import { Body, Controller, Post, Get, Put, Delete, Param, ParseIntPipe, NotFoundException, BadRequestException, Query, ForbiddenException, Request } from '@nestjs/common';
+import { Body, Controller, Post, Get, Put, Delete, Param, ParseIntPipe, NotFoundException, BadRequestException, Query, ForbiddenException, Request, UseGuards } from '@nestjs/common';
 import { ConsultationRecordsService } from './consultation-records.service';
 import { ConsultationRecordCreateInput, ConsultationRecordUpdateInput } from './consultation-records.types';
+import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
 @Controller('consultation-records')
+@UseGuards(JwtAuthGuard) // Protect all routes in this controller
 export class ConsultationRecordsController {
   constructor(private readonly consultationRecordsService: ConsultationRecordsService) { }
 

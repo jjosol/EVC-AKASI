@@ -624,7 +624,6 @@ export class ConsultationRecordsService {
           blood_pressure: parsedMedicalData.blood_pressure as string || null,
           heart_rate: parsedMedicalData.heart_rate ? parseInt(parsedMedicalData.heart_rate as string, 10) : null,
           instructions: parsedMedicalData.treatment as string || null,
-          doctor_prescription: parsedMedicalData.prescription as string || null,
           
           // Also store the complete data as JSON
           medical_data: {
@@ -637,6 +636,15 @@ export class ConsultationRecordsService {
           doctor_review_date: new Date()
         }
       });
+      
+      // Update the doctor_prescription field separately
+      if (parsedMedicalData.prescription) {
+        await this.prisma.$executeRaw`
+          UPDATE consultation_records 
+          SET doctor_prescription = ${parsedMedicalData.prescription as string} 
+          WHERE consultation_id = ${consultation_id}
+        `;
+      }
 
       // Return the updated record
       return this.getConsultationRecord(consultation_id);
