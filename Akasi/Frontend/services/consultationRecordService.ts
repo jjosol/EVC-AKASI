@@ -727,8 +727,17 @@ export const extractMedicalData = (consultationRecord: any) => {  // Default emp
 
   // If no record, return defaults
   if (!consultationRecord) {
+    console.log('extractMedicalData: No consultation record provided');
     return defaultData;
   }
+  
+  // Debug logging to understand the data structure
+  console.log('extractMedicalData: Consultation record received:', {
+    type: consultationRecord.type,
+    age: consultationRecord.age,
+    gender: consultationRecord.gender,
+    medical_data: consultationRecord.medical_data
+  });
   // First try to get data from direct fields (from merged HealthRecord)
   const directData = {
     temperature: consultationRecord.temperature,
@@ -747,7 +756,7 @@ export const extractMedicalData = (consultationRecord: any) => {  // Default emp
       const medicalData = typeof consultationRecord.medical_data === 'object' 
         ? consultationRecord.medical_data
         : JSON.parse(consultationRecord.medical_data);
-          return {
+      const result = {
         // Start with direct fields
         ...directData,
         // Fill in any missing values from JSON
@@ -759,25 +768,49 @@ export const extractMedicalData = (consultationRecord: any) => {  // Default emp
         diagnosis: medicalData.diagnosis ?? consultationRecord.complaint ?? null,
         treatment: directData.treatment ?? medicalData.treatment ?? null,
         prescription: directData.prescription ?? medicalData.prescription ?? null,
-        // Add patient details from medical_data
-        patientType: medicalData.patientType ?? null,
-        patientGrade: medicalData.patientGrade ?? null,
-        patientSection: medicalData.patientSection ?? null, 
-        patientAge: medicalData.patientAge ?? null,
-        patientGender: medicalData.patientGender ?? null
+        // Add patient details from medical_data with fallback to consultation record
+        patientType: medicalData.patientType ?? consultationRecord.type ?? null,
+        patientGrade: medicalData.patientGrade ?? consultationRecord.grade ?? null,
+        patientSection: medicalData.patientSection ?? consultationRecord.section ?? null, 
+        patientAge: medicalData.patientAge ?? consultationRecord.age ?? null,
+        patientGender: medicalData.patientGender ?? consultationRecord.gender ?? null
       };
+      
+      // Debug logging for result
+      console.log('extractMedicalData: Returning data with medical_data JSON:', {
+        patientType: result.patientType,
+        patientAge: result.patientAge,
+        patientGender: result.patientGender
+      });
+      
+      return result;
     } catch (error) {
       console.error('Error parsing medical_data:', error);
     }
   }
   
   // If medical_data JSON is not available or parsing failed,
-  // return data from direct fields with defaults for missing fields
-  return {
+  // return data from direct fields with consultation record patient data as fallback
+  const result = {
     ...defaultData,
     ...directData,
     diagnosis: consultationRecord.complaint || null,
+    // Add patient details from consultation record as fallback
+    patientType: consultationRecord.type ?? null,
+    patientGrade: consultationRecord.grade ?? null,
+    patientSection: consultationRecord.section ?? null,
+    patientAge: consultationRecord.age ?? null,
+    patientGender: consultationRecord.gender ?? null
   };
+  
+  // Debug logging for fallback result
+  console.log('extractMedicalData: Returning fallback data:', {
+    patientType: result.patientType,
+    patientAge: result.patientAge,
+    patientGender: result.patientGender
+  });
+  
+  return result;
 };
 
 /**
