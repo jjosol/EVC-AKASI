@@ -1,47 +1,49 @@
 <template>
-  <div class="min-h-screen py-8 bg-gray-50">
+  <div class="min-h-screen py-4 md:py-8 bg-gray-50">
     <div class="max-w-4xl mx-auto overflow-hidden bg-white rounded-lg shadow-md">
       <!-- Header -->
-      <div class="bg-[#2f4a71] px-6 py-4">
-        <h2 class="text-2xl font-bold text-white">PSHS-EVC Health Services Report Generator</h2>
+      <div class="bg-[#2f4a71] px-2 md:px-6 py-3 md:py-4">
+        <h2 class="text-base font-bold text-white truncate md:text-2xl" style="letter-spacing:0.01em;">PSHS-EVC Health Services Report Generator</h2>
       </div>
 
-      <div class="p-6">
+      <div class="p-4 md:p-6">
         <!-- Tabs for Monthly and Annual -->
-        <div class="flex justify-end mb-6 border-b border-gray-200">
-          <button 
-            @click="selectedPeriod = 'monthly'"
-            :class="{'text-blue-600 border-b-2 border-blue-600 font-medium': selectedPeriod === 'monthly'}"
-            class="px-4 py-2 text-gray-600 transition-colors hover:text-blue-500">
-            Monthly
-          </button>
-          <button 
-            @click="selectedPeriod = 'yearly'"
-            :class="{'text-blue-600 border-b-2 border-blue-600 font-medium': selectedPeriod === 'yearly'}"
-            class="px-4 py-2 text-gray-600 transition-colors hover:text-blue-500">
-            Yearly
-          </button>
+        <div class="flex justify-center mb-6 overflow-x-auto border-b border-gray-200 md:justify-end">
+          <div class="flex space-x-0 min-w-max">
+            <button 
+              @click="selectedPeriod = 'monthly'"
+              :class="{'text-blue-600 border-b-2 border-blue-600 font-medium': selectedPeriod === 'monthly'}"
+              class="px-6 py-2 text-sm text-gray-600 transition-colors md:px-4 md:text-base hover:text-blue-500 whitespace-nowrap">
+              Monthly
+            </button>
+            <button 
+              @click="selectedPeriod = 'yearly'"
+              :class="{'text-blue-600 border-b-2 border-blue-600 font-medium': selectedPeriod === 'yearly'}"
+              class="px-6 py-2 text-sm text-gray-600 transition-colors md:px-4 md:text-base hover:text-blue-500 whitespace-nowrap">
+              Yearly
+            </button>
+          </div>
         </div>
 
-        <div class="space-y-8">
+        <div class="space-y-6 md:space-y-8">
           <!-- Date Selection -->
-          <div class="grid gap-6 md:grid-cols-2">
-            <div v-if="selectedPeriod === 'monthly'" class="space-y-2">
+          <div class="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-2">
+            <div v-if="selectedPeriod === 'monthly'" class="space-y-2 md:col-span-1">
               <label class="block text-sm font-medium text-gray-700">Month Range</label>
-              <div class="flex items-center space-x-2">
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <div class="flex-1">
                   <select 
                     v-model="startMonth" 
-                    class="block w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50">
+                    class="block w-full px-3 py-2 text-sm border-gray-300 rounded-md shadow-sm md:text-base focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 appearance-none bg-[url('data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'m6 8 4 4 4-4\'/%3E%3C/svg%3E')] bg-no-repeat bg-[right_0.75rem_center] bg-[length:1.5em_1.5em]">
                     <option value="" disabled selected>Start Month</option>
                     <option v-for="(month, index) in months" :key="index" :value="index">{{ month }}</option>
                   </select>
                 </div>
-                <span class="text-gray-500">to</span>
+                <span class="text-sm text-center text-gray-500 sm:text-left">to</span>
                 <div class="flex-1">
                   <select 
                     v-model="endMonth"
-                    class="block w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50">
+                    class="block w-full px-3 py-2 text-sm border-gray-300 rounded-md shadow-sm md:text-base focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 appearance-none bg-[url('data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'m6 8 4 4 4-4\'/%3E%3C/svg%3E')] bg-no-repeat bg-[right_0.75rem_center] bg-[length:1.5em_1.5em]">
                     <option value="" disabled selected>End Month</option>
                     <option value="null">Same as Start Month</option>
                     <option v-for="(month, index) in months" :key="index" :value="index">{{ month }}</option>
@@ -53,18 +55,18 @@
               </div>
             </div>
             
-            <div v-if="selectedPeriod === 'yearly'" class="space-y-2">
+            <div v-if="selectedPeriod === 'yearly'" class="space-y-2 md:col-span-1">
               <label class="block text-sm font-medium text-gray-700">Period</label>
-              <div class="px-4 py-2 bg-gray-100 border border-gray-200 rounded-md">
+              <div class="px-3 py-2 text-sm bg-gray-100 border border-gray-200 rounded-md md:px-4 md:text-base">
                 Full School Year (July - June)
               </div>
             </div>
             
-            <div>
+            <div class="md:col-span-1">
               <label class="block mb-2 text-sm font-medium text-gray-700">School Year</label>
               <select 
                 v-model="selectedYear"
-                class="block w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50">
+                class="block w-full px-3 py-2 text-sm border-gray-300 rounded-md shadow-sm md:text-base focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 appearance-none bg-[url('data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'m6 8 4 4 4-4\'/%3E%3C/svg%3E')] bg-no-repeat bg-[right_0.75rem_center] bg-[length:1.5em_1.5em]">
                 <option value="" disabled selected>Select School Year</option>
                 <option v-for="year in schoolYears" :key="year" :value="year">{{ year }}</option>
               </select>
@@ -73,42 +75,40 @@
 
           <!-- Report Preview -->
           <div class="overflow-hidden border rounded-lg bg-gray-50">
-            <div class="px-4 py-3 bg-gray-100 border-b border-gray-200">
-              <h3 class="font-medium text-gray-700">Report Preview</h3>
+            <div class="px-3 py-3 bg-gray-100 border-b border-gray-200 md:px-4">
+              <h3 class="text-sm font-medium text-gray-700 md:text-base">Report Preview</h3>
             </div>
             
-            <div class="p-4 text-sm text-gray-600">
+            <div class="p-3 text-sm text-gray-600 md:p-4">
               <p class="mt-2">
                 This system generates a comprehensive report including:
-                <ul class="list-disc list-inside">
-                  <li>SUMMARY OF THE PSHS-EVC COMMUNITY THAT ACQUIRED ILLNESSES and INJURIES</li>
-                  <li>CONSULTATION/APPOINTMENT MONITORING TOOL</li>
+                <ul class="mt-2 space-y-1 list-disc list-inside">
+                  <li class="text-xs md:text-sm">SUMMARY OF THE PSHS-EVC COMMUNITY THAT ACQUIRED ILLNESSES and INJURIES</li>
+                  <li class="text-xs md:text-sm">CONSULTATION/APPOINTMENT MONITORING TOOL</li>
                 </ul>
               </p>
             </div>
           </div>
 
           <!-- Generate and Preview Buttons -->
-          <div class="flex justify-between pt-4">
+          <div class="flex flex-col gap-3 pt-4 sm:flex-row sm:justify-between">
             <button 
               @click="previewReport" 
-              class="px-6 py-2 bg-[#394a6e] text-white font-medium rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-[#394a6e] focus:ring-offset-2 transform transition-transform duration-200 hover:scale-105 disabled:opacity-50"
+              class="w-full sm:w-auto px-6 py-3 md:py-2 bg-[#394a6e] text-white text-sm md:text-base font-medium rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-[#394a6e] focus:ring-offset-2 transform transition-transform duration-200 hover:scale-105 disabled:opacity-50 min-h-[44px]"
               :disabled="!canGenerate">
               PREVIEW REPORT
             </button>
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Modal for PDF Preview -->
-    <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div class="flex flex-col w-11/12 max-w-4xl overflow-hidden bg-white rounded-lg shadow-lg h-5/6">
-        <div class="flex items-center justify-between px-4 py-2 border-b">
-          <h3 class="text-lg font-medium">Report Preview</h3>
-          <button @click="showModal = false" class="text-gray-500 hover:text-gray-700">
+    </div>    <!-- Modal for PDF Preview -->
+    <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-2 bg-black bg-opacity-50 md:p-4">
+      <div class="flex flex-col w-full max-w-4xl overflow-hidden bg-white rounded-lg shadow-lg h-[90vh] md:h-5/6">
+        <div class="flex items-center justify-between px-3 py-3 border-b md:px-4 md:py-2">
+          <h3 class="text-base font-medium md:text-lg">Report Preview</h3>
+          <button @click="showModal = false" class="p-1 text-gray-500 hover:text-gray-700 min-h-[44px] min-w-[44px] flex items-center justify-center">
             <span class="sr-only">Close</span>
-            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -121,11 +121,11 @@
             @load="onIframeLoad"
           ></iframe>
         </div>
-        <div class="flex justify-end px-4 py-2 border-t">
+        <div class="flex flex-col gap-2 px-3 py-3 border-t sm:flex-row sm:justify-end md:px-4 md:py-2">
           <button 
             @click="generateReport" 
             :disabled="fetchingData"
-            class="bg-[#394a6e] hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+            class="w-full sm:w-auto bg-[#394a6e] hover:bg-blue-700 text-white font-bold py-3 md:py-2 px-4 rounded text-sm md:text-base min-h-[44px]"
           >
             {{ fetchingData ? 'Loading...' : 'Generate PDF' }}
           </button>
@@ -944,3 +944,133 @@ async function fetchReport() {
   }
 }
 </script>
+
+<style scoped>
+/* Mobile-first responsive design */
+@media (max-width: 640px) {
+  /* Ensure proper touch targets on mobile */
+  button,
+  select {
+    min-height: 44px;
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+
+  /* Improve select element appearance on mobile */
+  select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    padding-right: 2.5rem;
+  }
+
+  /* Improve modal layout on mobile */
+  .fixed.inset-0 {
+    padding: 0.5rem;
+  }
+
+  /* Better iframe handling on mobile */
+  iframe {
+    min-height: 400px;
+  }
+
+  /* Stack layout improvements */
+  .grid {
+    gap: 1rem;
+  }
+
+  /* Text size adjustments for mobile readability */
+  .text-2xl {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+  }
+
+  /* Better spacing for mobile */
+  .space-y-8 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1.5rem;
+  }
+}
+
+/* Tablet responsiveness */
+@media (min-width: 641px) and (max-width: 768px) {
+  /* Adjust grid layout for tablets */
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  /* Better modal sizing for tablets */
+  .max-w-4xl {
+    max-width: 90vw;
+  }
+}
+
+/* Improved focus states for accessibility */
+button:focus,
+select:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Loading state improvements */
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Better hover states on devices that support hover */
+@media (hover: hover) {
+  button:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+}
+
+/* Prevent zoom on form inputs for iOS */
+@supports (-webkit-touch-callout: none) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Improve scrolling behavior */
+.overflow-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Better visual hierarchy on small screens */
+@media (max-width: 480px) {
+  .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1rem;
+  }
+
+  /* Compact spacing for very small screens */
+  .p-4 {
+    padding: 0.75rem;
+  }
+
+  .px-6 {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* Enhanced modal animation */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+/* ...existing styles... */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+</style>
