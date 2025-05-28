@@ -6,47 +6,234 @@ import { promisify } from 'util';
 
 const writeFileAsync = promisify(fs.writeFile);
 const mkdirAsync = promisify(fs.mkdir);
+const readdirAsync = promisify(fs.readdir);
+const unlinkAsync = promisify(fs.unlink);
 
 @Injectable()
 export class StorageService {
   private readonly uploadDir = path.join(process.cwd(), 'uploads');
-  private readonly currentSchoolYear = '2024-2025'; // Current school year as a constant
-  private readonly bulletinDir = path.join(this.uploadDir, this.currentSchoolYear, 'bulletin');
-  private readonly prescriptionDir = path.join(this.uploadDir, this.currentSchoolYear, 'prescriptions');
-  private readonly medicalCertificatesDir = path.join(this.uploadDir, this.currentSchoolYear, 'medical-certificates');
-  private readonly dentalCertificatesDir = path.join(this.uploadDir, this.currentSchoolYear, 'dental-certificates');
-  private readonly opthalCertificatesDir = path.join(this.uploadDir, this.currentSchoolYear, 'opthal-certificates');
-  private readonly physicalExamDir = path.join(this.uploadDir, this.currentSchoolYear, 'physical-exam');
-  private readonly laboratoryDir = path.join(this.uploadDir, this.currentSchoolYear, 'laboratory');
-  private readonly generalDir = path.join(this.uploadDir, this.currentSchoolYear, 'general');
+  private currentSchoolYear = '2024-2025'; // Changed to non-readonly to allow updates
+
+  // Define directory getters for dynamic paths
+  private get bulletinDir(): string {
+    return path.join(this.uploadDir, this.currentSchoolYear, 'bulletin');
+  }
+
+  private get prescriptionDir(): string {
+    return path.join(this.uploadDir, this.currentSchoolYear, 'prescriptions');
+  }
+
+  private get medicalCertificatesDir(): string {
+    return path.join(this.uploadDir, this.currentSchoolYear, 'medical-certificates');
+  }
+
+  private get dentalCertificatesDir(): string {
+    return path.join(this.uploadDir, this.currentSchoolYear, 'dental-certificates');
+  }
+
+  private get opthalCertificatesDir(): string {
+    return path.join(this.uploadDir, this.currentSchoolYear, 'opthal-certificates');
+  }
+
+  private get physicalExamDir(): string {
+    return path.join(this.uploadDir, this.currentSchoolYear, 'physical-exam');
+  }
+
+  private get laboratoryDir(): string {
+    return path.join(this.uploadDir, this.currentSchoolYear, 'laboratory');
+  }
+
+  private get generalDir(): string {
+    return path.join(this.uploadDir, this.currentSchoolYear, 'general');
+  }
 
   constructor(private prisma: PrismaService) { 
+    // Try to load active school year from config file if it exists
+    this.loadActiveSchoolYear();
     // Ensure directories exist
     this.ensureDirectoriesExist();
   }
 
-  private async ensureDirectoriesExist() {
-    try {
-      const directories = [
-        this.uploadDir,
-        path.join(this.uploadDir, this.currentSchoolYear),
-        this.bulletinDir,
-        this.prescriptionDir,
-        this.medicalCertificatesDir,
-        this.dentalCertificatesDir,
-        this.opthalCertificatesDir,
-        this.physicalExamDir,
-        this.laboratoryDir,
-        this.generalDir
-      ];
+  // Method to get current school year
+  getCurrentSchoolYear(): string {
+    return this.currentSchoolYear;
+  }
 
-      for (const dir of directories) {
-        if (!fs.existsSync(dir)) {
-          await mkdirAsync(dir, { recursive: true });
+  // Method to load the active school year from a config file
+  private loadActiveSchoolYear() {
+    const configPath = path.join(this.uploadDir, 'active_school_year.txt');
+    if (fs.existsSync(configPath)) {
+      try {
+        const activeYear = fs.readFileSync(configPath, 'utf-8').trim();
+        if (activeYear && this.isValidSchoolYear(activeYear)) {
+          this.currentSchoolYear = activeYear;
+          console.log(`Loaded active school year: ${this.currentSchoolYear}`);
+        }
+      } catch (error) {
+        console.error('Error loading active school year:', error);
+      }
+    }
+  }
+
+  // Method to validate school year format (YYYY-YYYY)
+  private isValidSchoolYear(year: string): boolean {
+    const regex = /^\d{4}-\d{4}$/;
+    if (!regex.test(year)) return false;
+    
+    const [startYear, endYear] = year.split('-').map(Number);
+    return endYear === startYear + 1;
+  }
+
+  // Method to list all school year folders in the uploads directory
+  async listSchoolYearFolders(): Promise<string[]> {
+    try {
+      if (!fs.existsSync(this.uploadDir)) {
+        await mkdirAsync(this.uploadDir, { recursive: true });
+        return [];
+      }
+
+      const entries = await readdirAsync(this.uploadDir, { withFileTypes: true });
+      const folders = entries
+        .filter(entry => entry.isDirectory() && this.isValidSchoolYear(entry.name))
+        .map(entry => entry.name)
+        .sort((a, b) => {
+          // Sort in descending order (newest first)
+          const yearA = parseInt(a.split('-')[0]);
+          const yearB = parseInt(b.split('-')[0]);
+          return yearB - yearA;
+        });
+      
+      return folders;
+    } catch (error) {
+      console.error('Error listing school year folders:', error);
+      throw error;
+    }
+  }
+
+  // Method to create a new school year folder
+  async createNewSchoolYearFolder(): Promise<string> {
+    try {
+      // Get the current school year and parse it
+      const [currentStart, currentEnd] = this.currentSchoolYear.split('-').map(Number);
+      
+      // Increment to next year
+      const nextStart = currentStart + 1;
+      const nextEnd = currentEnd + 1;
+      
+      // Format the new school year
+      const newSchoolYear = `${nextStart}-${nextEnd}`;
+      
+      // Create directory structure for new school year
+      const newDir = path.join(this.uploadDir, newSchoolYear);
+      
+      // Check if it already exists
+      if (fs.existsSync(newDir)) {
+        return newSchoolYear;
+      }
+      
+      await mkdirAsync(newDir, { recursive: true });
+      
+      // Create subdirectories
+      const subdirectories = [
+        'bulletin', 'prescriptions', 'medical-certificates', 
+        'dental-certificates', 'opthal-certificates', 'physical-exam',
+        'laboratory', 'general', 'dental-consent', 'medical-consent'
+      ];
+      
+      for (const subdir of subdirectories) {
+        await mkdirAsync(path.join(newDir, subdir), { recursive: true });
+      }
+      
+      return newSchoolYear;
+    } catch (error) {
+      console.error('Error creating new school year folder:', error);
+      throw error;
+    }
+  }
+
+  // Method to set the active school year
+  async setActiveSchoolYear(schoolYear: string): Promise<boolean> {
+    try {
+      if (!this.isValidSchoolYear(schoolYear)) {
+        throw new Error('Invalid school year format. Use YYYY-YYYY format.');
+      }
+      
+      // Check if the directory exists
+      const yearDir = path.join(this.uploadDir, schoolYear);
+      if (!fs.existsSync(yearDir)) {
+        throw new Error(`School year ${schoolYear} directory does not exist.`);
+      }
+      
+      // Set as current
+      this.currentSchoolYear = schoolYear;
+      
+      // Update configs
+      const configPath = path.join(this.uploadDir, 'active_school_year.txt');
+      await writeFileAsync(configPath, schoolYear, 'utf-8');
+      
+      // Ensure all directories exist for the new school year
+      this.ensureDirectoriesExist();
+      
+      return true;
+    } catch (error) {
+      console.error('Error setting active school year:', error);
+      throw error;
+    }
+  }
+
+  // Method to delete contents of a school year folder
+  async clearSchoolYearFolder(schoolYear: string): Promise<boolean> {
+    try {
+      if (!this.isValidSchoolYear(schoolYear)) {
+        throw new Error('Invalid school year format. Use YYYY-YYYY format.');
+      }
+      
+      // Check if the directory exists
+      const yearDir = path.join(this.uploadDir, schoolYear);
+      if (!fs.existsSync(yearDir)) {
+        throw new Error(`School year ${schoolYear} directory does not exist.`);
+      }
+      
+      // Get all subdirectories
+      const entries = await readdirAsync(yearDir, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        const entryPath = path.join(yearDir, entry.name);
+        
+        if (entry.isDirectory()) {
+          // Delete contents of subdirectory recursively
+          await this.deleteDirectoryContents(entryPath);
+        } else if (entry.isFile()) {
+          // Delete file
+          await unlinkAsync(entryPath);
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      console.error(`Error clearing school year folder ${schoolYear}:`, error);
+      throw error;
+    }
+  }
+
+  // Helper method to delete directory contents recursively
+  private async deleteDirectoryContents(dirPath: string): Promise<void> {
+    try {
+      const entries = await readdirAsync(dirPath, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        const entryPath = path.join(dirPath, entry.name);
+        
+        if (entry.isDirectory()) {
+          await this.deleteDirectoryContents(entryPath);
+          // We don't remove the subdirectory itself, just its contents
+        } else if (entry.isFile()) {
+          await unlinkAsync(entryPath);
         }
       }
     } catch (error) {
-      console.error('Error creating directories:', error);
+      console.error(`Error deleting directory contents at ${dirPath}:`, error);
+      throw error;
     }
   }
 
@@ -100,16 +287,6 @@ export class StorageService {
         baseDirectory = path.join(this.uploadDir, this.currentSchoolYear, 'medical-consent');
         fileType = 'medical-consent';
         break;
-      case 'dental_history':
-      case 'dental-history':
-        baseDirectory = path.join(this.uploadDir, this.currentSchoolYear, 'dental-history');
-        fileType = 'dental-history';
-        break;
-      case 'hh_pds':
-      case 'hh-pds':
-        baseDirectory = path.join(this.uploadDir, this.currentSchoolYear, 'hh-pds');
-        fileType = 'hh-pds';
-        break;
       case 'laboratory':
         baseDirectory = this.laboratoryDir;
         break;
@@ -145,7 +322,13 @@ export class StorageService {
     const relativePath = path.join(relativeDirPath, fileName).replace(/\\/g, '/');
 
     // Write file to disk
-    await writeFileAsync(filePath, file.buffer || fs.readFileSync(file.path));
+    if (file.buffer) {
+      await writeFileAsync(filePath, file.buffer);
+    } else if (file.path) {
+      await writeFileAsync(filePath, fs.readFileSync(file.path));
+    } else {
+      throw new Error('File has neither buffer nor path');
+    }
     
     console.log(`Saved file to: ${filePath}`);
     console.log(`Relative path for DB: ${relativePath}`);
@@ -459,6 +642,31 @@ export class StorageService {
       return 'word';
     } else {
       return 'document';
+    }
+  }
+
+  private async ensureDirectoriesExist() {
+    try {
+      const directories = [
+        this.uploadDir,
+        path.join(this.uploadDir, this.currentSchoolYear),
+        this.bulletinDir,
+        this.prescriptionDir,
+        this.medicalCertificatesDir,
+        this.dentalCertificatesDir,
+        this.opthalCertificatesDir,
+        this.physicalExamDir,
+        this.laboratoryDir,
+        this.generalDir
+      ];
+
+      for (const dir of directories) {
+        if (!fs.existsSync(dir)) {
+          await mkdirAsync(dir, { recursive: true });
+        }
+      }
+    } catch (error) {
+      console.error('Error creating directories:', error);
     }
   }
 }
