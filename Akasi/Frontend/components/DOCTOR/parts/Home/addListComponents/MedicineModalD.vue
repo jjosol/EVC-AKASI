@@ -53,7 +53,7 @@
                 <td class="p-2">{{ medicine.batch_number || 'N/A' }}</td>
                 <td class="p-2">{{ medicine.expiry_date }}</td>
                 <td class="p-2">{{ medicine.displayCount }}</td>
-                <td class="p-2 w-24">
+                <td class="w-24 p-2">
                   <input
                     type="number"
                     v-model.number="medicine.requestedQuantity"

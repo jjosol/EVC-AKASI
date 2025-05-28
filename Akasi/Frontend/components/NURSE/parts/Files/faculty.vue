@@ -604,75 +604,127 @@ onUnmounted(() => {
 <template>
   <NavBar/>
   <div class="faculty-container">
-    <PatientOnly>
+    <ClientOnly>
+      <!-- Header Section -->
+      <div class="mb-6">
+        <h1 class="text-2xl font-bold text-gray-900 sm:text-3xl">Faculty Files Management</h1>
+        <p class="mt-1 text-sm text-gray-600">Review and manage faculty files and consultation records</p>
+      </div>
+
       <!-- Filter Controls -->
-      <div class="p-4 mb-6 bg-white rounded-lg shadow">
-        <div class="flex flex-col items-center gap-3 sm:flex-row">
-          <div class="w-full sm:w-1/2">
-            <input
-              v-model="searchQuery"
-              type="text"
-              placeholder="Search by name"
-              class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2f4a71]"
-            />
-          </div>
-          <div class="flex items-center">
-            <label class="inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                v-model="showPendingOnly"
-                class="form-checkbox h-4 w-4 text-[#2f4a71] border-gray-300 rounded focus:ring-[#2f4a71]"
-              >
-              <span class="ml-2 text-gray-700">Show only faculty with pending files</span>
-            </label>
+      <div class="p-3 mb-6 bg-white rounded-lg shadow sm:p-4">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <!-- Search and Filter Section -->
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-1">
+            <div class="w-full sm:w-64 lg:w-80">
+              <input
+                v-model="searchQuery"
+                type="text"
+                placeholder="Search by name, section, or department..."
+                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2f4a71] sm:text-base"
+              />
+            </div>
+            <div class="flex items-center">
+              <label class="inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  v-model="showPendingOnly"
+                  class="form-checkbox h-4 w-4 text-[#2f4a71] border-gray-300 rounded focus:ring-[#2f4a71]"
+                >
+                <span class="ml-2 text-sm text-gray-700 sm:text-base">Show only faculty with pending files</span>
+              </label>
+            </div>
           </div>
         </div>
       </div>
-      
-      <!-- Wrap dynamic content in PatientOnly to prevent hydration mismatches -->
-      <div v-if="loading" class="flex justify-center py-8">
-        <div class="w-12 h-12 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin"></div>
-      </div>
-      
-      <div v-else-if="error" class="px-4 py-3 text-red-700 bg-red-100 border border-red-400 rounded">
-        <p>{{ error }}</p>
-      </div>
-      
-      <div v-else-if="filteredFaculty.length === 0" class="py-8 text-center text-gray-500">
-        <p v-if="showPendingOnly">No faculty with pending files found</p>
-        <p v-else>No faculty found</p>
-      </div>
-      
+    </ClientOnly>
+    
+    <!-- Wrap dynamic content in PatientOnly to prevent hydration mismatches -->
+    <div v-if="loading" class="flex justify-center py-8">
+      <div class="w-12 h-12 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin"></div>
+    </div>
+    
+    <div v-else-if="error" class="px-4 py-3 text-red-700 bg-red-100 border border-red-400 rounded">
+      <p>{{ error }}</p>
+    </div>
+    
+    <div v-else-if="filteredFaculty.length === 0" class="py-8 text-center text-gray-500">
+      <p v-if="showPendingOnly">No faculty with pending files found</p>
+      <p v-else>No faculty found</p>
+    </div>
       <div v-else>
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <div 
-            v-for="faculty in filteredFaculty" 
-            :key="faculty.patient_id"
-            class="p-4 transition-shadow bg-white rounded-lg shadow cursor-pointer hover:shadow-md"
-            @click="openFacultyModal(faculty)"
-          >
+      <!-- Faculty Grid/List View -->
+      <div 
+        :class=" [
+          'transition-all',
+          viewMode === 'grid' 
+            ? 'grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6' 
+            : 'space-y-3'
+        ]"
+      >
+        <div 
+          v-for="faculty in filteredFaculty" 
+          :key="faculty.patient_id"
+          :class=" [
+            'transition-all duration-200 bg-white rounded-lg shadow-sm cursor-pointer hover:shadow-md',
+            viewMode === 'grid' 
+              ? 'p-3 sm:p-4 hover:scale-105' 
+              : 'p-4 flex items-center justify-between hover:bg-gray-50'
+          ]"
+          @click="openFacultyModal(faculty)"
+        >
+          <!-- Grid View Layout -->
+          <template v-if="viewMode === 'grid'">
             <div class="flex justify-between">
-              <h3 class="text-lg font-semibold text-gray-800">{{ faculty.name }}</h3>
+              <h3 class="text-lg font-semibold text-gray-800 truncate">{{ faculty.name }}</h3>
               <span 
                 v-if="faculty.hasPendingFiles" 
-                class="inline-block px-2 py-1 text-xs text-yellow-800 bg-yellow-100 rounded-full"
+                class="inline-block px-2 py-1 text-xs text-yellow-800 bg-yellow-100 rounded-full flex-shrink-0"
               >
                 Pending
               </span>
             </div>
             <div class="flex items-center justify-between mt-2">
-              <span class="text-sm text-gray-600">{{ faculty.section }}</span>
+              <span class="inline-block px-2 py-1 text-sm text-blue-800 bg-blue-100 rounded" v-if="faculty.section">
+                {{ faculty.section }}
+              </span>
+              <span class="text-sm text-gray-600 truncate ml-2">{{ faculty.department }}</span>
             </div>
-          </div>
+          </template>
+          <!-- List View Layout -->
+          <template v-else>
+            <div class="flex items-center space-x-4 flex-1 min-w-0">
+              <div class="flex-1 min-w-0">
+                <h3 class="text-lg font-semibold text-gray-800 truncate">{{ faculty.name }}</h3>
+                <div class="flex items-center space-x-2 mt-1">
+                  <span class="inline-block px-2 py-1 text-sm text-blue-800 bg-blue-100 rounded" v-if="faculty.section">
+                    {{ faculty.section }}
+                  </span>
+                  <span class="text-sm text-gray-600">{{ faculty.department }}</span>
+                </div>
+              </div>
+              <div class="flex items-center space-x-3 flex-shrink-0">
+                <span 
+                  v-if="faculty.hasPendingFiles" 
+                  class="inline-block px-3 py-1 text-sm text-yellow-800 bg-yellow-100 rounded-full"
+                >
+                  Pending Files
+                </span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
-      
-      <!-- Debugging section -->
-      <div v-if="error" class="p-4 mt-8 bg-gray-100 rounded">
-        <h3 class="font-semibold">Debugging Information:</h3>
-        <p>{{ debugInfo }}</p>
-      </div>
-    </PatientOnly>
+    </div>
+    
+    <!-- Debugging section -->
+    <div v-if="error" class="p-4 mt-8 bg-gray-100 rounded">
+      <h3 class="font-semibold">Debugging Information:</h3>
+      <p>{{ debugInfo }}</p>
+    </div>
   </div>
 
   <!-- Faculty Detail Modal -->
@@ -748,15 +800,13 @@ onUnmounted(() => {
                     <p class="mt-3 text-gray-500">
                       {{ 'No medical records available' }}
                     </p>
-                  </div>
-
-                  <!-- Files Grid -->
-                  <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  </div>                  <!-- Files Grid -->
+                  <div v-else class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     <!-- File Card with Status -->
                     <div 
                       v-for="file in medicalFiles" 
                       :key="`${file.type}-${file.id}`" 
-                      class="overflow-hidden transition-shadow border rounded-lg shadow-sm hover:shadow-md"
+                      class="overflow-hidden transition-all duration-200 border rounded-lg shadow-sm hover:shadow-md hover:scale-105"
                     >
                       <div class="p-4">
                         <div class="flex items-start">
@@ -1196,51 +1246,108 @@ onUnmounted(() => {
 
 <style scoped>
 .faculty-container {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: 1rem;
 }
-
+@media (min-width: 640px) {
+  .faculty-container {
+    padding: 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .faculty-container {
+    padding: 2rem;
+  }
+}
 .tabs-container {
   width: 100%;
   margin: 0 auto;
 }
-
 .tab-nav {
   display: flex;
   border-bottom: 1px solid #ccc;
   margin-bottom: 20px;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
-
+.tab-nav::-webkit-scrollbar {
+  height: 4px;
+}
+.tab-nav::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+.tab-nav::-webkit-scrollbar-thumb {
+  background: #2f4a71;
+  border-radius: 2px;
+}
 .tab-button {
-  padding: 10px 20px;
+  padding: 8px 16px;
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 14px;
   border-bottom: 3px solid transparent;
   transition: all 0.3s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
-
+@media (min-width: 640px) {
+  .tab-button {
+    padding: 10px 20px;
+    font-size: 16px;
+  }
+}
 .tab-button:hover {
   background-color: #f5f5f5;
 }
-
 .tab-button.active {
   border-bottom-color: #2f4a71;
   font-weight: bold;
 }
-
 .tab-content {
-  padding: 20px 0;
+  padding: 15px 0;
 }
-
+@media (min-width: 640px) {
+  .tab-content {
+    padding: 20px 0;
+  }
+}
 .tab-panel {
   animation: fadeIn 0.5s ease;
 }
-
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+@media (max-width: 768px) {
+  .faculty-container {
+    padding: 0.5rem;
+  }
+  .tab-button {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  .text-lg {
+    font-size: 1rem;
+  }
+  .text-xl {
+    font-size: 1.125rem;
+  }
+}
+@media (max-width: 480px) {
+  .tab-button {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  .faculty-container {
+    padding: 0.25rem;
+  }
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .flex.flex-col.sm\:flex-row {
+    flex-direction: column;
+  }
 }
 </style>
