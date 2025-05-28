@@ -272,26 +272,26 @@ const emit = defineEmits(['refreshNeeded']);
 </script>
 
 <template>
-  <div class="w-5/6 p-6 bg-white rounded-lg shadow float-end">
-    <div class="flex items-center justify-between mb-6">
+  <div class="w-full max-w-none p-4 sm:p-6 bg-white rounded-lg shadow lg:w-5/6 lg:float-end">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
       <div class="flex items-center space-x-2">
         <input 
           type="text" 
           v-model="searchQuery"
           placeholder="Search equipment..."
-          class="px-4 py-2 border rounded-lg"
+          class="w-full sm:w-auto px-4 py-2 border rounded-lg"
         />
       </div>
-      <div class="flex space-x-2">
+      <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
         <button 
           @click="openCategoryModal()"
-          class="px-4 py-2 text-white bg-green-500 rounded-lg hover:bg-green-600"
+          class="px-4 py-2 text-white bg-green-500 rounded-lg hover:bg-green-600 text-sm sm:text-base"
         >
           Add New Category
         </button>
         <button 
           @click="addEquipment()"
-          class="px-4 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600"
+          class="px-4 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600 text-sm sm:text-base"
         >
           Add New Equipment
         </button>
@@ -299,26 +299,25 @@ const emit = defineEmits(['refreshNeeded']);
     </div>
     
     <!-- Categories and Equipment with Dropdown Design -->
-    <div class="space-y-4">
-      <div v-for="(category, categoryId) in filteredCategories" :key="categoryId" class="overflow-hidden border rounded-lg">
+    <div class="space-y-4">      <div v-for="(category, categoryId) in filteredCategories" :key="categoryId" class="overflow-hidden border rounded-lg">
         <!-- Category Header -->
         <div 
-          class="flex items-center justify-between p-4 border-b cursor-pointer bg-gray-50"
+          class="flex flex-col sm:flex-row sm:items-center justify-between p-4 border-b cursor-pointer bg-gray-50 gap-2"
           @click="toggleExpandCategory(categoryId)"
         >
-          <div class="flex items-center">
+          <div class="flex items-center flex-1">
             <Icon 
               :icon="expandedCategories.has(Number(categoryId)) ? 'mdi:chevron-down' : 'mdi:chevron-right'" 
-              class="mr-2 text-gray-600" 
+              class="mr-2 text-gray-600 flex-shrink-0" 
               width="20"
             />
-            <h3 class="font-semibold text-gray-800">{{ category.name }}</h3>
-            <span class="ml-2 px-2 py-0.5 text-xs bg-gray-200 rounded-full">
+            <h3 class="font-semibold text-gray-800 text-sm sm:text-base">{{ category.name }}</h3>
+            <span class="ml-2 px-2 py-0.5 text-xs bg-gray-200 rounded-full whitespace-nowrap">
               {{ category.items.length }} items
             </span>
           </div>
           
-          <div class="flex space-x-2">
+          <div class="flex space-x-2 flex-shrink-0">
             <button 
               @click.stop="addEquipment(categoryId)"
               class="p-1 text-white bg-blue-500 rounded hover:bg-blue-600" 
@@ -335,14 +334,14 @@ const emit = defineEmits(['refreshNeeded']);
             </button>
           </div>
         </div>
-        
-        <!-- Equipment List (visible when category is expanded) -->
+          <!-- Equipment List (visible when category is expanded) -->
         <div v-if="expandedCategories.has(Number(categoryId))">
           <div v-if="category.items.length === 0" class="p-4 text-center text-gray-500">
             No equipment in this category
           </div>
           
-          <div v-else class="overflow-x-auto">
+          <!-- Desktop table view -->
+          <div v-else class="hidden md:block overflow-x-auto">
             <table class="w-full text-sm text-left">
               <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                 <tr>
@@ -400,6 +399,82 @@ const emit = defineEmits(['refreshNeeded']);
               </tbody>
             </table>
           </div>
+
+          <!-- Mobile card view -->
+          <div class="space-y-3 md:hidden p-4">
+            <div 
+              v-for="item in category.items" 
+              :key="item.equipment_id"
+              :class="{'bg-red-50 border-red-200': isExpired(item.expiration)}"
+              class="p-4 bg-white border rounded-lg shadow-sm"
+            >
+              <div class="flex justify-between items-start mb-3">
+                <h4 class="font-medium text-lg text-gray-900">{{ item.equipName }}</h4>
+                <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                  {{ item.count }} {{ item.unit }}
+                </span>
+              </div>
+              
+              <div class="grid grid-cols-2 gap-3 mb-3 text-sm">
+                <div>
+                  <span class="text-gray-500">Quantity:</span>
+                  <span class="ml-1 font-medium">{{ item.count }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-500">Unit:</span>
+                  <span class="ml-1 font-medium">{{ item.unit }}</span>
+                </div>
+                <div class="col-span-2">
+                  <span class="text-gray-500">Expiration:</span>
+                  <span 
+                    class="ml-1"
+                    :class="{'text-red-600 font-medium': isExpired(item.expiration)}"
+                  >
+                    {{ formatDate(item.expiration) }}
+                    <span v-if="isExpired(item.expiration)" class="block text-xs font-bold text-red-600">EXPIRED</span>
+                  </span>
+                </div>
+              </div>
+              
+              <!-- Mobile action buttons -->
+              <div class="flex flex-wrap gap-2">
+                <button 
+                  @click="quickIncrementEquipment(item)"
+                  class="flex items-center px-3 py-1 text-xs text-white bg-green-500 rounded hover:bg-green-600"
+                  title="Quick Add"
+                >
+                  <Icon icon="mdi:plus" width="14" class="mr-1" /> 
+                  Add
+                </button>
+                <button 
+                  @click="quickDecrementEquipment(item)"
+                  class="flex items-center px-3 py-1 text-xs text-white bg-red-500 rounded hover:bg-red-600"
+                  title="Quick Remove"
+                  :disabled="item.count <= 0"
+                  :class="{'opacity-50 cursor-not-allowed': item.count <= 0}"
+                >
+                  <Icon icon="mdi:minus" width="14" class="mr-1" />
+                  Remove
+                </button>
+                <button 
+                  @click="editEquipment(item)"
+                  class="flex items-center px-3 py-1 text-xs text-white bg-blue-500 rounded hover:bg-blue-600"
+                  title="Edit Equipment"
+                >
+                  <Icon icon="mdi:pencil" width="14" class="mr-1" />
+                  Edit
+                </button>
+                <button 
+                  @click="openAdjustModal(item, 'increase')"
+                  class="flex items-center px-3 py-1 text-xs text-white bg-indigo-500 rounded hover:bg-indigo-600"
+                  title="Adjust Quantity"
+                >
+                  <Icon icon="mdi:tune" width="14" class="mr-1" />
+                  Adjust
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -430,11 +505,10 @@ const emit = defineEmits(['refreshNeeded']);
       @closeModal="showCategoryModal = false"
       @addCategory="handleCategoryAction"
     />
-    
-    <!-- Adjustment Modal -->
-    <div v-if="showAdjustModal" class="fixed inset-0 z-50 flex items-center justify-center">
+      <!-- Adjustment Modal -->
+    <div v-if="showAdjustModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div class="absolute inset-0 bg-black opacity-50" @click="showAdjustModal = false"></div>
-      <div class="z-10 w-full max-w-md p-6 bg-white rounded-lg shadow-lg">
+      <div class="z-10 w-full max-w-md mx-4 p-6 bg-white rounded-lg shadow-lg">
         <h2 class="mb-4 text-lg font-semibold">
           {{ adjustmentType === 'increase' ? 'Add to' : 'Remove from' }} Inventory
         </h2>

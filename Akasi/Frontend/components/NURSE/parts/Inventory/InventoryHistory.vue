@@ -153,20 +153,20 @@ defineExpose({ fetchInventoryEdits, fetchMedicineEdits, fetchEquipmentEdits });
 </script>
 
 <template>
-  <div class="w-5/6 p-6 mt-6 bg-white rounded-lg shadow float-end">
+  <div class="w-full max-w-none p-4 sm:p-6 mt-6 bg-white rounded-lg shadow lg:w-5/6 lg:float-end">
     <h2 class="mb-4 text-xl font-semibold">Inventory History</h2>
 
     <!-- Tab Selection -->
-    <div class="flex mb-4 border-b">
+    <div class="flex mb-4 border-b overflow-x-auto">
       <button 
-        class="px-4 py-2 mr-2 transition-colors"
+        class="px-4 py-2 mr-2 transition-colors whitespace-nowrap"
         :class="activeTab === 'medicine' ? 'text-blue-600 border-b-2 border-blue-600 font-medium' : 'text-gray-600'"
         @click="activeTab = 'medicine'"
       >
         Medicine Inventory
       </button>
       <button 
-        class="px-4 py-2 transition-colors"
+        class="px-4 py-2 transition-colors whitespace-nowrap"
         :class="activeTab === 'equipment' ? 'text-blue-600 border-b-2 border-blue-600 font-medium' : 'text-gray-600'"
         @click="activeTab = 'equipment'"
       >
@@ -175,7 +175,7 @@ defineExpose({ fetchInventoryEdits, fetchMedicineEdits, fetchEquipmentEdits });
     </div>
 
     <!-- Filter Controls -->
-    <div class="flex items-center mb-4 space-x-4">
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center mb-4 space-y-2 sm:space-y-0 sm:space-x-4">
       <input 
         type="text" 
         v-model="searchQuery"
@@ -193,11 +193,12 @@ defineExpose({ fetchInventoryEdits, fetchMedicineEdits, fetchEquipmentEdits });
         <option v-if="activeTab === 'medicine'" value="category-change">Category Changes</option>
       </select>
     </div>
-    
-    <!-- Medicine Inventory Log Table -->
+      <!-- Medicine Inventory Log Table -->
     <div v-if="activeTab === 'medicine'" class="mt-6">
       <h3 class="mb-2 text-lg font-medium">Medicine Inventory Log</h3>
-      <div class="overflow-x-auto">
+      
+      <!-- Desktop table view -->
+      <div class="hidden lg:block overflow-x-auto">
         <table class="min-w-full border table-auto">
           <thead>
             <tr class="bg-gray-100">
@@ -235,12 +236,67 @@ defineExpose({ fetchInventoryEdits, fetchMedicineEdits, fetchEquipmentEdits });
           </tbody>
         </table>
       </div>
-    </div>
 
-    <!-- Equipment Inventory Log Table -->
+      <!-- Mobile/Tablet card view -->
+      <div class="space-y-4 lg:hidden">
+        <div v-if="filteredInventoryEdits.length === 0" class="p-8 text-center text-gray-500">
+          <p>No medicine inventory changes found</p>
+        </div>
+        <div 
+          v-for="edit in filteredInventoryEdits" 
+          :key="edit.edit_id"
+          class="p-4 border rounded-lg"
+          :class="{
+            'bg-purple-50 border-purple-200': isNameChangeEdit(edit), 
+            'bg-blue-50 border-blue-200': isCategoryEdit(edit),
+            'bg-yellow-50 border-yellow-200': isMedicationEvent(edit),
+            'bg-white': !isNameChangeEdit(edit) && !isCategoryEdit(edit) && !isMedicationEvent(edit)
+          }"
+        >
+          <div class="flex justify-between items-start mb-3">
+            <h4 class="font-medium text-lg text-gray-900">{{ edit.medName }}</h4>
+            <span 
+              class="px-2 py-1 rounded-full text-sm font-medium"
+              :class="isAddition(edit.addSubCount) ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+            >
+              {{ edit.addSubCount === 0 ? 'No Change' : (isAddition(edit.addSubCount) ? '+' : '') + edit.addSubCount }}
+            </span>
+          </div>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <div>
+              <span class="text-gray-500">Batch Info:</span>
+              <span class="ml-1 font-medium">{{ edit.batchInfo }}</span>
+            </div>
+            <div>
+              <span class="text-gray-500">Category:</span>
+              <span class="ml-1 font-medium">{{ edit.categoryName }}</span>
+            </div>
+            <div>
+              <span class="text-gray-500">Cause:</span>
+              <span class="ml-1 font-medium">{{ edit.cause }}</span>
+            </div>
+            <div>
+              <span class="text-gray-500">Admin:</span>
+              <span class="ml-1 font-medium">{{ edit.adminInfo }}</span>
+            </div>
+            <div class="sm:col-span-2">
+              <span class="text-gray-500">Date & Time:</span>
+              <span class="ml-1 font-medium">{{ formatDateTime(edit.date) }}</span>
+            </div>
+            <div v-if="!isNameChangeEdit(edit) && !isCategoryEdit(edit)">
+              <span class="text-gray-500">Running Total:</span>
+              <span class="ml-1 font-medium">{{ edit.runningTotal }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>    <!-- Equipment Inventory Log Table -->
     <div v-if="activeTab === 'equipment'" class="mt-6">
       <h3 class="mb-2 text-lg font-medium">Equipment Inventory Log</h3>
-      <div class="overflow-x-auto">
+      
+      <!-- Desktop table view -->
+      <div class="hidden lg:block overflow-x-auto">
         <table class="min-w-full border table-auto">
           <thead>
             <tr class="bg-gray-100">
@@ -269,6 +325,51 @@ defineExpose({ fetchInventoryEdits, fetchMedicineEdits, fetchEquipmentEdits });
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Mobile/Tablet card view -->
+      <div class="space-y-4 lg:hidden">
+        <div v-if="filteredEquipmentEdits.length === 0" class="p-8 text-center text-gray-500">
+          <p>No equipment inventory changes found</p>
+        </div>
+        <div 
+          v-for="edit in filteredEquipmentEdits" 
+          :key="edit.edit_id"
+          class="p-4 bg-white border rounded-lg"
+        >
+          <div class="flex justify-between items-start mb-3">
+            <h4 class="font-medium text-lg text-gray-900">{{ edit.equipName }}</h4>
+            <span 
+              class="px-2 py-1 rounded-full text-sm font-medium"
+              :class="isAddition(edit.addSubCount) ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+            >
+              {{ isAddition(edit.addSubCount) ? '+' : '' }}{{ edit.addSubCount }}
+            </span>
+          </div>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <div>
+              <span class="text-gray-500">Unit:</span>
+              <span class="ml-1 font-medium">{{ edit.unit }}</span>
+            </div>
+            <div>
+              <span class="text-gray-500">Running Total:</span>
+              <span class="ml-1 font-medium">{{ edit.runningTotal }}</span>
+            </div>
+            <div>
+              <span class="text-gray-500">Cause:</span>
+              <span class="ml-1 font-medium">{{ edit.cause }}</span>
+            </div>
+            <div>
+              <span class="text-gray-500">Admin:</span>
+              <span class="ml-1 font-medium">{{ edit.adminInfo }}</span>
+            </div>
+            <div class="sm:col-span-2">
+              <span class="text-gray-500">Date & Time:</span>
+              <span class="ml-1 font-medium">{{ formatDateTime(edit.date) }}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

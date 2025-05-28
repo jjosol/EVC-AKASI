@@ -1,19 +1,27 @@
 <template>
   <NuxtLayout>
-    <DisplayMed
-      ref="displayInvRef"
-      @openModal="openModal"
-      @editModal="editModal"
-      @refreshNeeded="handleRefreshNeeded"
-      @openCategoryModal="openCategoryModal"
-    />
-    <DisplayEquip
-      ref="displayEquipRef"
-      @refreshNeeded="refreshInventoryData"
-    />
-    <InventoryHistory
-      ref="historyRef"
-    />
+    <!-- Mobile-responsive container -->
+    <div class="min-h-screen bg-gray-50">
+      <div class="container px-4 py-6 mx-auto sm:px-6 lg:px-8">
+        <!-- Mobile-first responsive grid layout -->
+        <div class="space-y-6 lg:space-y-8">
+          <DisplayMed
+            ref="displayInvRef"
+            @openModal="openModal"
+            @editModal="editModal"
+            @refreshNeeded="handleRefreshNeeded"
+            @openCategoryModal="openCategoryModal"
+          />
+          <DisplayEquip
+            ref="displayEquipRef"
+            @refreshNeeded="refreshInventoryData"
+          />
+          <InventoryHistory
+            ref="historyRef"
+          />
+        </div>
+      </div>
+    </div>
     <MedicineModalInv 
       :isOpen="isModalOpen && modalType === 'medicine'" 
       :categories="categories"
