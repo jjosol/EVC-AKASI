@@ -199,6 +199,7 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue';
+import { getApiUrl } from '../../../../config/api';
 
 // State variables
 const schoolYears = ref([]);
@@ -223,12 +224,7 @@ const fetchSchoolYears = async () => {
       return;
     }
     
-    // Use dynamic base URL instead of hardcoded localhost URL
-    const baseUrl = process.env.NODE_ENV === 'production' 
-      ? '/api' 
-      : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001');
-    
-    const response = await fetch(`${baseUrl}/storage/school-years`, {
+    const response = await fetch(getApiUrl('/storage/school-years'), {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -263,12 +259,9 @@ const createNewSchoolYear = async () => {
     if (!token) {
       showNotification('Authentication failed. Please log in again.', 'error');
       return;
-    }    // Use the same baseUrl as fetch
-    const baseUrl = process.env.NODE_ENV === 'production' 
-      ? '/api' 
-      : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001');
+    }
     
-    const response = await fetch(`${baseUrl}/storage/school-years/new`, {
+    const response = await fetch(getApiUrl('/storage/school-years/new'), {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -314,12 +307,7 @@ const setActiveSchoolYear = async () => {
       return;
     }
 
-    // Use dynamic base URL instead of hardcoded localhost URL
-    const baseUrl = process.env.NODE_ENV === 'production' 
-      ? '/api' 
-      : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001');
-
-    const response = await fetch(`${baseUrl}/storage/school-years/set-active`, {
+    const response = await fetch(getApiUrl('/storage/school-years/set-active'), {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -371,12 +359,7 @@ const deleteSchoolYearContents = async () => {
       return;
     }
 
-    // Use dynamic base URL instead of hardcoded localhost URL
-    const baseUrl = process.env.NODE_ENV === 'production' 
-      ? '/api' 
-      : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001');
-
-    const response = await fetch(`${baseUrl}/storage/school-years/clear/${encodeURIComponent(selectedSchoolYear.value)}`, {
+    const response = await fetch(getApiUrl(`/storage/school-years/clear/${encodeURIComponent(selectedSchoolYear.value)}`), {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`
