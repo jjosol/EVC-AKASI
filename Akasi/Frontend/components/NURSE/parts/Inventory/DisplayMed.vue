@@ -277,26 +277,26 @@ defineExpose({ refreshInventory });
 </script>
 
 <template>
-  <div class="w-5/6 p-6 bg-white rounded-lg shadow float-end">
-    <div class="flex items-center justify-between mb-6">
+  <div class="w-full max-w-none p-4 sm:p-6 bg-white rounded-lg shadow lg:w-5/6 lg:float-end">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
       <div class="flex items-center space-x-2">
         <input 
           type="text" 
           v-model="searchQuery"
           placeholder="Search medicines..."
-          class="px-4 py-2 border rounded-lg"
+          class="w-full sm:w-auto px-4 py-2 border rounded-lg"
         />
       </div>
-      <div class="flex space-x-2">
+      <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
         <button 
           @click="openCategoryModal()"
-          class="px-4 py-2 text-white bg-green-500 rounded-lg hover:bg-green-600"
+          class="px-4 py-2 text-white bg-green-500 rounded-lg hover:bg-green-600 text-sm sm:text-base"
         >
           Add New Category
         </button>
         <button 
           @click="openModal"
-          class="px-4 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600"
+          class="px-4 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600 text-sm sm:text-base"
         >
           Add New Medicine
         </button>
@@ -305,25 +305,24 @@ defineExpose({ refreshInventory });
     
     <!-- Categories and Medicines with Dropdown Design -->
     <div class="space-y-4">
-      <div v-for="(category, categoryId) in filteredCategories" :key="categoryId" class="overflow-hidden border rounded-lg">
-        <!-- Category Header (Always visible) -->
+      <div v-for="(category, categoryId) in filteredCategories" :key="categoryId" class="overflow-hidden border rounded-lg">        <!-- Category Header (Always visible) -->
         <div 
-          class="flex items-center justify-between p-4 border-b cursor-pointer bg-gray-50"
+          class="flex flex-col sm:flex-row sm:items-center justify-between p-4 border-b cursor-pointer bg-gray-50 gap-2"
           @click="toggleExpandCategory(categoryId)"
         >
-          <div class="flex items-center">
+          <div class="flex items-center flex-1">
             <Icon 
               :icon="expandedCategories.has(Number(categoryId)) ? 'mdi:chevron-down' : 'mdi:chevron-right'" 
-              class="mr-2 text-gray-600" 
+              class="mr-2 text-gray-600 flex-shrink-0" 
               width="20"
             />
-            <h3 class="font-semibold text-gray-800">{{ category.name }}</h3>
-            <span class="ml-2 px-2 py-0.5 text-xs bg-gray-200 rounded-full">
+            <h3 class="font-semibold text-gray-800 text-sm sm:text-base">{{ category.name }}</h3>
+            <span class="ml-2 px-2 py-0.5 text-xs bg-gray-200 rounded-full whitespace-nowrap">
               {{ Object.keys(category.items).length }} medicines
             </span>
           </div>
           
-          <div class="flex space-x-2">
+          <div class="flex space-x-2 flex-shrink-0">
             <button 
               @click.stop="addNewMedicine(categoryId)"
               class="p-1 text-white bg-blue-500 rounded hover:bg-blue-600" 
@@ -338,8 +337,6 @@ defineExpose({ refreshInventory });
             >
               <Icon icon="mdi:pencil" width="16" />
             </button>
-           
-              
           </div>
         </div>
         
@@ -349,19 +346,18 @@ defineExpose({ refreshInventory });
             No medicines in this category
           </div>
           
-          <div v-for="(medicines, name) in category.items" :key="name" class="border-b">
-            <!-- Medicine Header -->
-            <div class="flex items-center justify-between p-3 pl-8 bg-white cursor-pointer hover:bg-gray-50"
+          <div v-for="(medicines, name) in category.items" :key="name" class="border-b">            <!-- Medicine Header -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 pl-8 bg-white cursor-pointer hover:bg-gray-50 gap-2"
               @click="toggleExpandItem(name)">
-              <div class="flex items-center">
+              <div class="flex items-center flex-1 min-w-0">
                 <Icon 
                   :icon="expandedItems.has(name) ? 'mdi:chevron-down' : 'mdi:chevron-right'" 
-                  class="mr-2 text-gray-600" 
+                  class="mr-2 text-gray-600 flex-shrink-0" 
                   width="18"
                 />
                 <!-- Apply color based on OTC status -->
                 <span 
-                  class="font-medium" 
+                  class="font-medium text-sm sm:text-base truncate" 
                   :class="{
                     'text-green-600': getMedicineOtcStatus(medicines), 
                     'text-red-600': !getMedicineOtcStatus(medicines)
@@ -370,7 +366,7 @@ defineExpose({ refreshInventory });
                   {{ name }}
                   <!-- Add OTC indicator -->
                   <span 
-                    class="ml-2 text-xs px-1 py-0.5 rounded-sm" 
+                    class="ml-2 text-xs px-1 py-0.5 rounded-sm whitespace-nowrap" 
                     :class="{
                       'bg-green-100 text-green-800': getMedicineOtcStatus(medicines),
                       'bg-red-100 text-red-800': !getMedicineOtcStatus(medicines)
@@ -381,8 +377,8 @@ defineExpose({ refreshInventory });
                 </span>
               </div>
               
-              <div class="flex items-center space-x-4">
-                <span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-sm">
+              <div class="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
+                <span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs sm:text-sm whitespace-nowrap">
                   Total: {{ getMedicineTotalCount(medicines) }}
                 </span>
                 
@@ -404,36 +400,64 @@ defineExpose({ refreshInventory });
                 </div>
               </div>
             </div>
-            
-            <!-- Medicine Batches (visible when medicine is expanded) -->
+              <!-- Medicine Batches (visible when medicine is expanded) -->
             <div v-if="expandedItems.has(name)" class="p-2 bg-gray-50">
-              <table class="min-w-full text-sm">
-                <thead>
-                  <tr class="text-left text-gray-600">
-                    <th class="p-2 font-medium">Expiration</th>
-                    <th class="p-2 font-medium">Count</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr 
-                    v-for="med in medicines" 
-                    :key="med.med_id"
-                    :class="{'expired-row': isExpired(med.expiration)}"
-                    class="bg-white"
-                  >
-                    <td class="p-2">
-                      <span 
+              <!-- Mobile-first responsive table -->
+              <div class="hidden sm:block">
+                <table class="min-w-full text-sm">
+                  <thead>
+                    <tr class="text-left text-gray-600">
+                      <th class="p-2 font-medium">Expiration</th>
+                      <th class="p-2 font-medium">Count</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr 
+                      v-for="med in medicines" 
+                      :key="med.med_id"
+                      :class="{'expired-row': isExpired(med.expiration)}"
+                      class="bg-white"
+                    >
+                      <td class="p-2">
+                        <span 
+                          :class="{'text-red-600 font-medium': isExpired(med.expiration)}"
+                        >
+                          {{ formatDate(med.expiration) }}
+                          <span v-if="isExpired(med.expiration)" class="ml-1 text-xs font-bold text-red-600">(EXPIRED)</span>
+                        </span>
+                      </td>
+                      <td class="p-2">{{ med.count }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              
+              <!-- Mobile card layout -->
+              <div class="space-y-2 sm:hidden">
+                <div 
+                  v-for="med in medicines" 
+                  :key="med.med_id"
+                  :class="{'bg-red-50 border-red-200': isExpired(med.expiration)}"
+                  class="p-3 bg-white border rounded-lg"
+                >
+                  <div class="flex justify-between items-center">
+                    <div class="flex-1">
+                      <div class="text-xs text-gray-500 mb-1">Expiration</div>
+                      <div 
                         :class="{'text-red-600 font-medium': isExpired(med.expiration)}"
+                        class="text-sm"
                       >
                         {{ formatDate(med.expiration) }}
-                        <span v-if="isExpired(med.expiration)" class="ml-1 text-xs font-bold text-red-600">(EXPIRED)</span>
-                      </span>
-                    </td>
-                    <td class="p-2">{{ med.count }}</td>
-
-                  </tr>
-                </tbody>
-              </table>
+                        <span v-if="isExpired(med.expiration)" class="block text-xs font-bold text-red-600">EXPIRED</span>
+                      </div>
+                    </div>
+                    <div class="text-right">
+                      <div class="text-xs text-gray-500 mb-1">Count</div>
+                      <div class="text-sm font-medium">{{ med.count }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -360,8 +360,22 @@ const formatDate = (dateString) => {
 // Populate fields when consultation data is available
 watch(() => props.consultation, async (newConsultation) => {
   if (newConsultation && newConsultation.consultation_id) {
+    // Debug logging to see what data we receive
+    console.log('Doctor ConsultationDetailModal - received consultation data:', {
+      type: newConsultation.type,
+      age: newConsultation.age,
+      gender: newConsultation.gender,
+      consultation_id: newConsultation.consultation_id
+    });
+    
     // Use the helper function to extract all medical data in a consistent way
     const medicalData = consultationRecordService.extractMedicalData(newConsultation);
+    
+    console.log('Doctor ConsultationDetailModal - extracted medical data:', {
+      patientType: medicalData.patientType,
+      patientAge: medicalData.patientAge,
+      patientGender: medicalData.patientGender
+    });
     
     // Populate form fields with the extracted data
     temperature.value = medicalData.temperature || '';

@@ -23,6 +23,13 @@ export default defineNuxtConfig({
   vite: {
     assetsInclude: ['**/*.html'],
   },
+  // Server configuration for local network access
+  server: {
+    // When running in development mode through our custom script,
+    // this will be overridden by the --host 0.0.0.0 parameter
+    host: process.env.HOST || 'localhost',
+    port: process.env.PORT || 3000,
+  },
   app: {
     head: {
       title: 'Akasi',

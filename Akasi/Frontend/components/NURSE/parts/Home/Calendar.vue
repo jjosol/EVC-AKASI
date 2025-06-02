@@ -37,7 +37,7 @@ const props = defineProps({
 const emit = defineEmits(['day-selected', 'update-date']);
 
 // Define updateCalendar function first
-const updateCalendar = async (forceRefresh = false) => {
+const updateCalendar = async () => {
   const firstDayOfMonth = moment.tz({ 
     year: selectedYear.value, 
     month: selectedMonth.value, 
@@ -75,19 +75,19 @@ const updateCalendar = async (forceRefresh = false) => {
   });
 
   // Fetch counts with proper authentication
-  await fetchCounts(forceRefresh);
+  await fetchCounts();
 };
 
 // Separate function to fetch all counts for better error handling
-const fetchCounts = async (forceRefresh = false) => {
+const fetchCounts = async () => {
   // Only fetch counts if user is authenticated and has the proper role
   if (isAuthenticated.value && (isNurse.value || isDoctor.value)) {
     try {
-      console.log('Fetching counts for:', selectedYear.value, selectedMonth.value, 'forceRefresh:', forceRefresh);
+      console.log('Fetching counts for:', selectedYear.value, selectedMonth.value);
       const [confined, monthly, yearly] = await Promise.all([
-        fetchConfinedCount(selectedYear.value, selectedMonth.value, forceRefresh),
-        fetchMonthlyConsultationCount(selectedYear.value, selectedMonth.value, forceRefresh),
-        fetchYearlyConsultationCount(selectedYear.value, forceRefresh)
+        fetchConfinedCount(selectedYear.value, selectedMonth.value),
+        fetchMonthlyConsultationCount(selectedYear.value, selectedMonth.value),
+        fetchYearlyConsultationCount(selectedYear.value)
       ]);
       
       console.log('Fetched counts:', { confined, monthly, yearly });

@@ -66,4 +66,63 @@ export class StorageController {
     
     return res.sendFile(fullPath);
   }
+
+  // New endpoints for school year management
+
+  @Get('school-years')
+  @UseGuards(JwtAuthGuard)
+  async listSchoolYears() {
+    const schoolYears = await this.storageService.listSchoolYearFolders();
+    const currentYear = this.storageService.getCurrentSchoolYear();
+    
+    return {
+      schoolYears,
+      currentYear
+    };
+  }
+
+  @Get('current-school-year')
+  async getCurrentSchoolYear() {
+    return {
+      currentYear: this.storageService.getCurrentSchoolYear()
+    };
+  }
+
+  @Post('school-years/new')
+  @UseGuards(JwtAuthGuard)
+  async createNewSchoolYear() {
+    const newYear = await this.storageService.createNewSchoolYearFolder();
+    return {
+      success: true,
+      newSchoolYear: newYear
+    };
+  }
+
+  @Post('school-years/set-active')
+  @UseGuards(JwtAuthGuard)
+  async setActiveSchoolYear(@Body('schoolYear') schoolYear: string) {
+    if (!schoolYear) {
+      return { success: false, message: 'School year is required' };
+    }
+    
+    await this.storageService.setActiveSchoolYear(schoolYear);
+    return {
+      success: true,
+      activeSchoolYear: schoolYear
+    };
+  }
+
+  @Delete('school-years/clear/:schoolYear')
+  @UseGuards(JwtAuthGuard)
+  async clearSchoolYearFolder(@Param('schoolYear') schoolYear: string) {
+    if (!schoolYear) {
+      return { success: false, message: 'School year is required' };
+    }
+    
+    await this.storageService.clearSchoolYearFolder(schoolYear);
+    return {
+      success: true,
+      message: `Cleared contents of school year folder ${schoolYear}`
+    };
+  }
 }

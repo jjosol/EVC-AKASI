@@ -202,10 +202,9 @@ const isExpired = (expirationDate) => {
 const formatDate = inventoryService.formatDate;
 </script>
 
-<template>
-  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center">
+<template>  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-black opacity-50" @click="$emit('closeModal')"></div>
-    <div class="z-10 w-full max-w-md p-6 bg-white rounded-lg shadow-lg">
+    <div class="z-10 w-full max-w-md mx-4 p-4 sm:p-6 bg-white rounded-lg shadow-lg">
       <h2 class="mb-4 text-lg font-semibold">
         {{ props.prefillData?.isNewBatch ? 'Add New Batch' : 'Add New Medicine' }}
       </h2>

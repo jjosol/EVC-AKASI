@@ -94,8 +94,9 @@ function closeModal() {
 <style scoped>
 .bulletin-container {
     max-width: 800px;
-    margin: 2rem auto;
-    padding: 0 1rem;
+    margin: 0 auto;
+    padding: 1rem;
+    min-height: 100vh;
 }
 
 .posts-container {
@@ -106,7 +107,7 @@ function closeModal() {
 
 .post-card {
     background-color: white;
-    border-radius: 0.5rem;
+    border-radius: 0.75rem;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     padding: 1.5rem;
     transition: all 0.3s ease;
@@ -123,7 +124,8 @@ function closeModal() {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 300px;
+    height: 50vh;
+    min-height: 300px;
 }
 
 .loading-spinner {
@@ -150,8 +152,9 @@ function closeModal() {
     text-align: center;
     padding: 4rem 2rem;
     background-color: white;
-    border-radius: 0.5rem;
+    border-radius: 0.75rem;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    margin-bottom: 2rem;
 }
 
 .empty-icon {
@@ -171,6 +174,7 @@ function closeModal() {
 .empty-description {
     color: #6b7280;
     max-width: 400px;
+    line-height: 1.5;
 }
 
 /* Transition animations */
@@ -195,14 +199,117 @@ function closeModal() {
     }
 }
 
-/* Responsive adjustments */
-@media (max-width: 640px) {
+/* Mobile responsive design */
+@media (max-width: 768px) {
+    .bulletin-container {
+        padding: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    
     .post-card {
         padding: 1rem;
     }
     
     .empty-state {
         padding: 3rem 1rem;
+    }
+    
+    .empty-title {
+        font-size: 1.25rem;
+    }
+    
+    .empty-icon {
+        width: 60px;
+        height: 60px;
+    }
+}
+
+@media (max-width: 480px) {
+    .bulletin-container {
+        padding: 0.25rem;
+    }
+    
+    .post-card {
+        padding: 0.75rem;
+        border-radius: 0.5rem;
+    }
+    
+    .empty-state {
+        padding: 2rem 1rem;
+        border-radius: 0.5rem;
+    }
+    
+    .loading-container {
+        height: 40vh;
+        min-height: 250px;
+    }
+    
+    .loading-spinner {
+        width: 32px;
+        height: 32px;
+        border-width: 3px;
+    }
+    
+    .loading-text {
+        font-size: 0.875rem;
+    }
+    
+    .empty-title {
+        font-size: 1.125rem;
+    }
+    
+    .empty-description {
+        font-size: 0.875rem;
+    }
+}
+
+/* Landscape phone adjustments */
+@media (max-width: 768px) and (orientation: landscape) {
+    .loading-container {
+        height: 30vh;
+        min-height: 200px;
+    }
+    
+    .empty-state {
+        padding: 2rem 1rem;
+    }
+}
+
+/* Improve content readability */
+.bulletin-container {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+    .post-list-enter-active,
+    .post-list-leave-active,
+    .post-card,
+    .loading-spinner {
+        transition: none;
+        animation: none;
+    }
+}
+
+/* Dark mode support (optional) */
+@media (prefers-color-scheme: dark) {
+    .bulletin-container {
+        background-color: #1f2937;
+        color: #f9fafb;
+    }
+    
+    .post-card {
+        background-color: #374151;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+    
+    .empty-state {
+        background-color: #374151;
+        color: #f9fafb;
+    }
+    
+    .loading-text {
+        color: #d1d5db;
     }
 }
 </style>

@@ -16,7 +16,9 @@
     "file-type": "^18.5.0"
   },
   "scripts": {
-    "dev": "concurrently -n \"FRONTEND,BACKEND,PRISMA\" \"cd akasi/frontend && npm run dev\" \"cd akasi/backend && npm run start:dev\" \"cd akasi/backend && npx prisma studio\""
+    "dev": "concurrently -n \"FRONTEND,BACKEND,PRISMA\" \"cd akasi/frontend && npm run dev\" \"cd akasi/backend && npm run start:dev\" \"cd akasi/backend && npx prisma studio\"",
+    "start:local-network": "node network-config.js && node start-local-network.js",
+    "update-ip": "node network-config.js"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
