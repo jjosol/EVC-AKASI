@@ -332,77 +332,79 @@ defineExpose({
 </script>
 
 <template>
-  <div class= "w-7/12 p-20 rounded-3xl bg-white">
-    <br>
-    <div class="flex items-center border-t gap-16 mb-8 justify-left text-[#2f4a71]">
-      <div class="flex">
-        <select id="month" v-model="selectedMonth" @change="updateCalendar" class="p-2 text-3xl rounded">
-          <option v-for="(month, index) in months" :key="index" :value="index" class="text-xl">{{ month }}</option>
+  <div class="w-full p-4 sm:p-8 md:p-12 lg:p-16 rounded-3xl bg-white">
+    <div class="flex flex-wrap items-center border-t gap-4 mb-4 sm:mb-8 justify-between sm:justify-start text-[#2f4a71]">
+      <div class="flex w-full sm:w-auto">
+        <select id="month" v-model="selectedMonth" @change="updateCalendar" 
+          class="w-full sm:w-auto p-1 sm:p-2 text-lg sm:text-xl md:text-2xl lg:text-3xl rounded">
+          <option v-for="(month, index) in months" :key="index" :value="index" class="text-base sm:text-lg">{{ month }}</option>
         </select>
       </div>
-      <div class="flex ml-8">
-        <select id="year" v-model="selectedYear" @change="updateCalendar" class="p-2 text-3xl rounded">
-          <option v-for="year in years" :key="year" :value="year" class="text-xl">{{ year }}</option>
+      <div class="flex w-full sm:w-auto sm:ml-4">
+        <select id="year" v-model="selectedYear" @change="updateCalendar" 
+          class="w-full sm:w-auto p-1 sm:p-2 text-lg sm:text-xl md:text-2xl lg:text-3xl rounded">
+          <option v-for="year in years" :key="year" :value="year" class="text-base sm:text-lg">{{ year }}</option>
         </select>
       </div>
-      <div v-if="isLoadingAvailability" class="ml-auto text-sm text-gray-500 flex items-center">
-        <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <div v-if="isLoadingAvailability" class="w-full sm:w-auto sm:ml-auto text-xs sm:text-sm text-gray-500 flex items-center justify-end sm:justify-start mt-2 sm:mt-0">
+        <svg class="animate-spin h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
         Checking availability...
       </div>
     </div>
-    <table class="w-full text-lg text-[#2f4a71] font-bold text-center border border-collapse border-gray-300">
-      <thead>
-        <tr>
-          <th class="p-4 border border-gray-300">Sun</th>
-          <th class="p-4 border border-gray-300">Mon</th>
-          <th class="p-4 border border-gray-300">Tue</th>
-          <th class="p-4 border border-gray-300">Wed</th>
-          <th class="p-4 border border-gray-300">Thu</th>
-          <th class="p-4 border border-gray-300">Fri</th>
-          <th class="p-4 border border-gray-300">Sat</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="week in calendar" :key="week[0].date">
-          <td @click="openAddingList(day)" v-for="day in week" :key="day.date" :class="{
-            'bg-green-200': isSelected(day.date),
-            'relative border border-gray-300 calendar-cell': true,
-            'hover:bg-blue-100': day.date && isDayClickable(day.date),
-            'bg-gray-100': day.date && !isDayClickable(day.date) && hasSlotsAvailable(day.date) === false
-          }">
-            <div 
-              class="flex items-center justify-center w-full h-full"
-              :class="{ 
-                'cursor-pointer': day.date && isDayClickable(day.date),
-                'cursor-not-allowed': day.date && !isDayClickable(day.date),
-              }"
-            >
-            <span :class="{
-              'border-b-4 border-[#2f4a71]': isToday(day.date),
-              'opacity-50': day.date && !isDayClickable(day.date),
-            }">
-              {{ day.date ? day.date.getDate() : '' }}
-              <span v-if="day.date && hasNoAvailableSlots(day.date)" 
-                class="block text-xs text-red-500 font-normal">No slots</span>
-            </span>
-
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
     
-    <div v-if="Object.values(daysWithAvailableSlots).filter(Boolean).length === 0" class="mt-4 p-3 text-center bg-yellow-50 rounded-lg border border-yellow-100">
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs sm:text-sm md:text-base lg:text-lg text-[#2f4a71] font-bold text-center border border-collapse border-gray-300">
+        <thead>
+          <tr>
+            <th class="p-1 sm:p-2 md:p-3 lg:p-4 border border-gray-300">Sun</th>
+            <th class="p-1 sm:p-2 md:p-3 lg:p-4 border border-gray-300">Mon</th>
+            <th class="p-1 sm:p-2 md:p-3 lg:p-4 border border-gray-300">Tue</th>
+            <th class="p-1 sm:p-2 md:p-3 lg:p-4 border border-gray-300">Wed</th>
+            <th class="p-1 sm:p-2 md:p-3 lg:p-4 border border-gray-300">Thu</th>
+            <th class="p-1 sm:p-2 md:p-3 lg:p-4 border border-gray-300">Fri</th>
+            <th class="p-1 sm:p-2 md:p-3 lg:p-4 border border-gray-300">Sat</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="week in calendar" :key="week[0].date">
+            <td @click="openAddingList(day)" v-for="day in week" :key="day.date" :class="{
+              'bg-green-200': isSelected(day.date),
+              'relative border border-gray-300 calendar-cell': true,
+              'hover:bg-blue-100': day.date && isDayClickable(day.date),
+              'bg-gray-100': day.date && !isDayClickable(day.date) && hasSlotsAvailable(day.date) === false
+            }">
+              <div 
+                class="flex items-center justify-center w-full h-full"
+                :class="{ 
+                  'cursor-pointer': day.date && isDayClickable(day.date),
+                  'cursor-not-allowed': day.date && !isDayClickable(day.date),
+                }"
+              >
+                <span :class="{
+                  'border-b-2 sm:border-b-4 border-[#2f4a71]': isToday(day.date),
+                  'opacity-50': day.date && !isDayClickable(day.date),
+                }">
+                  {{ day.date ? day.date.getDate() : '' }}
+                  <span v-if="day.date && hasNoAvailableSlots(day.date)" 
+                    class="block text-[8px] sm:text-[10px] md:text-xs text-red-500 font-normal">No slots</span>
+                </span>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <div v-if="Object.values(daysWithAvailableSlots).filter(Boolean).length === 0" class="mt-3 sm:mt-4 p-2 sm:p-3 text-xs sm:text-sm text-center bg-yellow-50 rounded-lg border border-yellow-100">
       <p class="text-yellow-700">No available appointment slots found for this month. Please try a different month.</p>
     </div>
   </div>
 </template>
 
 <style scoped>
-
 textarea {
   resize: none;
 }
@@ -424,8 +426,32 @@ textarea {
     transform: translateX(-100%);
   }
 }
+
+/* Responsive calendar cell sizes */
 .calendar-cell {
-  width: 90px;
-  height: 90px;
+  width: 40px;
+  height: 40px;
+}
+
+/* Responsive breakpoints */
+@media (min-width: 640px) {
+  .calendar-cell {
+    width: 60px;
+    height: 60px;
+  }
+}
+
+@media (min-width: 768px) {
+  .calendar-cell {
+    width: 75px;
+    height: 75px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .calendar-cell {
+    width: 90px;
+    height: 90px;
+  }
 }
 </style>

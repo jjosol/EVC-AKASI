@@ -1,320 +1,314 @@
 <template>
-  <div class="fixed w-4/6">
-    <div class="fixed top-0 right-0 w-1/4 h-screen p-5 bg-gray-100 border-[#2f4a71]">
-      <div class="h-full p-5 overflow-y-auto l">
+  <div class="w-full h-full">
+    <div class="bg-gray-100 border-[#2f4a71] rounded-lg p-3 overflow-y-auto">
+      <div class="text-2xl lg:text-3xl text-[#2f4a71] font-bold border-b-2 border-[#2f4a71] mb-2">Appointments</div>
+      <div class="mb-4 date-display">
+        <span class="text-lg sm:text-xl text-[#2f4a71] font-semibold">{{ selectedDate.monthYear }}</span>
+        <span class="text-lg sm:text-xl text-[#2f4a71] float-right">{{ selectedDate.day }}</span>
+      </div>
 
-        <div class="text-4xl text-[#2f4a71] font-bold border-b-2 border-[#2f4a71] mb-2" >Appointments</div>
-        <div class="mb-4 date-display">
-          <span class="text-2xl text-[#2f4a71] font-semibold">{{ selectedDate.monthYear }}</span>
-          <span class="text-2xl text-[#2f4a71] float-right">{{ selectedDate.day }}</span>
-        </div>
+      <button @click="openModal" class="w-full p-2 font-bold text-white bg-[#2f4a71] rounded hover:bg-[#8b67db]">Book Appointment</button>
+      <!--Add appointment modal-->
+      <Teleport to="body">
+        <Transition name="modal">
+          <div v-if="showModal" class="modal-overlay" @click="closeOnOverlayClick && closeModal()">
+            <div class="modal-container mx-4" @click.stop>
+              <div class="modal-header">
+                <h2 class="mb-2 text-lg sm:text-xl md:text-2xl font-bold text-[#2f4a71] border-b-2 border-[#2f4a71]">Book Appointment</h2>
+                <button v-if="showCloseButton" class="modal-close" @click="closeModal()">&times;</button>
+              </div>
+              
+              <div class="modal-body">
+                <div class="mb-3 date-display">
+                  <span class="text-base sm:text-lg text-[#2f4a71] font-semibold">{{ selectedDate.monthYear }}</span>
+                  <span class="text-base sm:text-lg text-[#2f4a71] float-right">{{ selectedDate.day }}</span>
+                </div>
 
-        <button @click="openModal" class="w-full p-2 font-bold text-white bg-[#2f4a71] rounded hover:bg-[#8b67db]">Book Appointment</button>
-        <!--Add appointment modal-->
-        <Teleport to="body">
-          <Transition name="modal">
-            <div v-if="showModal" class="modal-overlay" @click="closeOnOverlayClick && closeModal()">
-              <div class="modal-container" @click.stop>
-                <div class="modal-header">
-                  <h2 class="mb-4 text-3xl font-bold text-[#2f4a71] border-b-2 border-[#2f4a71]">Book Appointment</h2>
-                  <button v-if="showCloseButton" class="modal-close" @click="closeModal()">&times;</button>
+                <div class="mb-4 time-picker">
+                  <div class="flex flex-col space-y-3">
+                    <span class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                      <label for="hour-select" class="block text-sm font-medium text-gray-700">Select Hour:</label>
+                      <select 
+                        id="hour-select"
+                        v-model="selectedHour" 
+                        class="block w-full sm:w-auto py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-[#2f4a71] focus:border-[#2f4a71]"
+                        @change="selectHour(selectedHour)"
+                      >
+                        <option 
+                          v-for="hour in availableHours" 
+                          :key="hour" 
+                          :value="hour"
+                        >
+                          {{ hour > 12 ? hour - 12 : hour }} {{ hour >= 12 ? 'PM' : 'AM' }}
+                        </option>
+                      </select>
+                    </span> 
+                    
+                    <span v-if="selectedHour !== null" class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                      <label for="minute-select" class="block text-sm font-medium text-gray-700">Select Minute:</label>
+                      <select 
+                        id="minute-select"
+                        v-model="selectedMinute" 
+                        class="block w-full sm:w-auto py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-[#2f4a71] focus:border-[#2f4a71]"
+                        @change="checkTimeSlotAvailability()"
+                      >
+                        <option value="">Select Minute</option>
+                        <option 
+                          v-for="minute in availableMinutes" 
+                          :key="minute" 
+                          :value="minute"
+                        >
+                          {{ minute < 10 ? '0' + minute : minute }}
+                        </option>
+                      </select>
+                    </span>
+                  </div>
                 </div>
                 
-                <div class="modal-body">
-                  <div class="mb-4 date-display">
-                    <span class="text-2xl text-[#2f4a71] font-semibold">{{ selectedDate.monthYear }}</span>
-                    <span class="text-2xl text-[#2f4a71] float-right">{{ selectedDate.day }}</span>
-                  </div>
+                <!-- Show message when no time slots are available -->
+                <div v-if="availableHours.length === 0 && !isWeekend(selectedDate.rawDate)" 
+                    class="p-2 mb-4 text-xs sm:text-sm text-yellow-800 bg-yellow-100 rounded">
+                  No time slots available for this date. Please select another date.
+                </div>
+                <!-- Add a warning message if the selected time is already booked -->
+                <div v-if="!isSelectedTimeAvailable && selectedHour !== null && selectedMinute !== null" 
+                    class="p-2 mb-4 text-xs sm:text-sm text-red-700 bg-red-100 rounded">
+                  This time slot is already booked. Please select a different time.
+                </div>
 
-                  <div class="mb-4 time-picker">
-                    <div class="flex flex-col space-y-4">
-                      <span class="flex items-center space-x-4">
-                        <label for="hour-select" class="block mb-1 text-sm font-medium text-gray-700">Select Hour:</label>
-                        <select 
-                          id="hour-select"
-                          v-model="selectedHour" 
-                          class="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-[#2f4a71] focus:border-[#2f4a71]"
-                          @change="selectHour(selectedHour)"
-                        >
-                          <!-- <option value="">Select Hour</option> -->
-                          <option 
-                            v-for="hour in availableHours" 
-                            :key="hour" 
-                            :value="hour"
-                          >
-                            {{ hour > 12 ? hour - 12 : hour }} {{ hour >= 12 ? 'PM' : 'AM' }}
-                          </option>
-                        </select>
-                      </span> 
-                      
-                      <span v-if="selectedHour !== null" class="flex items-center space-x-4">
-                        <label for="minute-select" class="block mb-1 text-sm font-medium text-gray-700">Select Minute:</label>
-                        <select 
-                          id="minute-select"
-                          v-model="selectedMinute" 
-                          class="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-[#2f4a71] focus:border-[#2f4a71]"
-                          @change="checkTimeSlotAvailability()"
-                        >
-                          <option value="">Select Minute</option>
-                          <option 
-                            v-for="minute in availableMinutes" 
-                            :key="minute" 
-                            :value="minute"
-                          >
-                            {{ minute < 10 ? '0' + minute : minute }}
-                          </option>
-                        </select>
-                      </span>
-                    </div>
-                  </div>
+                <div v-if="isWeekend(selectedDate.rawDate)" class="p-2 mb-4 text-xs sm:text-sm text-yellow-800 bg-yellow-100 rounded">
+                  Note: Appointments cannot be scheduled on weekends.
+                </div>
+                
+                <!-- Complaint Section -->
+                <div class="mb-4">
+                  <label class="block text-sm font-semibold text-gray-600">Nature of Complaint:</label>
                   
-                  <!-- Show message when no time slots are available -->
-                  <div v-if="availableHours.length === 0 && !isWeekend(selectedDate.rawDate)" 
-                      class="p-2 mb-4 text-yellow-800 bg-yellow-100 rounded">
-                    No time slots available for this date. Please select another date.
-                  </div>
-                  <!-- Add a warning message if the selected time is already booked -->
-                  <div v-if="!isSelectedTimeAvailable && selectedHour !== null && selectedMinute !== null" 
-                      class="p-2 mb-4 text-red-700 bg-red-100 rounded">
-                    This time slot is already booked. Please select a different time.
-                  </div>
-
-                  <div v-if="isWeekend(selectedDate.rawDate)" class="p-2 mb-4 text-yellow-800 bg-yellow-100 rounded">
-                    Note: Appointments cannot be scheduled on weekends.
-                  </div>
-                  
-                  <!-- Complaint Section - Structured dropdown similar to AddList -->
-                  <div class="mb-4">
-                    <label class="block text-sm font-semibold text-gray-600">Nature of Complaint:</label>
-                    
-                    <div class="p-4 border border-gray-300 rounded-md bg-gray-50">
-                      <!-- Multiple complaint entries with + button -->
-                      <div class="flex flex-col space-y-4">
-                        <div v-for="complaint in chiefComplaints" :key="complaint.id" class="flex items-start space-x-2">
-                          <div class="flex-grow">
-                            <div class="relative">
-                              <select 
-                                v-model="complaint.value"
-                                class="w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  <div class="p-3 sm:p-4 border border-gray-300 rounded-md bg-gray-50">
+                    <!-- Multiple complaint entries with + button -->
+                    <div class="flex flex-col space-y-3">
+                      <div v-for="complaint in chiefComplaints" :key="complaint.id" class="flex items-start space-x-2">
+                        <div class="flex-grow">
+                          <div class="relative">
+                            <select 
+                              v-model="complaint.value"
+                              class="w-full px-3 py-2 text-xs sm:text-sm text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            >
+                              <option value="" disabled selected>Select a complaint...</option>
+                              <option 
+                                v-for="option in ['Not feeling well', 'Stomachache', 'Headache', 'Toothache', 'Injury', 'Other']" 
+                                :key="option" 
+                                :value="option" 
+                                :disabled="isComplaintValueSelected(option, complaint.id)"
                               >
-                                <option value="" disabled selected>Select a complaint...</option>
-                                <option 
-                                  v-for="option in ['Not feeling well', 'Stomachache', 'Headache', 'Toothache', 'Injury', 'Other']" 
-                                  :key="option" 
-                                  :value="option" 
-                                  :disabled="isComplaintValueSelected(option, complaint.id)"
-                                >
-                                  {{ option }}
-                                </option>
-                              </select>
-                              <!-- Custom dropdown arrow -->
-                              <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                                <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                                </svg>
-                              </div>
-                            </div>
-                            
-                            <!-- Details field for Injury or Other -->
-                            <div v-if="complaint.value === 'Injury' || complaint.value === 'Other'" 
-                                 class="mt-2 transition-all duration-300 ease-in-out">
-                              <input 
-                                type="text"
-                                v-model="complaint.details"
-                                :placeholder="complaint.value === 'Injury' ? 'Please describe the injury in detail...' : 'Please specify the complaint...' "
-                                class="w-full px-4 py-2 text-gray-700 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              />
+                                {{ option }}
+                              </option>
+                            </select>
+                            <!-- Custom dropdown arrow -->
+                            <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                              <svg class="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                              </svg>
                             </div>
                           </div>
                           
-                          <!-- Remove button -->
-                          <button 
-                            v-if="chiefComplaints.length > 1" 
-                            @click="removeChiefComplaint(complaint.id)"
-                            class="p-2 mt-1 text-red-500 bg-white border border-red-300 rounded-md hover:bg-red-50"
-                            title="Remove complaint"
-                          >
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                          </button>
+                          <!-- Details field for Injury or Other -->
+                          <div v-if="complaint.value === 'Injury' || complaint.value === 'Other'" 
+                               class="mt-2 transition-all duration-300 ease-in-out">
+                            <input 
+                              type="text"
+                              v-model="complaint.details"
+                              :placeholder="complaint.value === 'Injury' ? 'Describe injury...' : 'Specify complaint...' "
+                              class="w-full px-3 py-2 text-xs sm:text-sm text-gray-700 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
                         </div>
                         
-                        <!-- Add button -->
-                        <div class="flex justify-end">
-                          <button 
-                            @click="addChiefComplaint"
-                            class="flex items-center px-4 py-2 text-white transition-colors duration-300 bg-blue-500 rounded-md hover:bg-blue-600"
-                          >
-                            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                            </svg>
-                            Add Another Complaint
-                          </button>
-                        </div>
+                        <!-- Remove button -->
+                        <button 
+                          v-if="chiefComplaints.length > 1" 
+                          @click="removeChiefComplaint(complaint.id)"
+                          class="p-1.5 mt-1 text-red-500 bg-white border border-red-300 rounded-md hover:bg-red-50"
+                          title="Remove complaint"
+                        >
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                          </svg>
+                        </button>
+                      </div
+                      
+                      <!-- Add button -->
+                      <div class="flex justify-end">
+                        <button 
+                          @click="addChiefComplaint"
+                          class="flex items-center px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm text-white transition-colors duration-300 bg-blue-500 rounded-md hover:bg-blue-600"
+                        >
+                          <svg class="w-3 h-3 sm:w-4 sm:h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                          </svg>
+                          Add Another
+                        </button>
                       </div>
-                    </div>
-                    
-                    <!-- Display selected complaints summary -->
-                    <div v-if="chiefComplaints.some(c => c.value)" class="mt-2 text-sm font-medium text-blue-600">
-                      Selected: {{ chiefComplaints.filter(c => c.value).map(c => getChiefComplaintValue(c)).join(', ') }}
                     </div>
                   </div>
                   
-                  <!-- Status message -->
-                  <div v-if="statusMessage" :class="['p-2 rounded mb-4', statusType === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700']">
-                    {{ statusMessage }}
+                  <!-- Display selected complaints summary -->
+                  <div v-if="chiefComplaints.some(c => c.value)" class="mt-2 text-xs sm:text-sm font-medium text-blue-600">
+                    Selected: {{ chiefComplaints.filter(c => c.value).map(c => getChiefComplaintValue(c)).join(', ') }}
                   </div>
                 </div>
                 
-                <div class="modal-footer">
-                  <button 
-                    @click="submitAppointment" 
-                    class="w-full p-2 font-bold text-white bg-[#2f4a71] rounded hover:bg-[#8b67db] disabled:bg-gray-400"
-                    :disabled="isSubmitting"
-                  >
-                    {{ isSubmitting ? 'Submitting...' : 'Submit' }}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </Transition>
-        </Teleport>
-
-        <!-- Fetch Appointments -->
-        <div class="text-2xl text-[#2f4a71] font-semibold border-b-2 border-[#a6a6a6] mt-10 mb-4">Upcoming Appointments</div>
-        
-        <!-- Loading state -->
-        <div v-if="loadingAppointments" class="py-4 text-center">
-          <p class="text-gray-600">Loading appointments...</p>
-        </div>
-        
-        <!-- Error state -->
-        <div v-else-if="appointmentsError" class="p-3 mb-4 text-red-700 bg-red-100 rounded">
-          <p>{{ appointmentsError }}</p>
-          <button @click="fetchUpcomingAppointments" class="mt-1 text-sm underline">
-            Try again
-          </button>
-        </div>
-        
-        <!-- No appointments -->
-        <div v-else-if="upcomingAppointments.length === 0" class="py-4 text-center">
-          <p class="text-gray-600">No upcoming appointments</p>
-        </div>
-        
-        <!-- Appointments list -->
-        <div v-else class="space-y-4 appointments-list">
-          <div 
-            v-for="(group, date) in groupedAppointments" 
-            :key="date" 
-            class="mb-4 appointment-group"
-          >
-            <h3 class="text-lg font-semibold mb-2 p-1 bg-[#f0f4f9] text-[#2f4a71] rounded">
-              {{ formatFullDate(date) }}
-            </h3>
-          
-            <!-- Update the appointment card in the template section to include delete button -->
-            <div 
-              v-for="appointment in group" 
-              :key="appointment.appointment_id" 
-              class="p-3 mb-2 transition-shadow bg-white border border-gray-200 rounded-lg appointment-card hover:shadow-md"
-            >
-              <div class="flex items-start justify-between">
-                <div>
-                  <h4 class="font-bold">
-                    {{ appointment.patient?.name || 'Patient #' + appointment.patient_id }}
-                  </h4>
-                  <p class="text-xs text-gray-500">
-                    {{ appointment.patient?.category || 'Unknown' }} 
-                    <span v-if="appointment.patient?.grade">
-                      Grade {{ appointment.patient.grade }}-{{ appointment.patient.section }}
-                    </span>
-                  </p>
-                </div>
-                <div class="text-right">
-                  <span class="block text-[#2f4a71] font-semibold">
-                    {{ formatTime(appointment.hour, appointment.minute) }}
-                  </span>
-                  <span 
-                    v-if="appointment.status"
-                    class="inline-block px-2 py-1 mt-1 text-xs rounded-full"
-                    :class="getStatusClass(appointment.status)"
-                  >
-                    {{ appointment.status || 'pending' }}
-                  </span>
+                <!-- Status message -->
+                <div v-if="statusMessage" :class="['p-2 rounded mb-4 text-xs sm:text-sm', statusType === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700']">
+                  {{ statusMessage }}
                 </div>
               </div>
               
-              <div class="p-2 mt-2 text-sm rounded bg-gray-50">
-                <p class="text-gray-700">{{ appointment.complaint }}</p>
-              </div>
-              
-              <!-- Notes (if any) -->
-              <div v-if="appointment.notes" class="p-2 mt-2 text-sm rounded bg-yellow-50">
-                <p class="text-gray-700"><span class="font-medium">Notes:</span> {{ appointment.notes }}</p>
-              </div>
-              
-              <!-- Add delete button - only show for appointments that can be canceled -->
-              <div v-if="canCancelAppointment(appointment)" class="flex justify-end mt-2">
+              <div class="modal-footer">
                 <button 
-                  @click.stop="confirmDeleteAppointment(appointment)"
-                  class="px-2 py-1 text-xs text-red-600 rounded hover:bg-red-50"
+                  @click="submitAppointment" 
+                  class="w-full p-2 font-bold text-white bg-[#2f4a71] rounded hover:bg-[#8b67db] disabled:bg-gray-400"
+                  :disabled="isSubmitting"
                 >
-                  Cancel Appointment
+                  {{ isSubmitting ? 'Submitting...' : 'Submit' }}
                 </button>
               </div>
             </div>
+          </div>
+        </Transition>
+      </Teleport>
 
-            <!-- Add Delete Confirmation Modal -->
-            <Teleport to="body">
-              <Transition name="modal">
-                <div v-if="showDeleteConfirmModal" class="modal-overlay" @click.self="closeDeleteConfirmModal">
-                  <div class="max-w-md modal-container">
-                    <div class="modal-header">
-                      <h3 class="mb-4 text-xl font-bold text-red-600">Cancel Appointment</h3>
-                      <button class="modal-close" @click="closeDeleteConfirmModal">&times;</button>
-                    </div>
-                    
-                    <div class="modal-body">
-                      <p class="mb-4">Are you sure you want to cancel this appointment?</p>
-                      
-                      <div v-if="appointmentToDelete" class="p-3 mb-4 rounded bg-gray-50">
-                        <div class="text-sm text-gray-500">
-                          {{ formatFullDate(appointmentToDelete.date) }} at 
-                          {{ formatTime(appointmentToDelete.hour, appointmentToDelete.minute) }}
-                        </div>
-                        <div class="font-medium">{{ appointmentToDelete.complaint }}</div>
-                      </div>
-                      
-                      <div v-if="deleteStatusMessage" class="p-2 mb-4 text-red-700 bg-red-100 rounded">
-                        {{ deleteStatusMessage }}
-                      </div>
-                    </div>
-                    
-                    <div class="flex justify-end space-x-3 modal-footer">
-                      <button 
-                        @click="closeDeleteConfirmModal"
-                        class="px-4 py-2 text-gray-700 border border-gray-300 rounded hover:bg-gray-50"
-                      >
-                        Cancel
-                      </button>
-                      <button 
-                        @click="deleteAppointment"
-                        :disabled="isDeleting"
-                        class="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-700 disabled:bg-gray-400"
-                      >
-                        {{ isDeleting ? 'Deleting...' : 'Confirm Cancellation' }}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </Transition>
-            </Teleport>
-
-
+      <!-- Fetch Appointments -->
+      <div class="text-xl text-[#2f4a71] font-semibold border-b-2 border-[#a6a6a6] mt-6 mb-3">Upcoming Appointments</div>
+      
+      <!-- Loading state -->
+      <div v-if="loadingAppointments" class="py-4 text-center">
+        <p class="text-gray-600">Loading appointments...</p>
+      </div>
+      
+      <!-- Error state -->
+      <div v-else-if="appointmentsError" class="p-3 mb-4 text-red-700 bg-red-100 rounded">
+        <p>{{ appointmentsError }}</p>
+        <button @click="fetchUpcomingAppointments" class="mt-1 text-sm underline">
+          Try again
+        </button>
+      </div>
+      
+      <!-- No appointments -->
+      <div v-else-if="upcomingAppointments.length === 0" class="py-4 text-center">
+        <p class="text-gray-600">No upcoming appointments</p>
+      </div>
+      
+      <!-- Appointments list -->
+      <div v-else class="space-y-3 appointments-list">
+        <div 
+          v-for="(group, date) in groupedAppointments" 
+          :key="date" 
+          class="mb-3 appointment-group"
+        >
+          <h3 class="text-sm sm:text-base font-semibold mb-2 p-1 bg-[#f0f4f9] text-[#2f4a71] rounded">
+            {{ formatFullDate(date) }}
+          </h3>
+        
+          <!-- Update the appointment card in the template section to include delete button -->
+          <div 
+            v-for="appointment in group" 
+            :key="appointment.appointment_id" 
+            class="p-2 mb-2 transition-shadow bg-white border border-gray-200 rounded-lg appointment-card hover:shadow-md"
+          >
+            <div class="flex items-start justify-between">
+              <div>
+                <h4 class="font-bold text-xs sm:text-sm">
+                  {{ appointment.patient?.name || 'Patient #' + appointment.patient_id }}
+                </h4>
+                <p class="text-xs text-gray-500">
+                  {{ appointment.patient?.category || 'Unknown' }} 
+                  <span v-if="appointment.patient?.grade">
+                    Grade {{ appointment.patient.grade }}-{{ appointment.patient.section }}
+                  </span>
+                </p>
+              </div>
+              <div class="text-right">
+                <span class="block text-[#2f4a71] font-semibold text-xs sm:text-sm">
+                  {{ formatTime(appointment.hour, appointment.minute) }}
+                </span>
+                <span 
+                  v-if="appointment.status"
+                  class="inline-block px-2 py-0.5 mt-1 text-xs rounded-full"
+                  :class="getStatusClass(appointment.status)"
+                >
+                  {{ appointment.status || 'pending' }}
+                </span>
+              </div>
+            </div>
+            
+            <div class="p-2 mt-2 text-xs rounded bg-gray-50">
+              <p class="text-gray-700">{{ appointment.complaint }}</p>
+            </div>
+            
+            <!-- Notes (if any) -->
+            <div v-if="appointment.notes" class="p-2 mt-2 text-xs rounded bg-yellow-50">
+              <p class="text-gray-700"><span class="font-medium">Notes:</span> {{ appointment.notes }}</p>
+            </div>
+            
+            <!-- Add delete button - only show for appointments that can be canceled -->
+            <div v-if="canCancelAppointment(appointment)" class="flex justify-end mt-2">
+              <button 
+                @click.stop="confirmDeleteAppointment(appointment)"
+                class="px-2 py-1 text-xs text-red-600 rounded hover:bg-red-50"
+              >
+                Cancel Appointment
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      <!-- Add Delete Confirmation Modal -->
+      <Teleport to="body">
+        <Transition name="modal">
+          <div v-if="showDeleteConfirmModal" class="modal-overlay" @click.self="closeDeleteConfirmModal">
+            <div class="max-w-md modal-container mx-4">
+              <div class="modal-header">
+                <h3 class="mb-3 text-base sm:text-lg font-bold text-red-600">Cancel Appointment</h3>
+                <button class="modal-close" @click="closeDeleteConfirmModal">&times;</button>
+              </div>
+              
+              <div class="modal-body">
+                <p class="mb-4 text-sm">Are you sure you want to cancel this appointment?</p>
+                
+                <div v-if="appointmentToDelete" class="p-3 mb-4 rounded bg-gray-50">
+                  <div class="text-xs sm:text-sm text-gray-500">
+                    {{ formatFullDate(appointmentToDelete.date) }} at 
+                    {{ formatTime(appointmentToDelete.hour, appointmentToDelete.minute) }}
+                  </div>
+                  <div class="font-medium text-xs sm:text-sm">{{ appointmentToDelete.complaint }}</div>
+                </div>
+                
+                <div v-if="deleteStatusMessage" class="p-2 mb-4 text-xs sm:text-sm text-red-700 bg-red-100 rounded">
+                  {{ deleteStatusMessage }}
+                </div>
+              </div>
+              
+              <div class="flex justify-end flex-wrap gap-2 modal-footer">
+                <button 
+                  @click="closeDeleteConfirmModal"
+                  class="px-3 py-1.5 text-xs sm:text-sm text-gray-700 border border-gray-300 rounded hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button 
+                  @click="deleteAppointment"
+                  :disabled="isDeleting"
+                  class="px-3 py-1.5 text-xs sm:text-sm text-white bg-red-600 rounded hover:bg-red-700 disabled:bg-gray-400"
+                >
+                  {{ isDeleting ? 'Deleting...' : 'Confirm Cancellation' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
     </div>
   </div>
 </template>
@@ -1184,8 +1178,39 @@ textarea {
   opacity: 0;
 }
 
+/* Responsive heights for appointments list */
 .appointments-list {
   max-height: calc(100vh - 350px);
   overflow-y: auto;
+}
+
+@media (max-width: 1024px) {
+  .appointments-list {
+    max-height: 500px;
+  }
+}
+
+@media (max-width: 640px) {
+  .modal-container {
+    padding: 15px;
+  }
+  
+  .appointments-list {
+    max-height: 400px;
+  }
+}
+
+/* Custom scrollbar for better UX */
+.appointments-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.appointments-list::-webkit-scrollbar-thumb {
+  background-color: rgba(47, 74, 113, 0.4);
+  border-radius: 3px;
+}
+
+.appointments-list::-webkit-scrollbar-track {
+  background-color: rgba(0, 0, 0, 0.05);
 }
 </style>

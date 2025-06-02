@@ -62,18 +62,39 @@ definePageMeta({
 
 <template>
     <NuxtLayout>
-        <CalendarClient 
-            @day-selected="handleDaySelected" 
-            @update-date="handleUpdateDate" 
-            :updateConfined="confinedCount" 
-            ref="calendarRef" 
-        />
-        <AddAppointment 
-            ref="appointmentRef"
-            :current-day="currentDay" 
-            @update-confined="updateConfinedCount" 
-            @consultation-saved="refreshCalendar" 
-            @consultation-deleted="refreshCalendar" 
-        />
+        <div class="flex flex-col lg:flex-row w-full gap-4">
+            <!-- Calendar component - Full width on mobile, 3/4 width on desktop -->
+            <div class="w-full lg:w-3/4 mb-4 lg:mb-0">
+                <CalendarClient 
+                    @day-selected="handleDaySelected" 
+                    @update-date="handleUpdateDate" 
+                    :updateConfined="confinedCount" 
+                    ref="calendarRef" 
+                    class="w-full"
+                />
+            </div>
+            
+            <!-- Appointment component - Full width on mobile, 1/4 width on desktop -->
+            <div class="w-full lg:w-1/4">
+                <AddAppointment 
+                    ref="appointmentRef"
+                    :current-day="currentDay" 
+                    @update-confined="updateConfinedCount" 
+                    @consultation-saved="refreshCalendar" 
+                    @consultation-deleted="refreshCalendar" 
+                    class="h-full"
+                />
+            </div>
+        </div>
     </NuxtLayout>
 </template>
+
+<style scoped>
+/* Responsive styles */
+@media (max-width: 1023px) {
+    :deep(.fixed) {
+        position: relative !important;
+        width: 100% !important;
+    }
+}
+</style>
