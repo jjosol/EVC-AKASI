@@ -22,7 +22,26 @@ const handleLogin = async () => {
     isLoading.value = true;
     loginError.value = undefined;
     
-    const response = await fetch('http://localhost:3001/auth/login', {
+    // Get the API base URL dynamically
+    let baseUrl = '';
+    
+    // Use environment variable if defined
+    if (import.meta.env.VITE_API_BASE_URL) {
+      baseUrl = import.meta.env.VITE_API_BASE_URL;
+    } else {
+      // If running in a browser, determine the host dynamically
+      const currentHost = window.location.hostname;
+      
+      // If it's localhost, use localhost for the API
+      if (currentHost === 'localhost') {
+        baseUrl = 'http://localhost:3001';
+      } else {
+        // Otherwise use the current host's IP with the backend port
+        baseUrl = `http://${currentHost}:3001`;
+      }
+    }
+    
+    const response = await fetch(`${baseUrl}/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
