@@ -85,6 +85,14 @@ const handleLogin = async () => {
 const togglePasswordVisibility = () => {
   showPassword.value = !showPassword.value;
 };
+
+// Handle Enter key press specifically
+const handleEnterKeyLogin = (event: KeyboardEvent) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    handleLogin();
+  }
+};
 </script>
 
 <template>
@@ -102,7 +110,7 @@ const togglePasswordVisibility = () => {
         <AkasiLogin class="mb-8 text-6xl md:text-7xl" />
         
         <!-- Login Form -->
-        <div class="space-y-6">
+        <form @submit.prevent="handleLogin" @keydown="handleEnterKeyLogin" class="space-y-6">
           <!-- Username Field -->
           <div class="relative">
             <label for="username" class="block text-sm font-medium text-[#2f4a71] mb-1 ml-2">Username</label>
@@ -117,6 +125,7 @@ const togglePasswordVisibility = () => {
                 type="text"
                 placeholder="Enter your username"
                 v-model="username"
+                @keyup.enter="handleLogin"
                 class="w-full py-3 pl-10 pr-4 bg-white rounded-full placeholder:text-gray-400 text-[#2f4a71] border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#745dab] focus:border-transparent transition-all duration-200"
               />
             </div>
@@ -136,6 +145,7 @@ const togglePasswordVisibility = () => {
                 :type="showPassword ? 'text' : 'password'"
                 placeholder="Enter your password"
                 v-model="password"
+                @keyup.enter="handleLogin"
                 class="w-full py-3 pl-10 pr-11 bg-white rounded-full placeholder:text-gray-400 text-[#2f4a71] border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#745dab] focus:border-transparent transition-all duration-200"
               />
               <button 
@@ -178,7 +188,7 @@ const togglePasswordVisibility = () => {
               {{ isLoading ? 'Signing in...' : 'Sign in' }}
             </button>
           </div>
-        </div>
+        </form>
       </div>
       
       <!-- Spacer -->
