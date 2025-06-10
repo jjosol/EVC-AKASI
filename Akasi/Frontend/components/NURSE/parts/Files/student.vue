@@ -83,7 +83,7 @@ const grades = [
 // Set base API URL
 const apiBaseUrl = process.env.NODE_ENV === 'production'
   ? '/api'
-  : 'http://localhost:3001';
+  : import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
 // Students with pending files
 const studentsWithPendingFiles = computed(() => {
@@ -191,7 +191,7 @@ const fetchStudents = async () => {
   try {
     const possiblePaths = [
       '/api/get-patient/students',
-      'http://localhost:3001/get-patient/students'
+      `${apiBaseUrl}/get-patient/students`
     ];
     
     let errorMessages = [];

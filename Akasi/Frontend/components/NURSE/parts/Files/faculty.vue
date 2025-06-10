@@ -44,7 +44,7 @@ const isSubmitting = ref(false);
 // Set base API URL
 const apiBaseUrl = process.env.NODE_ENV === 'production'
   ? '/api'
-  : 'http://localhost:3001';
+  : import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
 // Faculty with pending files
 const facultyWithPendingFiles = computed(() => {
@@ -94,7 +94,7 @@ const fetchFacultyConsultations = async (patientId) => {
     }
 
     // Log the URL we're calling
-    const url = `http://localhost:3001/consultation-records/patient/${patientId}`;
+    const url = `${apiBaseUrl}/consultation-records/patient/${patientId}`;
     console.log('Fetching consultations from:', url);
 
     const response = await fetch(url, {
@@ -140,7 +140,7 @@ const fetchFaculty = async () => {
   try {
     const possiblePaths = [
       '/api/get-patient/faculty',
-      'http://localhost:3001/get-patient/faculty'
+      `${apiBaseUrl}/get-patient/faculty`
     ];
     
     let errorMessages = [];
@@ -159,7 +159,7 @@ const fetchFaculty = async () => {
             const token = localStorage.getItem('token');
             
             if (token) {
-              const pendingResponse = await fetch(`${apiBaseUrl}/students-with-pending-files`, {
+              const pendingResponse = await fetch(`${apiBaseUrl}/patient-files/patients-with-pending-files`, {
                 headers: {
                   'Authorization': `Bearer ${token}`
                 }

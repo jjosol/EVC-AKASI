@@ -1,8 +1,36 @@
-import { get, post, put, del, uploadFile } from './apiService.js';
+import { get, post, put, del } from './apiService.ts';
 
 // Base URLs for API endpoints
 const DOCTOR_URL = '/doctor';
 const PATIENT_URL = '/patients';  // Changed from '/patient' to '/patients' to match backend controller
+
+// Custom uploadFile function since it's not exported from apiService
+async function uploadFile(endpoint: string, formData: FormData): Promise<any> {
+  const baseUrl = process.env.NODE_ENV === 'production' ? '/api' : import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+  try {
+    const token = localStorage.getItem('token');
+    const headers: Record<string, string> = {};
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    const response = await fetch(`${baseUrl}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error(`Error during file upload request to ${endpoint}:`, error);
+    throw error;
+  }
+}
 const NURSE_URL = '/nurse'; 
 const BACKUP_URL = '/backup'; 
 

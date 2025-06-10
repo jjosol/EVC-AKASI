@@ -7,7 +7,9 @@
  */
 export async function fetchUserProfile(token: string) {
     try {
-      const response = await fetch('http://localhost:3001/profile', {
+      // Get API base URL from environment variable
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+      const response = await fetch(`${apiBaseUrl}/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -50,7 +52,8 @@ export async function fetchUserProfile(token: string) {
  */
 export async function fetchPatientProfile(patientId: number, token: string) {
   try {
-    const response = await fetch(`http://localhost:3001/patient/${patientId}`, {
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+    const response = await fetch(`${apiBaseUrl}/patient/${patientId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -77,7 +80,8 @@ export async function fetchPatientProfile(patientId: number, token: string) {
  */
 export async function updateProfile(token: string, data: any) {
   try {
-    const response = await fetch('http://localhost:3001/profile', {
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+    const response = await fetch(`${apiBaseUrl}/profile`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,

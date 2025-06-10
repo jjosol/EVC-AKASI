@@ -22,9 +22,10 @@ export function useStudentApi() {
     const loading = ref(false);
     const error = ref<string | null>(null);
 
+    // Get API base URL from environment variable
     const apiBaseUrl = process.env.NODE_ENV === 'production'
         ? '/api'
-        : 'http://localhost:3001';
+        : import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
     // Fetch all students
     const fetchStudents = async () => {
@@ -53,8 +54,8 @@ export function useStudentApi() {
                 throw new Error('Failed to fetch students data');
             }
             
-            // Fetch students with pending files
-            const pendingResponse = await fetch(`${apiBaseUrl}/students-with-pending-files`, {
+            // Fetch students with pending files - use the correct patient-files endpoint
+            const pendingResponse = await fetch(`${apiBaseUrl}/patient-files/patients-with-pending-files`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }

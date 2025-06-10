@@ -44,7 +44,7 @@ const isSubmitting = ref(false);
 // Set base API URL
 const apiBaseUrl = process.env.NODE_ENV === 'production'
   ? '/api'
-  : 'http://localhost:3001';
+  : import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
 // Staff with pending files
 const staffWithPendingFiles = computed(() => {
@@ -127,7 +127,7 @@ const fetchStaff = async () => {
   try {
     const possiblePaths = [
       '/api/get-patient/staff',
-      'http://localhost:3001/get-patient/staff'
+      `${apiBaseUrl}/get-patient/staff`
     ];
     
     let errorMessages = [];
@@ -146,7 +146,7 @@ const fetchStaff = async () => {
             const token = localStorage.getItem('token');
             
             if (token) {
-              const pendingResponse = await fetch(`${apiBaseUrl}/students-with-pending-files`, {
+              const pendingResponse = await fetch(`${apiBaseUrl}/patient-files/patients-with-pending-files`, {
                 headers: {
                   'Authorization': `Bearer ${token}`
                 }
