@@ -106,6 +106,50 @@
         </h3>
         <ChangePassword v-if="profile" :profile="profile" class="mt-2" />
       </div>
+
+      <!-- User Manual Section -->
+      <div class="mt-6 pt-4 border-t border-gray-200">
+        <h3 class="text-md font-semibold text-[#2f4a71] mb-3 flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+          User Manual
+        </h3>
+        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mt-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center">
+              <div class="w-10 h-12 bg-red-100 rounded flex items-center justify-center mr-4 flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <h4 class="font-medium text-gray-800">AKASI Clinic Management System</h4>
+                <p class="text-sm text-gray-500">User Manual PDF (2.4 MB)</p>
+              </div>
+            </div>
+            <button 
+              @click="downloadUserManual"
+              :disabled="isDownloading"
+              class="px-4 py-2 bg-[#2f4a71] text-white rounded-lg hover:bg-[#1c325c] transition-colors duration-200 flex items-center disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              <template v-if="isDownloading">
+                <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Downloading...
+              </template>
+              <template v-else>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download Manual
+              </template>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Loading State -->
@@ -144,12 +188,89 @@
 
 <!-- Modify the computed property to handle doctor type -->
 <script setup>
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 import { useProfile } from '~/composables/useProfile'
 import ChangePassword from '~/components/shared/parts/changePassword.vue'
 import Logout from '~/components/shared/parts/logout.vue'
+import { useApiUrl } from '~/composables/useApiUrl'
 
 const { profile, loading, error, fetchProfile } = useProfile()
+const { getApiUrl } = useApiUrl()
+const isDownloading = ref(false)
+
+// Function to download the user manual
+const downloadUserManual = async () => {
+  try {
+    isDownloading.value = true
+    const manualFileName = 'AKASI-User-Manual.pdf'
+    
+    // Try both API methods
+    const apiUrl = getApiUrl(`files/manual/${manualFileName}`)
+    const staticUrl = getApiUrl(`static-files/manuals/${manualFileName}`)
+    
+    console.log('Attempting to download from API:', apiUrl)
+    console.log('Backup static URL:', staticUrl)
+    
+    let downloadSuccessful = false
+    
+    // First try the API endpoint
+    try {
+      // Make the request
+      const response = await fetch(apiUrl)
+      
+      if (response.ok) {
+        // Get the blob from the response
+        const blob = await response.blob()
+        
+        if (blob.size > 0) {
+          // Create a download link for the blob
+          const url = window.URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = url
+          link.setAttribute('download', manualFileName)
+          document.body.appendChild(link)
+          link.click()
+          
+          // Clean up
+          document.body.removeChild(link)
+          window.URL.revokeObjectURL(url)
+          
+          console.log('Download completed successfully via API, file size:', blob.size, 'bytes')
+          downloadSuccessful = true
+        } else {
+          console.error('Downloaded file from API is empty')
+        }
+      } else {
+        console.error('API endpoint not available:', response.status, response.statusText)
+      }
+    } catch (apiError) {
+      console.error('Error with API endpoint:', apiError)
+    }
+    
+    // If API method failed, try the static file method
+    if (!downloadSuccessful) {
+      console.log('Trying static file method...')
+      try {
+        // Open the static file URL in a new tab
+        window.open(staticUrl, '_blank')
+        downloadSuccessful = true
+        console.log('Static file download initiated')
+      } catch (staticError) {
+        console.error('Error with static file method:', staticError)
+      }
+    }
+    
+    // If both methods failed, show an error
+    if (!downloadSuccessful) {
+      alert('Unable to download the user manual. Please contact support.')
+    }
+  } catch (err) {
+    console.error('Error in download process:', err)
+    alert('Failed to download user manual. Please try again later.')
+  } finally {
+    isDownloading.value = false
+  }
+}
 
 // Computed property to determine what to display below the name
 const getUserTypeOrCategory = computed(() => {
