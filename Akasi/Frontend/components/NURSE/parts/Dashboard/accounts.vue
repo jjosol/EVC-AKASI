@@ -435,8 +435,8 @@ const filteredAdmins = computed(() => {
   if (!searchQuery.value) return adminAccounts.value;
   const query = searchQuery.value.toLowerCase();
   return adminAccounts.value.filter(admin => 
-    admin.username.toLowerCase().includes(query) || 
-    admin.gmail.toLowerCase().includes(query)
+    (admin.username || '').toLowerCase().includes(query) || 
+    (admin.gmail || '').toLowerCase().includes(query)
   );
 });
 
@@ -447,9 +447,9 @@ const filteredClients = computed(() => {
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase();
     clients = clients.filter(client => 
-      client.username.toLowerCase().includes(query) || 
-      client.name?.toLowerCase().includes(query) || 
-      client.gmail.toLowerCase().includes(query)
+      (client.username || '').toLowerCase().includes(query) || 
+      (client.name || '').toLowerCase().includes(query) || 
+      (client.gmail || '').toLowerCase().includes(query)
     );
   }
   
@@ -473,8 +473,8 @@ const filteredManagers = computed(() => {
   if (!searchQuery.value) return managerAccounts.value;
   const query = searchQuery.value.toLowerCase();
   return managerAccounts.value.filter(manager => 
-    manager.username.toLowerCase().includes(query) || 
-    manager.gmail.toLowerCase().includes(query)
+    (manager.username || '').toLowerCase().includes(query) || 
+    (manager.gmail || '').toLowerCase().includes(query)
   );
 });
 

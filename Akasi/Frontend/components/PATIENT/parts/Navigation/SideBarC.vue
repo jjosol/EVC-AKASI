@@ -31,7 +31,8 @@ const links = computed(() => {
   return allLinks.filter(link => {
     // Hide services link for students with grade 13 or higher
     if (link.path === '/services' &&
-      profile.value.category === 'Student' &&
+      profile.value.category &&
+      profile.value.category.toLowerCase() === 'student' &&
       profile.value.grade >= 13) {
       return false;
     }

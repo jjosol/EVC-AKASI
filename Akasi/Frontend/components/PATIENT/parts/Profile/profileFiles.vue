@@ -24,14 +24,14 @@
     const { isNurse, isPatient, userRole } = useAuth();
     const { profile, fetchProfile } = useProfile();
 
-    // Add computed properties to determine user category
+    // Add computed properties to determine user category (case-insensitive)
     const isStudent = computed(() => {
-        return profile.value?.type_str === 'Student';
+        return profile.value?.type_str?.toLowerCase() === 'student';
     });
 
     const isFaculty = computed(() => {
-        const type_str = profile.value?.type_str;
-        return profile.value?.type_str === 'Faculty' || profile.value?.type_str === 'Staff';
+        const type_str = profile.value?.type_str?.toLowerCase();
+        return type_str === 'faculty' || type_str === 'staff';
     });
     
     onMounted(async () => {

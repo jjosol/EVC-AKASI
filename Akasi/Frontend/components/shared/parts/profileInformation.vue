@@ -57,7 +57,10 @@
         </div>
 
         <!-- Grade field for students -->
-        <div v-if="profile?.category === 'Student' && profile?.grade" class="flex items-center p-3 rounded-lg hover:bg-white transition-colors duration-200">
+        <div
+          v-if="profile?.category && profile.category.toLowerCase() === 'student' && profile?.grade"
+          class="flex items-center p-3 rounded-lg hover:bg-white transition-colors duration-200"
+        >
           <div class="w-10 h-10 bg-[#f8f4ff] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#745dab]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -77,7 +80,7 @@
             </svg>
           </div>
           <div>
-            <p class="text-xs text-gray-500">{{ profile.category === 'Student' ? 'Section' : 'Department' }}</p>
+            <p class="text-xs text-gray-500">{{ profile.category && profile.category.toLowerCase() === 'student' ? 'Section' : 'Department' }}</p>
             <p class="font-medium text-gray-800">{{ profile.section }}</p>
           </div>
         </div>

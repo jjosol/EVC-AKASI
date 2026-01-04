@@ -67,12 +67,20 @@ export function usePatientConsultations() {
       }
 
       const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to fetch consultations');
+
+      // Backend currently returns a plain array of consultation records,
+      // but also handle the { success, data } envelope if it is added later.
+      const records = Array.isArray(data)
+        ? data
+        : Array.isArray((data as any).data)
+          ? (data as any).data
+          : null;
+
+      if (!records) {
+        throw new Error((data as any).message || 'Failed to fetch consultations');
       }
 
-      consultations.value = data.data.map((record: any) => {
+      consultations.value = records.map((record: any) => {
         return {
           id: record.consultation_id,
           date: record.date,
