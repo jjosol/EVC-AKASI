@@ -274,10 +274,10 @@ const hashAllAccountPasswords = async () => {
     isHashingPasswords.value = true;
     hashPasswordsStatus.value = 'Hashing passwords...';
     
-    // Get all accounts
-    const allAdmins = await fetchAdminAccounts();
-    const allClients = await fetchClientAccounts();
-    const allManagers = await fetchManagerAccounts();
+    // Get all accounts using existing dashboard services
+    const allAdmins = await fetchNurseAccounts();
+    const allClients = await fetchPatientAccounts();
+    const allManagers = await fetchDoctorAccounts();
     
     let successCount = 0;
     let skippedCount = 0;
@@ -294,7 +294,7 @@ const hashAllAccountPasswords = async () => {
         const hashedPassword = '$2b$10$' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         
         // Update the admin account
-        await updateAdminAccount(admin.admin_id, { 
+        await updateNurseAccount(admin.nurse_id || admin.admin_id, { 
           ...admin, 
           password: hashedPassword 
         });
@@ -313,7 +313,7 @@ const hashAllAccountPasswords = async () => {
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const hashedPassword = '$2b$10$' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         
-        await updateClientAccount(client.client_id, {
+        await updatePatientAccount(client.patient_id || client.client_id, {
           ...client,
           password: hashedPassword
         });
@@ -332,7 +332,7 @@ const hashAllAccountPasswords = async () => {
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const hashedPassword = '$2b$10$' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         
-        await updateManagerAccount(manager.manager_id, {
+        await updateDoctorAccount(manager.doctor_id || manager.manager_id, {
           ...manager,
           password: hashedPassword
         });
@@ -542,7 +542,7 @@ const validateExcelStructure = (data, type) => {
   
   const firstRow = data[0];
   const requiredCommonFields = ['username', 'gmail'];
-  const clientSpecificFields = ['name', 'age', 'gender', 'category', 'section', 'type'];
+  const clientRequiredFields = ['name', 'age', 'gender', 'category', 'section', 'type'];
   
   // Check common required fields for all account types
   for (const field of requiredCommonFields) {
@@ -551,9 +551,9 @@ const validateExcelStructure = (data, type) => {
     }
   }
   
-  // For clients, check for required client fields
+  // For clients, check for required client fields (including name)
   if (type === 'clients') {
-    for (const field of clientSpecificFields) {
+    for (const field of clientRequiredFields) {
       if (!(field in firstRow)) {
         return `Missing required column for client accounts: ${field}`;
       }
@@ -561,11 +561,14 @@ const validateExcelStructure = (data, type) => {
   } 
   // For admins and managers, ensure client fields are NOT present
   else if (type === 'admins' || type === 'managers') {
-    // Check for client-specific fields that shouldn't be in admin/manager templates
-    const inappropriateFields = clientSpecificFields.filter(field => field in firstRow);
+    // For nurse/doctor templates we allow an optional name column,
+    // but disallow strictly client-only fields like age, gender, category, section, type.
+    const clientOnlyTemplateFields = ['age', 'gender', 'category', 'section', 'type'];
+    const inappropriateFields = clientOnlyTemplateFields.filter(field => field in firstRow);
     
     if (inappropriateFields.length > 0) {
-      return `Invalid template for ${type}. Found client-specific fields: ${inappropriateFields.join(', ')}. Please use the correct template for ${type}.`;
+      const roleLabel = type === 'admins' ? 'nurses' : 'doctors';
+      return `Invalid template for ${roleLabel}. Found client-specific fields: ${inappropriateFields.join(', ')}. Please use the correct template for ${roleLabel}.`;
     }
   }
   
@@ -578,84 +581,94 @@ const processExcelImport = async () => {
     errorMessage.value = 'Please select an Excel file first';
     return;
   }
-  
+
   try {
     importResults.value.inProgress = true;
     importResults.value.logs = [];
     importResults.value.success = 0;
     importResults.value.failed = 0;
-    
+
     // First fetch existing accounts for comparison
     let existingAccounts = [];
     if (massImportType.value === 'clients') {
-      existingAccounts = await fetchClientAccounts();
+      existingAccounts = await fetchPatientAccounts();
     } else if (massImportType.value === 'admins') {
-      existingAccounts = await fetchAdminAccounts();
+      existingAccounts = await fetchNurseAccounts();
     } else if (massImportType.value === 'managers') {
-      existingAccounts = await fetchManagerAccounts();
+      existingAccounts = await fetchDoctorAccounts();
     }
-    
+
     // Read the Excel file
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
-        
+
         // Get first sheet
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        
+
         // Convert to JSON
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        
+
         // Validate Excel structure first
         const structureError = validateExcelStructure(jsonData, massImportType.value);
         if (structureError) {
           throw new Error(structureError);
         }
-        
+
         importResults.value.total = jsonData.length;
-        
+
         // Process each row based on the type
         if (massImportType.value === 'clients') {
           // First handle existing graduated students (grade 22) - they should be removed
           const grade22Students = existingAccounts.filter(c => c.grade === 22);
-          
+
           if (grade22Students.length > 0) {
             try {
               for (const student of grade22Students) {
                 // Delete students at grade 22 as they should be removed on next import
-                await deleteClientAccount(student.client_id);
+                await deletePatientAccount(student.patient_id || student.client_id);
                 importResults.value.logs.push(`🗑️ Removed graduated student: ${student.name} (exceeded maximum grade level)`);
               }
               importResults.value.logs.push(`✅ Removed ${grade22Students.length} students who completed grade 22`);
-              
+
               // Refresh the accounts list after removals
-              existingAccounts = await fetchClientAccounts();
+              existingAccounts = await fetchPatientAccounts();
             } catch (error) {
               importResults.value.logs.push(`❌ Error removing grade 22 students: ${error.message}`);
             }
           }
-          
+
           // Then handle existing grade 12-21 students - they should be promoted
           const graduatingStudents = existingAccounts.filter(c => c.grade >= 12 && c.grade < 22);
-          
+
           if (graduatingStudents.length > 0) {
             try {
               for (const student of graduatingStudents) {
                 // Move student to next grade
                 const nextGrade = student.grade + 1;
                 const updatedStudent = { ...student, grade: nextGrade };
-                await updateClientAccount(student.client_id, updatedStudent);
+                await updatePatientAccount(student.patient_id || student.client_id, updatedStudent);
                 importResults.value.logs.push(`ℹ️ Graduated student: ${student.name} moved from grade ${student.grade} to grade ${nextGrade}`);
               }
-              
+
               // Refresh client accounts after processing graduates
+              existingAccounts = await fetchPatientAccounts();
+            } catch (error) {
+              importResults.value.logs.push(`❌ Error promoting students: ${error.message}`);
+            }
+          }
+
+          // Now process each imported row
+          for (const row of jsonData) {
+            try {
+              const validationError = validateExcelRow(row, massImportType.value);
               if (validationError) {
                 throw new Error(validationError);
               }
-              
+
               const clientData = {
                 username: String(row.username || '').trim(),
                 name: String(row.name || '').trim(),
@@ -663,24 +676,26 @@ const processExcelImport = async () => {
                 age: typeof row.age === 'number' ? row.age : parseInt(row.age) || 0,
                 gender: String(row.gender || '').trim(),
                 category: String(row.category || '').trim(),
-                type: String(row.type || '').trim(), // Add this line
+                type: String(row.type || '').trim(),
                 grade: row.grade ? (typeof row.grade === 'number' ? row.grade : parseInt(row.grade)) : null,
-                section: String(row.section || '').trim()
+                section: String(row.section || '').trim(),
+                civil_status: String(row.civil_status || 'single').trim(),
+                address: String(row.address || '').trim()
               };
-              
+
               // Check for existing client account (match by username and name)
-              const existingClient = existingAccounts.find(c => 
+              const existingClient = existingAccounts.find(c =>
                 c.username === clientData.username && c.name === clientData.name
               );
-              
+
               if (existingClient) {
                 // Fail if password is provided for existing account
                 if (row.password) {
                   throw new Error('Cannot update password for existing client account through import');
                 }
-                
+
                 // Update existing client account - don't touch password
-                await updateClientAccount(existingClient.client_id, clientData);
+                await updatePatientAccount(existingClient.patient_id || existingClient.client_id, clientData);
                 importResults.value.success++;
                 importResults.value.logs.push(`✅ Updated client: ${clientData.name} (${clientData.username})`);
               } else {
@@ -689,17 +704,17 @@ const processExcelImport = async () => {
                   throw new Error('Password is required for new client account');
                 }
                 clientData.password = String(row.password).trim();
-                await createClientAccount(clientData);
+                await createPatientAccount(clientData);
                 importResults.value.success++;
                 importResults.value.logs.push(`✅ Created client: ${clientData.name} (${clientData.username})`);
               }
             } catch (error) {
               importResults.value.failed++;
               importResults.value.logs.push(`❌ Error processing client: ${row.name || row.username || 'Unknown'} - ${error.message}`);
-              console.error(`Error processing account:`, error);
+              console.error('Error processing account:', error);
             }
           }
-        } 
+        }
         else if (massImportType.value === 'admins') {
           for (const row of jsonData) {
             try {
@@ -707,40 +722,40 @@ const processExcelImport = async () => {
               if (validationError) {
                 throw new Error(validationError);
               }
-              
+
               const adminData = {
                 username: String(row.username || '').trim(),
                 gmail: String(row.gmail || '').trim(),
-                name: String(row.name || row.username || '').trim() // Add name with fallback to username
+                name: String(row.name || row.username || '').trim()
               };
-              
+
               // Check for existing admin account (match by username)
               const existingAdmin = existingAccounts.find(a => a.username === adminData.username);
-              
+
               if (existingAdmin) {
                 // Fail if password is provided for existing account
                 if (row.password) {
                   throw new Error('Cannot update password for existing admin account through import');
                 }
-                
-                // Update existing admin account - don't touch password
-                await updateAdminAccount(existingAdmin.admin_id, adminData);
+
+                // Update existing admin (nurse) account - don't touch password
+                await updateNurseAccount(existingAdmin.nurse_id || existingAdmin.admin_id, adminData);
                 importResults.value.success++;
                 importResults.value.logs.push(`✅ Updated admin: ${adminData.username}`);
               } else {
-                // Create new admin account - password is required
+                // Create new admin (nurse) account - password is required
                 if (!row.password) {
                   throw new Error('Password is required for new admin account');
                 }
                 adminData.password = String(row.password).trim();
-                await createAdminAccount(adminData);
+                await createNurseAccount(adminData);
                 importResults.value.success++;
                 importResults.value.logs.push(`✅ Created admin: ${adminData.username}`);
               }
             } catch (error) {
               importResults.value.failed++;
               importResults.value.logs.push(`❌ Error processing admin: ${row.username || 'Unknown'} - ${error.message}`);
-              console.error(`Error processing account:`, error);
+              console.error('Error processing account:', error);
             }
           }
         }
@@ -751,43 +766,44 @@ const processExcelImport = async () => {
               if (validationError) {
                 throw new Error(validationError);
               }
-              
+
               const managerData = {
                 username: String(row.username || '').trim(),
-                gmail: String(row.gmail || '').trim()
+                gmail: String(row.gmail || '').trim(),
+                name: String(row.name || row.username || '').trim()
               };
-              
+
               // Check for existing manager account (match by username)
               const existingManager = existingAccounts.find(m => m.username === managerData.username);
-              
+
               if (existingManager) {
                 // Fail if password is provided for existing account
                 if (row.password) {
                   throw new Error('Cannot update password for existing manager account through import');
                 }
-                
-                // Update existing manager account - don't touch password
-                await updateManagerAccount(existingManager.manager_id, managerData);
+
+                // Update existing manager (doctor) account - don't touch password
+                await updateDoctorAccount(existingManager.doctor_id || existingManager.manager_id, managerData);
                 importResults.value.success++;
                 importResults.value.logs.push(`✅ Updated manager: ${managerData.username}`);
               } else {
-                // Create new manager account - password is required
+                // Create new manager (doctor) account - password is required
                 if (!row.password) {
                   throw new Error('Password is required for new manager account');
                 }
                 managerData.password = String(row.password).trim();
-                await createManagerAccount(managerData);
+                await createDoctorAccount(managerData);
                 importResults.value.success++;
                 importResults.value.logs.push(`✅ Created manager: ${managerData.username}`);
               }
             } catch (error) {
               importResults.value.failed++;
               importResults.value.logs.push(`❌ Error processing manager: ${row.username || 'Unknown'} - ${error.message}`);
-              console.error(`Error processing account:`, error);
+              console.error('Error processing account:', error);
             }
           }
         }
-        
+
         // Refresh the accounts lists
         if (massImportType.value === 'clients') {
           await loadClientAccounts();
@@ -796,9 +812,9 @@ const processExcelImport = async () => {
         } else if (massImportType.value === 'managers') {
           await loadManagerAccounts();
         }
-        
+
         successMessage.value = `Import complete: ${importResults.value.success} accounts processed (created/updated), ${importResults.value.failed} failed`;
-        
+
       } catch (error) {
         errorMessage.value = `Error processing Excel file: ${error.message}`;
         console.error('Excel processing error:', error);
@@ -806,9 +822,9 @@ const processExcelImport = async () => {
         importResults.value.inProgress = false;
       }
     };
-    
+
     reader.readAsArrayBuffer(excelFile.value);
-    
+
   } catch (error) {
     errorMessage.value = `Error: ${error.message}`;
     importResults.value.inProgress = false;
@@ -879,7 +895,9 @@ const downloadSampleTemplate = () => {
         category: 'Student', // Required
         grade: 10, // Optional
         section: 'A', // Required
-        type: 'Dormer' // Required
+        type: 'Dormer', // Required
+        civil_status: 'single', // Optional in template, defaulted if missing
+        address: '123 Sample Street' // Optional in template, defaulted if missing
       },
       {
         username: 'sample_faculty1', // Required
@@ -890,22 +908,41 @@ const downloadSampleTemplate = () => {
         gender: 'Female', // Required
         category: 'Faculty', // Required
         section: 'Science', // Required
-        type: 'Extern' // Required
+        type: 'Extern', // Required
+        civil_status: 'married', // Optional in template, defaulted if missing
+        address: '456 Example Avenue' // Optional in template, defaulted if missing
       }
     ];
-  } else if (massImportType.value === 'admins' || massImportType.value === 'managers') {
+  } else if (massImportType.value === 'admins') {
+    // Nurse accounts template
     sampleData = [
       {
-        username: 'sample_admin1', // Required
+        username: 'sample_nurse1', // Required
         password: 'password123 (required only for new accounts)',
-        gmail: 'admin1@example.com', // Required
-        name: 'Admin One'  // Optional for admins/managers
+        gmail: 'nurse1@example.com', // Required
+        name: 'Nurse One'  // Optional for nurses
       },
       {
-        username: 'sample_admin2', // Required
+        username: 'sample_nurse2', // Required
         password: 'password123 (required only for new accounts)',
-        gmail: 'admin2@example.com', // Required
-        name: 'Admin Two'  // Optional for admins/managers
+        gmail: 'nurse2@example.com', // Required
+        name: 'Nurse Two'  // Optional for nurses
+      }
+    ];
+  } else if (massImportType.value === 'managers') {
+    // Doctor accounts template
+    sampleData = [
+      {
+        username: 'sample_doctor1', // Required
+        password: 'password123 (required only for new accounts)',
+        gmail: 'doctor1@example.com', // Required
+        name: 'Doctor One'  // Optional for doctors
+      },
+      {
+        username: 'sample_doctor2', // Required
+        password: 'password123 (required only for new accounts)',
+        gmail: 'doctor2@example.com', // Required
+        name: 'Doctor Two'  // Optional for doctors
       }
     ];
   }
@@ -916,7 +953,12 @@ const downloadSampleTemplate = () => {
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Accounts');
   
   // Generate Excel file and trigger download
-  XLSX.writeFile(workbook, `${massImportType.value}_template.xlsx`);
+  const typeLabel = massImportType.value === 'admins'
+    ? 'nurses'
+    : massImportType.value === 'managers'
+    ? 'doctors'
+    : 'clients';
+  XLSX.writeFile(workbook, `${typeLabel}_template.xlsx`);
 };
 </script>
 
@@ -1039,7 +1081,7 @@ const downloadSampleTemplate = () => {
         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2f4a71]"></div>
       </div>
       
-      <!-- Admin Accounts Table -->
+      <!-- Nurse Accounts Table -->
       <div v-else-if="activeTab === 'admins'" class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
@@ -1065,7 +1107,7 @@ const downloadSampleTemplate = () => {
               </td>
             </tr>
             <tr v-if="filteredAdmins.length === 0">
-              <td colspan="4" class="px-6 py-4 text-center text-gray-500">No admin accounts found</td>
+              <td colspan="4" class="px-6 py-4 text-center text-gray-500">No nurse accounts found</td>
             </tr>
           </tbody>
         </table>
